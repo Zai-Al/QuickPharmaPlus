@@ -26,7 +26,7 @@ if (!fs.existsSync(certFilePath) || !fs.existsSync(keyFilePath)) {
     const result = child_process.spawnSync(
         'dotnet',
         [
-            'dev-certs', 7uhn=
+            'dev-certs',
             'https',
             '--export-path',
             certFilePath,
