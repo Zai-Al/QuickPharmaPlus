@@ -1,0 +1,6 @@
+@QuickPharmaPlus.Server_HostAddress = http://localhost:5252
+
+GET {{QuickPharmaPlus.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
