@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Keep launch folder
+!launch/
+!launch/**
+
+# Keep assets folder
+!assets/
+!assets/**
