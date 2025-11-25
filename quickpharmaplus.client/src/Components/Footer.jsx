@@ -19,11 +19,8 @@ export default function Footer() {
                                 alt="QuickPharma+"
                                 height="60"
                                 className="mb-2"
-                                style={{ marginLeft: "-200px", marginTop: "14px", paddingLeft:"40px" }}
+                                style={{ marginLeft: "-170px", marginTop: "14px", paddingLeft:"40px" }}
                             />
-                            <div className="text-muted small" style={{ marginLeft: "-150px"}}>
-                                Quick Solutions for Better Health
-                            </div>
                         </div>
 
                         {/* CONTACT */}
