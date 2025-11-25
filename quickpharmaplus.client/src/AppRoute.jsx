@@ -8,7 +8,9 @@ import TermsOfUse from "./Pages/TermsOfUse.jsx";
 
 //Pages for User Management
 import Login from "./Pages/User_Managment/Login.jsx";
-import Profile from "./Pages/User_Managment/Profile.jsx";
+import InternalProfile from "./Pages/User_Managment/Profile_Internal.jsx";
+import EditInternalProfile from "./Pages/User_Managment/Edit_Profile_Internal.jsx";
+
 import Register from "./Pages/User_Managment/Register.jsx";
 import ResetPassword from "./Pages/User_Managment/Reset_Password.jsx";
 import ForgotPassword from "./Pages/User_Managment/Forgot_Password.jsx";
@@ -24,9 +26,9 @@ export default function AppRoutes() {
                             <Route path="/" element={<Home />} />
                             <Route path="/privacy" element={<Privacy />} />
                             <Route path="/terms" element={<TermsOfUse />} />
-
                             <Route path="/login" element={<Login />} />
-                            <Route path="/profile" element={<Profile />} />
+                            <Route path="/profileInternal" element={<InternalProfile />} />
+                            <Route path="/editProfileInternal" element={<EditInternalProfile />} />
                             <Route path="/register" element={<Register />} />
                             <Route path="/resetPassword" element={<ResetPassword />} />
                             <Route path="/forgotPassword" element={<ForgotPassword />} />
