@@ -75,7 +75,7 @@ export default function AdminNavbar() {
 
                     {/* PROFILE BUTTON */}
                     <Link
-                        to="/login"
+                        to="/profileInternal"
                         className="btn btn-dark d-flex align-items-center gap-2 px-3 py-2"
 
                     >
