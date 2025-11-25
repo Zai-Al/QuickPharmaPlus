@@ -10,7 +10,7 @@ export default function Profile_Internal() {
 
             {/* PAGE TITLE */}
             <div className="profile-header text-center">
-                <h2 className="fw-bold">User Profile</h2>
+                <h1 className="fw-bold">User Profile</h1>
                 <h3 className="welcome-text">Welcome {loggedInUser}!</h3>
             </div>
 
@@ -51,6 +51,20 @@ export default function Profile_Internal() {
                     <Link to="/editProfileInternal" className="btn w-100 edit-btn mb-3 text-center">
                         Edit
                     </Link>
+
+                    {/* RESET PASSWORD BUTTON */}
+                    <div className="text-center mt-2">
+                        <Link to="/resetpassword" className="reset-link">
+                            Reset Password
+                        </Link>
+                    </div>
+
+                    {/* RESET PASSWORD BUTTON */}
+                    <div className="text-center mt-2">
+                        <Link to="/forgotPassword" className="reset-link">
+                            Forgot Password
+                        </Link>
+                    </div>
 
                 </div> {/* <-- closes profile-box */}
 
