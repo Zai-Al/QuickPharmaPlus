@@ -4,6 +4,8 @@ import { BrowserRouter } from "react-router-dom";
 
 import "bootswatch/dist/litera/bootstrap.min.css";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
+import "bootstrap-icons/font/bootstrap-icons.css";
+
 
 import App from "./App.jsx";
 import "./index.css";

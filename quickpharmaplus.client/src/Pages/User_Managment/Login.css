@@ -1,0 +1,82 @@
+﻿/* MAIN WRAPPER */
+.login-wrapper {
+    min-height: 100%;
+}
+
+/* LEFT BACKGROUND */
+.login-left {
+    width: 45%;
+    height: 1000px;
+    margin-left: -4.5em;
+    padding: 0;
+    background-repeat: repeat-y;
+}
+
+/* RIGHT FORM */
+.login-right {
+    width: 55%;
+    padding: 40px;
+}
+
+/* FORM BOX */
+.login-box {
+    width: 320px;
+}
+
+/* LOGIN BUTTON COLOR */
+.login-btn {
+    background-color: #598199;
+    border-color: #598199;
+    font-size: 18px; /* <— CHANGE SIZE HERE */
+    font-weight: 600; /* optional, makes text bolder */
+}
+
+    /* Button hover color (#9AB2C1) */
+    .login-btn:hover {
+        background-color: #9AB2C1;
+        border-color: #9AB2C1;
+    }
+
+    /* Button hover color (#9AB2C1) */
+    .login-btn::selection {
+        background-color: #598199;
+        border-color: #598199;
+    }
+
+/* Blue underlined links */
+.login-link {
+    color: #0d6efd; /* bootstrap link blue */
+    text-decoration: underline !important;
+}
+
+/* Input alignment left */
+.form-control {
+    text-align: left;
+}
+
+
+/* LEFT-ALIGNED LABELS */
+.login-label {
+    text-align: left;
+    width: 100%;
+    display: block;
+}
+
+/* LOGIN BUTTON COLORS */
+.login-btn {
+    background-color: #598199;
+    border-color: #598199;
+}
+
+    /* Hover → lighter color */
+    .login-btn:hover {
+        background-color: #9AB2C1;
+        border-color: #9AB2C1;
+    }
+
+    /* After clicking → return to original color */
+    .login-btn:active {
+        background-color: #598199 !important;
+        border-color: #598199 !important;
+        transform: scale(0.98); /* (optional) click animation */
+    }
