@@ -16,7 +16,7 @@ export default function EditProfile_Internal() {
         <div className="edit-profile-page">
 
             <div className="edit-header">
-                <h2 className="edit-title">Edit User Profile</h2>
+                <h1 className="edit-title">Edit User Profile</h1>
 
                 <button
                     className="btn btn-warning cancel-btn"

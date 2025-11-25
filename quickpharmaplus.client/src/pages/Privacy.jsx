@@ -4,7 +4,7 @@ export default function Privacy() {
 
             {/* PAGE TITLE (CENTERED) */}
             <div className="text-center mb-5">
-                <h2 className="fw-bold mb-1">Privacy Policy</h2>
+                <h1 className="fw-bold mb-4">Privacy Policy</h1>
                 <p className="text-muted mb-0">Version 1.0</p>
                 <p className="text-muted">Last Updated: 16/11/2025</p>
             </div>
