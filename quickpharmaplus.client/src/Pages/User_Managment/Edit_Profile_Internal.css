@@ -1,0 +1,114 @@
+/* PAGE */
+.edit-profile-page {
+    padding-top: 40px;
+}
+
+/* TITLE */
+.edit-profile-title {
+    margin-bottom: 20px;
+}
+
+/* CANCEL BUTTON */
+.cancel-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    padding-right: 70px;
+}
+
+.cancel-btn {
+    font-weight: 600;
+    padding: 6px 18px;
+    color: white !important;
+}
+
+    .cancel-btn:hover {
+        color: white !important;
+    }
+
+
+/* FORM WRAPPER */
+.edit-wrapper {
+    margin-top: 30px;
+}
+
+.edit-box {
+    width: 450px;
+}
+
+/* LABELS */
+.edit-label {
+    font-weight: 600;
+    margin-bottom: 8px;
+    text-align: left;
+    display: block;
+    margin-top: 2em;
+}
+
+/* INPUTS */
+.edit-input {
+    height: 40px;
+    padding: 8px 10px;
+    font-size: 14px;
+}
+
+/* SAVE BUTTON */
+.save-btn {
+    background-color: #598199;
+    color: white;
+    font-weight: 600;
+    height: 42px;
+    border: none;
+    margin-top: 2em;
+}
+
+    .save-btn:hover {
+        background-color: #9AB2C1;
+    }
+
+/* DISABLED RESET PASSWORD */
+.reset-disabled {
+    color: #808080;
+    text-decoration: underline;
+    pointer-events: none;
+}
+
+.cancel-icon {
+    color: white !important;
+    font-weight: bold;
+}
+
+/* HEADER BAR: Title centered, cancel on far right */
+.edit-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 100%;
+    margin-top: 40px;
+    margin-bottom: 20px;
+}
+
+/* Perfectly centered title */
+.edit-title {
+    text-align: center;
+    width: 100%;
+    font-weight: 700;
+}
+
+/* Cancel button anchored to far right */
+.cancel-btn {
+    position: absolute;
+    right: 110px;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: #F4A640;
+    color: white;
+    font-weight: 600;
+    padding: 6px 18px;
+    border-radius: 10px;
+}
+
+    .cancel-btn:hover {
+        background-color: #e0902f;
+    }

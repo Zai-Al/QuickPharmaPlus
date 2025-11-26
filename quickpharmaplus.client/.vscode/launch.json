@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "edge",
+            "request": "launch",
+            "name": "Vite App (Edge)",
+            "url": "https://localhost:5173",
+            "webRoot": "${workspaceFolder}/src"
+        },
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "Vite App (Chrome)",
+            "url": "https://localhost:5173",
+            "webRoot": "${workspaceFolder}/src"
+        }
+    ]
+}
