@@ -8,6 +8,20 @@ export default function Profile_Internal() {
     return (
         <div className="profile-page">
 
+
+            {/* LOGOUT BUTTON TOP-RIGHT */}
+            <div className="logout-container">
+                <Link
+                    to="/login"
+                    className="btn btn-dark d-flex align-items-center gap-2 px-3 py-2 logout-btn"
+                // TODO: Add ASP.NET session termination logic here
+                // Example: call API: /api/account/logout
+                >
+                    <i className="bi bi-box-arrow-right"></i>
+                    Logout
+                </Link>
+            </div>
+
             {/* PAGE TITLE */}
             <div className="profile-header text-center">
                 <h1 className="fw-bold">User Profile</h1>

@@ -69,3 +69,16 @@
         text-decoration: underline;
     }
 
+
+.logout-container {
+    position: absolute;
+    top: 8.5em;
+    right: 15em;
+}
+
+.logout-btn {
+    border-radius: 10px;
+    font-weight: 500;
+}
+
+

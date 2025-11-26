@@ -1,6 +1,6 @@
 import { NavLink, Link } from "react-router-dom";
 import logo from "../../assets/Logo.png";
-import "../../App.css";
+import "../Navigation.css";
 
 export default function EmployeeNavbar() {
 
