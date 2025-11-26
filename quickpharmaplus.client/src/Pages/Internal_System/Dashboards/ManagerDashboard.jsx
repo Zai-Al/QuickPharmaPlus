@@ -1,6 +1,6 @@
 import Highcharts from "highcharts";
 import HighchartsReact from "highcharts-react-official";
-import "./ManagerDashboard.css";   // Reuse same styling
+import "./Dashboard.css";   // Reuse same styling
 
 export default function ManagerDashboard() {
 

@@ -1,25 +1,35 @@
-﻿import { NavLink } from "react-router-dom";
+﻿import { NavLink, Link } from "react-router-dom";
 import logo from "../../assets/Logo.png";
 import "../../App.css";
 
 export default function DriverNavbar() {
+
+
+    //currently logged in user
+    //change this when auth is implemented
+    const loggedInUser = "EmployeeUser";
+
     return (
-        <nav
-            className="navbar navbar-expand-lg bg-white shadow-sm py-0"
+        <nav className="navbar navbar-expand-lg bg-white shadow-sm py-2"
             style={{ borderBottom: "1px solid #e5e5e5" }}
         >
             <div className="container-fluid">
 
-                {/* LOGO → Takes the driver to dashboard */}
-                <a className="navbar-brand d-flex align-items-center px-3" href="/driver/dashboard">
-                    <img src={logo} alt="QuickPharma+" height="50" className="me-2" />
-                </a>
+                {/* LEFT — LOGO */}
+                <div className="navbar-brand d-flex align-items-center me-4">
+                    <img
+                        src={logo}
+                        alt="QuickPharma+ Logo"
+                        height="48"
+                        style={{ cursor: "default" }}
+                    />
+                </div>
 
                 {/* CENTERED LINKS */}
                 <ul className="navbar-nav mx-auto d-flex align-items-center">
 
                     <li className="nav-item">
-                        <NavLink to="/driver/dashboard" className="nav-link px-3">Dashboard</NavLink>
+                        <NavLink to="/driverDashboard" className="nav-link px-3">Dashboard</NavLink>
                     </li>
 
                     <li className="nav-item">
@@ -36,10 +46,15 @@ export default function DriverNavbar() {
 
                 </ul>
 
-                {/* USER PROFILE ICON (Identity will override this later) */}
-                <div className="px-3">
-                    <div id="identity-profile-widget"></div>
-                </div>
+                {/* PROFILE BUTTON */}
+                <Link
+                    to="/profileInternal"
+                    className="btn btn-dark d-flex align-items-center gap-2 px-3 py-2"
+
+                >
+                    <i className="bi bi-person-circle fs-5"></i>
+                    {loggedInUser}
+                </Link>
 
             </div>
         </nav>
