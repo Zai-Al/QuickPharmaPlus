@@ -5,8 +5,7 @@ import DriverNavbar from "./Navbars/DriverNavbar";
 
 export default function NavbarSelector() {
     //const role = localStorage.getItem("role");
-
-    const role = "driver"; // For testing purposes only
+    const role = "admin"; // For testing purposes only
 
     if (role === "admin") return <AdminNavbar />;
     if (role === "manager" || role === "pharmacist") return <EmployeeNavBar />;

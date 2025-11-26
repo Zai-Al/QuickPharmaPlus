@@ -1,0 +1,34 @@
+/* ----------------------------------------- */
+/*              FOOTER STYLES                */
+/* ----------------------------------------- */
+
+footer {
+    width: 100%;
+}
+
+/* Layout for the top footer row */
+.footer-top {
+    gap: 40px;
+}
+
+/* Footer columns */
+.footer-col {
+    min-width: 210px;
+    text-align: left;
+    font-size: 0.95rem;
+}
+
+/* Compact footer spacing */
+.footer-section {
+    font-size: 0.95rem;
+}
+
+/* Footer links */
+footer a {
+    text-decoration: none;
+    color: inherit;
+}
+
+    footer a:hover {
+        text-decoration: underline;
+    }
