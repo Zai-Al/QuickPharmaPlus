@@ -1,6 +1,6 @@
-import "./Home.css";
+import "./Dashboard.css";
 
-export default function Home() {
+export default function DriverDashboard() {
     const loggedInUser = "Driver";   // Replace with real identity later
 
     return (

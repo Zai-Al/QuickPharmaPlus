@@ -1,7 +1,7 @@
-import "./Home.css";
+import "./Dashboard.css";
 
-export default function Home() {
-    const loggedInUser = "Driver";   // Replace with real identity later
+export default function PharmacistDashboard() {
+    const loggedInUser = "Pharmacist";   // Replace with real identity later
 
     return (
         <div className="admin-container">
@@ -14,11 +14,11 @@ export default function Home() {
             {/* ========== METRIC CARDS ========== */}
             <div className="row justify-content-center mt-4">
 
-                {/* My Total Deliveries */}
+                {/* My Total Sales */}
                 <div className="col-md-10 mb-4" style={{ marginTop: "2em" }}>
                     <div className="card dashboard-card border-teal" style={{ marginTop: "2em" }}>
                         <div className="card-header teal-header">
-                            <h4 className="card-title">My Total Deliveries</h4>
+                            <h4 className="card-title">My Total Sales</h4>
                         </div>
                         <div className="card-body">
                             <p className="card-text text-center placeholder-number">
@@ -28,15 +28,29 @@ export default function Home() {
                     </div>
                 </div>
 
-                {/* My Deliveries Today */}
+                {/* My Total Prescriptions */}
                 <div className="col-md-10 mb-4" style={{ marginTop: "2em" }}>
                     <div className="card dashboard-card border-teal" style={{ marginTop: "2em" }}>
                         <div className="card-header teal-header">
-                            <h4 className="card-title">My Deliveries Today</h4>
+                            <h4 className="card-title">My Total Prescriptions</h4>
                         </div>
                         <div className="card-body">
                             <p className="card-text text-center placeholder-number">
                                 87
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* My Total Orders */}
+                <div className="col-md-10 mb-4" style={{ marginTop: "2em" }}>
+                    <div className="card dashboard-card border-teal" style={{ marginTop: "2em" }}>
+                        <div className="card-header teal-header">
+                            <h4 className="card-title">My Total Orders</h4>
+                        </div>
+                        <div className="card-body">
+                            <p className="card-text text-center placeholder-number">
+                                42
                             </p>
                         </div>
                     </div>

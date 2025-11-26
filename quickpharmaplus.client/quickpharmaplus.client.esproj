@@ -10,6 +10,5 @@
   </PropertyGroup>
   <ItemGroup>
     <Folder Include="src\Pages\External_System\" />
-    <Folder Include="src\Pages\Internal_System\" />
   </ItemGroup>
 </Project>
