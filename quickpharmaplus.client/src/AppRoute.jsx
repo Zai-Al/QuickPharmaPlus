@@ -22,7 +22,14 @@ import PharmacistDashboard from "./Pages/Internal_System/Dashboards/PharmacistDa
 import ManagerDashboard from "./Pages/Internal_System/Dashboards/ManagerDashboard.jsx";
 
 
+//Internal system employee page
+import EmployeesList from "./Pages/Internal_System/Admin/Employee/EmployeesList.jsx";
+
 // Internal system supplier page
+import SupplierList from "./Pages/Internal_System/Suppliers/SupplierList.jsx";
+
+//Internall system product page
+import ProductsList from "./Pages/Internal_System/Products/ProductsList.jsx";
 
 export default function AppRoutes() {
     return (
@@ -50,7 +57,13 @@ export default function AppRoutes() {
 
 
                             {/* Internal system supplier route */}
+                            <Route path="/suppliers" element={<SupplierList />} />
 
+                            {/* Internal system product route */}
+                            <Route path="/products" element={<ProductsList />} />
+
+                            {/* Internal system employee route */}
+                            <Route path="/employees" element={<EmployeesList />} />
                         </Routes>
                     </Layout>
                 }
