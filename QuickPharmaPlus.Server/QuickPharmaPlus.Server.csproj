@@ -38,7 +38,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Controllers\" />
     <Folder Include="Controllers\External_System\" />
     <Folder Include="Controllers\Internal_System\" />
   </ItemGroup>

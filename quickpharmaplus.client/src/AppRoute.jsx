@@ -1,34 +1,30 @@
 import { Routes, Route } from "react-router-dom";
 import Layout from "./Components/Layout.jsx";
 
-//Pages for General Information
-import Home from "./Pages/Home.jsx";
+// Pages for General Information
 import Privacy from "./Pages/Privacy.jsx";
 import TermsOfUse from "./Pages/TermsOfUse.jsx";
 
-//Pages for User Management
+import ProtectedRoute from "./Components/ProtectedRoute";
+import Unauthorized from "./Components/Unauthorized.jsx";
+
+// Pages for User Management
 import Login from "./Pages/User_Managment/Login.jsx";
 import InternalProfile from "./Pages/User_Managment/Profile_Internal.jsx";
 import EditInternalProfile from "./Pages/User_Managment/Edit_Profile_Internal.jsx";
-
 import Register from "./Pages/User_Managment/Register.jsx";
 import ResetPassword from "./Pages/User_Managment/Reset_Password.jsx";
 import ForgotPassword from "./Pages/User_Managment/Forgot_Password.jsx";
 
-// Internal system dashboards
+// Dashboards
 import AdminDashboard from "./Pages/Internal_System/Dashboards/AdminDashboard.jsx";
 import DriverDashboard from "./Pages/Internal_System/Dashboards/DriverDashboard.jsx";
 import PharmacistDashboard from "./Pages/Internal_System/Dashboards/PharmacistDashboard.jsx";
 import ManagerDashboard from "./Pages/Internal_System/Dashboards/ManagerDashboard.jsx";
 
-
-//Internal system employee page
+// Internal system pages
 import EmployeesList from "./Pages/Internal_System/Admin/Employee/EmployeesList.jsx";
-
-// Internal system supplier page
 import SupplierList from "./Pages/Internal_System/Suppliers/SupplierList.jsx";
-
-//Internall system product page
 import ProductsList from "./Pages/Internal_System/Products/ProductsList.jsx";
 
 export default function AppRoutes() {
@@ -39,31 +35,104 @@ export default function AppRoutes() {
                 element={
                     <Layout>
                         <Routes>
-                            <Route path="/" element={<Home />} />
+
+                            {/* Public routes */}
+                            <Route path="/" element={<Login />} />
+                            <Route path="/login" element={<Login />} />
                             <Route path="/privacy" element={<Privacy />} />
                             <Route path="/terms" element={<TermsOfUse />} />
-                            <Route path="/login" element={<Login />} />
-                            <Route path="/profileInternal" element={<InternalProfile />} />
-                            <Route path="/editProfileInternal" element={<EditInternalProfile />} />
                             <Route path="/register" element={<Register />} />
                             <Route path="/resetPassword" element={<ResetPassword />} />
                             <Route path="/forgotPassword" element={<ForgotPassword />} />
 
-                            {/* Internal system dashboard routes */}
-                            <Route path="adminDashboard" element={<AdminDashboard />} />
-                            <Route path="driverDashboard" element={<DriverDashboard />} />
-                            <Route path="/pharmacistDashboard" element={<PharmacistDashboard />} />
-                            <Route path="/managerDashboard" element={<ManagerDashboard />} />
+                            {/* Unauthorized page */}
+                            <Route path="/unauthorized" element={<Unauthorized />} />
 
+                            {/* Protected routes */}
 
-                            {/* Internal system supplier route */}
-                            <Route path="/suppliers" element={<SupplierList />} />
+                            <Route
+                                path="/profileInternal"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist", "Driver"]}>
+                                        <InternalProfile />
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                            {/* Internal system product route */}
-                            <Route path="/products" element={<ProductsList />} />
+                            <Route
+                                path="/editProfileInternal"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist", "Driver"]}>
+                                        <EditInternalProfile />
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                            {/* Internal system employee route */}
-                            <Route path="/employees" element={<EmployeesList />} />
+                            {/* Dashboards */}
+                            <Route
+                                path="/adminDashboard"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin"]}>
+                                        <AdminDashboard />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
+                                path="/driverDashboard"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Driver"]}>
+                                        <DriverDashboard />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
+                                path="/pharmacistDashboard"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Pharmacist"]}>
+                                        <PharmacistDashboard />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
+                                path="/managerDashboard"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Manager"]}>
+                                        <ManagerDashboard />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            {/* Internal pages */}
+                            <Route
+                                path="/suppliers"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
+                                        <SupplierList />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
+                                path="/products"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
+                                        <ProductsList />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
+                                path="/employees"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin"]}>
+                                        <EmployeesList />
+                                    </ProtectedRoute>
+                                }
+                            />
+
                         </Routes>
                     </Layout>
                 }
