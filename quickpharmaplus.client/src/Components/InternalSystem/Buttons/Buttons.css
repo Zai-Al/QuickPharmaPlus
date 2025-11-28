@@ -60,9 +60,13 @@
     font-weight: 500;
     padding: 6px 14px;
     font-size: 0.9rem;
-    display: flex;
     align-items: center;
     justify-content: center;
+    width: 100%; /* button fills the cell */
+    display: block; /* ensures width applies */
+    text-align: center; /* centers text */
+    padding: 6px 10px; /* keeps it neat */
+    box-sizing: border-box; /* avoids overflow */
 }
 
     .edit-btn:hover {
@@ -84,9 +88,12 @@
     font-weight: 500;
     padding: 6px 14px;
     font-size: 0.9rem;
-    display: flex;
     align-items: center;
     justify-content: center;
+    width: 100%; /* button fills the cell */
+    display: block; /* ensures width applies */
+    text-align: center; /* centers text */
+    box-sizing: border-box; /* avoids overflow */
 }
 
     .delete-btn:hover {
@@ -108,9 +115,12 @@
     font-weight: 500;
     padding: 6px 14px;
     font-size: 0.9rem;
-    display: flex;
     align-items: center;
     justify-content: center;
+    width: 100%; /* button fills the cell */
+    display: block; /* ensures width applies */
+    text-align: center; /* centers text */
+    box-sizing: border-box; /* avoids overflow */
 }
 
     .view-btn:hover {
@@ -121,7 +131,7 @@
 
 
 /* -------------------------------------------------- */
-/*                   LOGIUT BUTTON                    */
+/*                   LOGOUT BUTTON                    */
 /* -------------------------------------------------- */
 
 

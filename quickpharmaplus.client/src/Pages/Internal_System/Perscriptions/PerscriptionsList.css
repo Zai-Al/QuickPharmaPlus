@@ -1,0 +1,65 @@
+/* ----------------------------------------- */
+/*                PAGE LAYOUT                */
+/* ----------------------------------------- */
+
+.prescriptions-page {
+    width: 100%;
+    padding: 2rem 0;
+}
+
+.prescriptions-title {
+    margin-bottom: 2rem;
+}
+
+/* ----------------------------------------- */
+/*               FILTER SECTION              */
+/* ----------------------------------------- */
+
+.prescriptions-page .filter-section {
+    width: 1200px;
+    margin: 0 auto 30px auto;
+}
+
+.prescriptions-page .filter-left {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px 25px;
+    justify-content: flex-start;
+}
+
+/* ----------------------------------------- */
+/*               VIEW BUTTON                 */
+/* ----------------------------------------- */
+
+.view-btn {
+    background-color: #1D2D44;
+    color: white;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: none;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+    .view-btn:hover {
+        background-color: #16304d;
+    }
+
+/* ----------------------------------------- */
+/*               TABLE STYLES                */
+/* ----------------------------------------- */
+
+.prescriptions-page .data-table-container {
+    width: 1200px;
+    margin: 0 auto;
+}
+
+.prescriptions-page table th {
+    background-color: #e8f3f3;
+    font-weight: 600;
+    text-align: center;
+}
+
+.prescriptions-page table td {
+    text-align: center;
+}

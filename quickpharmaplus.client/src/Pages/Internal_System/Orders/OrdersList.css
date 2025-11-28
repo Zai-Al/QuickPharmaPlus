@@ -1,0 +1,71 @@
+/* ----------------------------------------- */
+/*                PAGE LAYOUT                */
+/* ----------------------------------------- */
+
+.orders-page {
+    width: 100%;
+    padding: 2rem 0;
+}
+
+.orders-title {
+    margin-bottom: 2rem;
+}
+
+/* =============================== */
+/*          NAV TABS STYLE         */
+/* =============================== */
+
+.orders-tabs {
+    width: 1200px;
+    border-bottom: 1px solid #B2E4E3 !important;
+    margin: 4em auto; /* top + bottom = 2em, centered */
+    gap: 20px;
+}
+
+    .orders-tabs .nav-item .nav-link {
+        border: 1px solid transparent;
+        border-radius: 0 !important; /* remove radius */
+        padding: 10px 18px;
+        font-size: 1rem;
+        font-weight: 500;
+        color: #B2E4E3;
+        background: none;
+    }
+
+        .orders-tabs .nav-item .nav-link:hover {
+            border-color: transparent;
+            color: #1D2D44; /* your blue */
+        }
+
+        .orders-tabs .nav-item .nav-link.active {
+            color: #1D2D44;
+            font-weight: 600;
+            background-color: #B2E4E3 !important;
+            border-color:  #fff !important;
+            border-bottom: 1px solid #B2E4E3 !important;
+        }
+
+    /* Remove click outline */
+    .orders-tabs .nav-link:focus {
+        box-shadow: none !important;
+    }
+
+
+/* ----------------------------------------- */
+/*                TABLE AREA                 */
+/* ----------------------------------------- */
+
+.orders-table-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.orders-table th {
+    background-color: #e8f3f3;
+    text-align: center;
+    font-weight: 600;
+}
+
+.orders-table td {
+    text-align: center;
+}

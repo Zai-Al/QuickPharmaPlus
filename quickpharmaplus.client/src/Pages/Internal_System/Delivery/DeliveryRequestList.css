@@ -2,12 +2,12 @@
 /*                PAGE LAYOUT                */
 /* ----------------------------------------- */
 
-.employees-page {
+.delivery-page {
     width: 100%;
     padding: 2rem 0;
 }
 
-.employees-title {
+.delivery-title {
     margin-bottom: 2rem;
 }
 
@@ -15,31 +15,17 @@
 /*                  TABLE                    */
 /* ----------------------------------------- */
 
-.employees-table-container {
+.delivery-table-container {
     max-width: 1200px;
     margin: 0 auto;
 }
 
-.employees-table th {
+.delivery-table th {
     background-color: #e8f3f3;
     text-align: center;
     font-weight: 600;
 }
 
-.employees-table td {
+.delivery-table td {
     text-align: center;
-}
-
-/* ----------------------------------------- */
-/*                  MODAL                    */
-/* ----------------------------------------- */
-
-.delete-modal-content {
-    border-radius: 18px;
-    padding: 1rem 0;
-}
-
-.delete-text {
-    font-size: 1.1rem;
-    font-weight: 500;
 }
