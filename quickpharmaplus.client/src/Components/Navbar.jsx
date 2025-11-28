@@ -5,7 +5,7 @@ import "./Navigation.css";
 import { AuthContext } from "../Context/AuthContext";
 
 export default function Navbar() {
-    const { user, setUser } = useContext(AuthContext);
+    const { user } = useContext(AuthContext);
 
     const roles = user?.roles || [];
 
@@ -18,10 +18,6 @@ export default function Navbar() {
 
     const loggedInUser = user?.email || "User";
 
-    const logout = () => {
-        localStorage.removeItem("user");
-        setUser(null);
-    };
 
     return (
         <nav className="navbar navbar-expand-lg bg-white shadow-sm py-2"
@@ -57,8 +53,6 @@ export default function Navbar() {
                                 <NavLink to="/employees" className="nav-link px-3">Employees</NavLink>
                             </li>
 
-  >
-
                             <li className="nav-item dropdown">
                                 <a className="nav-link dropdown-toggle px-3" data-bs-toggle="dropdown" href="#">
                                     Inventory Management
@@ -70,7 +64,7 @@ export default function Navbar() {
                                     <NavLink className="dropdown-item" to="/categories">Categories</NavLink>
                                     <NavLink className="dropdown-item" to="/suppliers">Suppliers</NavLink>
                                     <NavLink className="dropdown-item" to="/orders">Orders</NavLink>
-                                    <NavLink className="dropdown-item" to="/prescriptions">Delivery Requests</NavLink>
+                                    <NavLink className="dropdown-item" to="/delivery-requests">Delivery Requests</NavLink>
                                     <NavLink className="dropdown-item" to="/prescriptions">Prescriptions</NavLink>
                                     <div className="dropdown-divider"></div>
                                     <NavLink className="dropdown-item" to="/expired-products">Expired Products</NavLink>

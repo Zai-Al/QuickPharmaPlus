@@ -2,12 +2,12 @@
 /*                PAGE LAYOUT                */
 /* ----------------------------------------- */
 
-.employees-page {
+.inventory-page {
     width: 100%;
     padding: 2rem 0;
 }
 
-.employees-title {
+.inventory-title {
     margin-bottom: 2rem;
 }
 
@@ -15,20 +15,39 @@
 /*                  TABLE                    */
 /* ----------------------------------------- */
 
-.employees-table-container {
+.inventory-table-container {
     max-width: 1200px;
     margin: 0 auto;
 }
 
-.employees-table th {
+.inventory-table th {
     background-color: #e8f3f3;
     text-align: center;
     font-weight: 600;
 }
 
-.employees-table td {
+.inventory-table td {
     text-align: center;
 }
+
+/* ----------------------------------------- */
+/*            SPECIAL BUTTON (Search)         */
+/* ----------------------------------------- */
+
+.search-btn {
+    height: 40px;
+    padding: 0 20px;
+    background-color: #4f7d8a;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+    .search-btn:hover {
+        background-color: #7fa4af;
+    }
 
 /* ----------------------------------------- */
 /*                  MODAL                    */

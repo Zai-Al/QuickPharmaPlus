@@ -10,14 +10,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Folder Include="src\Pages\External_System\" />
-    <Folder Include="src\Pages\Internal_System\Admin\Inventory\" />
-    <Folder Include="src\Pages\Internal_System\Admin\Expired\" />
-    <Folder Include="src\Pages\Internal_System\Admin\Category\" />
-    <Folder Include="src\Pages\Internal_System\Admin\QuickPharmaLog\" />
-    <Folder Include="src\Pages\Internal_System\Admin\Report\" />
-    <Folder Include="src\Pages\Internal_System\Delivery\" />
     <Folder Include="src\Pages\Internal_System\SafetyCheck\" />
-    <Folder Include="src\Pages\Internal_System\Perscriptions\" />
-    <Folder Include="src\Pages\Internal_System\Orders\" />
   </ItemGroup>
 </Project>

@@ -2,12 +2,12 @@
 /*                PAGE LAYOUT                */
 /* ----------------------------------------- */
 
-.employees-page {
+.reports-page {
     width: 100%;
     padding: 2rem 0;
 }
 
-.employees-title {
+.reports-title {
     margin-bottom: 2rem;
 }
 
@@ -15,18 +15,18 @@
 /*                  TABLE                    */
 /* ----------------------------------------- */
 
-.employees-table-container {
+.reports-table-container {
     max-width: 1200px;
     margin: 0 auto;
 }
 
-.employees-table th {
+.reports-table th {
     background-color: #e8f3f3;
     text-align: center;
     font-weight: 600;
 }
 
-.employees-table td {
+.reports-table td {
     text-align: center;
 }
 

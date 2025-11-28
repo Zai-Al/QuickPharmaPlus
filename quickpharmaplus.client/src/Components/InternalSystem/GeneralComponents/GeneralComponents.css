@@ -13,7 +13,6 @@
     padding: 0 0;
 }
 
-
 /* -------------------------------------------------- */
 /*               LEFT SIDE (TEXT INPUTS)              */
 /* -------------------------------------------------- */
@@ -39,21 +38,11 @@
 /* -------------------------------------------------- */
 
 .filter-text-input {
-    width: 250px;
+    width: 340px;
     border-radius: 6px;
     padding: 8px 12px;
     font-size: 0.95rem;
-}
-
-/* -------------------------------------------------- */
-/*              REUSABLE DROPDOWN FILTER              */
-/* -------------------------------------------------- */
-
-.filter-dropdown {
-    width: 250px;
-    border-radius: 6px;
-    padding: 8px 12px;
-    font-size: 0.95rem;
+    margin-right: 2em;
 }
 
     .filter-text-input:focus,
@@ -62,6 +51,17 @@
         box-shadow: 0 0 5px rgba(89,129,153,0.5) !important;
     }
 
+/* -------------------------------------------------- */
+/*              REUSABLE DROPDOWN FILTER              */
+/* -------------------------------------------------- */
+
+.filter-dropdown {
+    width: 340px;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.95rem;
+    margin-right: 2em;
+}
 
 /* -------------------------------------------------- */
 /*            REUSEABLE PAGINATION COMPONENT          */
@@ -83,7 +83,6 @@
     color: #1D2D44; /* Dark blue */
     font-size: 15px;
 }
-
 
 .pagination-btn {
     background: none;
@@ -125,3 +124,97 @@
         background: #1D2D44;
         color: white;
     }
+
+/* -------------------------------------------------- */
+/*              REUSABLE DATE PICKER FILTER           */
+/* -------------------------------------------------- */
+
+/* Wrapper around input + icon */
+.date-picker-wrapper {
+    position: relative;
+    width: 340px; /* same width as your filters */
+    margin-right: 2em;
+}
+
+/* Your input styling */
+.filter-date-picker {
+    width: 100%;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.95rem;
+    background-color: #e8f3f3;
+    color: #333;
+    border: 2px solid #32BCC7;
+    cursor: pointer;
+    margin-right: 2em;
+}
+
+    /* Prevent text cursor */
+    .filter-date-picker:read-only {
+        caret-color: transparent;
+    }
+
+    /* Placeholder styling */
+    .filter-date-picker::placeholder {
+        color: #598199;
+        opacity: 0.8;
+        font-style: italic;
+    }
+
+    /* Focus state */
+    .filter-date-picker:focus {
+        border-color: #598199 !important;
+        box-shadow: 0 0 6px rgba(89,129,153,0.5) !important;
+        outline: none;
+    }
+
+    /* Hover state */
+    .filter-date-picker:hover {
+        border-color: #32BCC7;
+        background-color: #f0fafa;
+    }
+
+    /* Disabled state */
+    .filter-date-picker:disabled {
+        background-color: #f5f5f5;
+        border-color: #ccc;
+        color: #999;
+        cursor: not-allowed;
+    }
+
+/* Calendar icon */
+.calendar-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #32BCC7;
+    font-size: 20px;
+    pointer-events: none;
+}
+
+/* Icon hover interaction */
+.date-picker-wrapper:hover .calendar-icon {
+    color: #598199;
+    transition: color 0.2s ease-in-out;
+}
+
+/* Calendar popup styling */
+.react-datepicker {
+    border: 2px solid #32BCC7 !important;
+    border-radius: 10px !important;
+}
+
+.react-datepicker__header {
+    background-color: #e8f3f3 !important;
+    border-bottom: 1px solid #32BCC7 !important;
+}
+
+.react-datepicker__day--selected {
+    background-color: #32BCC7 !important;
+    color: white !important;
+}
+
+.react-datepicker__day--keyboard-selected {
+    background-color: #32BCC7 !important;
+}
