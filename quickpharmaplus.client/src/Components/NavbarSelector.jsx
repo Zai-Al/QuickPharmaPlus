@@ -1,16 +1,26 @@
-import AdminNavbar from "./Navbars/AdminNavbar";
-import EmployeeNavBar from "./Navbars/EmployeeNavBar";
-import DriverNavbar from "./Navbars/DriverNavbar";
-//import CustomerNavbar from "./Navbars/CustomerNavbar";
+// NavbarSelector.jsx
+import { useContext } from "react";
+import { AuthContext } from "../Context/AuthContext";
+import { useLocation } from "react-router-dom";
+import Navbar from "./Navbar";   // unified navbar
 
 export default function NavbarSelector() {
-    //const role = localStorage.getItem("role");
-    const role = "admin"; // For testing purposes only
+    const { user } = useContext(AuthContext);
+    const location = useLocation();
 
-    if (role === "admin") return <AdminNavbar />;
-    if (role === "manager" || role === "pharmacist") return <EmployeeNavBar />;
-    if (role === "driver") return <DriverNavbar />;
-    if (role === "customer") return <CustomerNavbar />;
+    // Pages where navbar should not appear
+    const hideOnPages = [
+        "/login",
+        "/register",
+        "/forgotPassword",
+        "/resetPassword"
+    ];
 
-    return null;
+    // no navbar on login/registration pages
+    if (hideOnPages.includes(location.pathname)) return null;
+
+    // no navbar before login
+    if (!user) return null;
+
+    return <Navbar user={user} />;
 }

@@ -9,9 +9,11 @@
 }
 
 .data-table {
-    width: 100%;
-    border-collapse: collapse;
+    width: 1200px;
+    min-width: 800px; /* optional */
+    margin: 0 auto;
 }
+
 
     .data-table th {
         background-color: #e8f3f3;

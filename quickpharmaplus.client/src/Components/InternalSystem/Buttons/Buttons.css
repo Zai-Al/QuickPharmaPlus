@@ -97,7 +97,7 @@
 
 
 /* -------------------------------------------------- */
-/*                    View BUTTON                     */
+/*                    VIEW BUTTON                     */
 /* -------------------------------------------------- */
 
 .view-btn {
@@ -118,3 +118,35 @@
         border-color: #47627A !important;
         text-decoration: none !important;
     }
+
+
+/* -------------------------------------------------- */
+/*                   LOGIUT BUTTON                    */
+/* -------------------------------------------------- */
+
+
+
+/* LOGOUT BUTTON – GLOBAL STYLE */
+.logout-btn {
+    padding: 8px 18px;
+    /*background-color: #dc3545;*/ /* Bootstrap danger color */
+    /*color: white;*/
+    font-weight: 500;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: nowrap; /* Prevents text from wrapping */
+    transition: background-color 0.2s ease;
+}
+
+    .logout-btn:hover {
+        background-color: #bb2d3b;
+    }
+
+/* OPTIONAL: RESPONSIVE ALIGNMENT CLASS (use when needed) */
+.logout-container {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 1.5rem;
+}

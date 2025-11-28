@@ -1,12 +1,16 @@
+import "./App.css";
+import { BrowserRouter } from "react-router-dom";
 import NavbarSelector from "./Components/NavbarSelector";
 import AppRoutes from "./AppRoute.jsx";
-import "./App.css";
+import { AuthProvider } from "./Context/AuthContext";
 
 export default function App() {
     return (
-        <>
-            <NavbarSelector />
-            <AppRoutes />
-        </>
+        <BrowserRouter>
+            <AuthProvider>
+                <NavbarSelector />
+                <AppRoutes />
+            </AuthProvider>
+        </BrowserRouter>
     );
 }
