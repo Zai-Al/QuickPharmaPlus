@@ -5,7 +5,7 @@ import "./SupplierList.css";
 // Components
 import DataTable from "../../../Components/InternalSystem/Table/DataTable";
 import EditButton from "../../../Components/InternalSystem/Buttons/EditButton";
-import AddButton from "../../../Components/InternalSystem/Buttons/AddButton";
+import PageAddButton from "../../../Components/InternalSystem/Buttons/PageAddButton";
 import DeleteButton from "../../../Components/InternalSystem/Buttons/DeleteButton";
 import DeleteModal from "../../../Components/InternalSystem/Modals/DeleteModal";
 import SearchTextField from "../../../Components/InternalSystem/GeneralComponents/FilterTextField";
@@ -76,7 +76,7 @@ export default function SupplierList() {
                 </FilterLeft>
 
                 <FilterRight>
-                    <AddButton to="/supplier/add" text="Add New Supplier" />
+                    <PageAddButton to="/suppliers/add" text="Add New Supplier" />
                 </FilterRight>
 
             </FilterSection>

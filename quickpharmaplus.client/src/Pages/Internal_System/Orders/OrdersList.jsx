@@ -1,4 +1,6 @@
-﻿import { useState } from "react";
+﻿import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+
 import "./OrdersList.css";
 
 /* ===========================
@@ -7,7 +9,7 @@ import "./OrdersList.css";
 
 import DataTable from "../../../Components/InternalSystem/Table/DataTable";
 import EditButton from "../../../Components/InternalSystem/Buttons/EditButton";
-import AddButton from "../../../Components/InternalSystem/Buttons/AddButton";
+import PageAddButton from "../../../Components/InternalSystem/Buttons/PageAddButton";
 import DeleteButton from "../../../Components/InternalSystem/Buttons/DeleteButton";
 import DeleteModal from "../../../Components/InternalSystem/Modals/DeleteModal";
 
@@ -22,15 +24,35 @@ import Pagination from "../../../Components/InternalSystem/GeneralComponents/Pag
 
 export default function OrdersList() {
 
-    // LOCAL STATE FOR TABS
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    /* ----------------------------------------- */
+    /*          LOCAL STATE FOR TABS              */
+    /* ----------------------------------------- */
     const [isReorderPage, setIsReorderPage] = useState(false);
 
+    /* ----------------------------------------- */
+    /*     ACTIVATE REORDER TAB IF URL MATCHES    */
+    /* ----------------------------------------- */
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const tab = params.get("tab");
+
+        if (tab === "reorder") {
+            setIsReorderPage(true);
+        }
+    }, [location]);
+
+    /* ----------------------------------------- */
+    /*            DELETE + FILTER STATE           */
+    /* ----------------------------------------- */
     const [deleteId, setDeleteId] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [filterExpiryDate, setFilterExpiryDate] = useState(null);
 
     /* ----------------------------------------- */
-    /*            DUMMY DATA FOR TABLES          */
+    /*            DUMMY DATA FOR TABLES           */
     /* ----------------------------------------- */
 
     const ordersData = [
@@ -101,11 +123,9 @@ export default function OrdersList() {
         <div className="orders-page">
 
             {/* ================= TITLE ================= */}
-            {!isReorderPage ? (
-                <h2 className="text-center fw-bold orders-title">Orders</h2>
-            ) : (
-                <h2 className="text-center fw-bold orders-title">Reorders</h2>
-            )}
+            <h2 className="text-center fw-bold orders-title">
+                {isReorderPage ? "Reorders" : "Orders"}
+            </h2>
 
             {/* ================= FILTER SECTION 1 ================= */}
             <FilterSection>
@@ -116,9 +136,9 @@ export default function OrdersList() {
 
                 <FilterRight>
                     {!isReorderPage ? (
-                        <AddButton to="/orders/orderAdd" text="Create New Order" />
+                        <PageAddButton to="/orders/create" text="Create New Order" />
                     ) : (
-                        <AddButton to="/orders/reorderAdd" text="Create New Automated Order" />
+                        <PageAddButton to="/orders/create-auto" text="Create New Automated Order" />
                     )}
                 </FilterRight>
             </FilterSection>

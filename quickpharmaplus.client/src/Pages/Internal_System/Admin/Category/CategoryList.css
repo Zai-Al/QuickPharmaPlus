@@ -86,20 +86,6 @@
     align-items: center;
 }
 
-/* --- FIXED WIDTH INPUT --- */
-.category-input {
-    width: 70%; /* stays the same no matter container width */
-    padding: 12px 14px;
-    font-size: 16px;
-    border-radius: 8px;
-    border: 1px solid #ccc;
-    margin-bottom: 25px;
-}
-
-.category-input:focus {
-    border-color: #4c7cbf;
-}
-
 
 
 .upload-icon {
@@ -121,29 +107,13 @@
 
 /* --- BUTTON WRAPPER --- */
 .add-btn-wrapper {
-    width: 340px;
-    margin-top: 25px;
+    width: 80%;
+    margin-top: 2em;
     text-align: center;
+
 }
 
-
-.add-btn-custom {
-    background-color: #598199 !important; /* Blue-grey */
-    border-color: #598199 !important;
-    color: white !important;
-    border-radius: 8px;
-    font-weight: 500;
-    padding: 10px 18px;
-    height: 50px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 340px;
-    margin-right: 2em;
+form-group{
+    width:80%;
 }
 
-    .add-btn-custom:hover {
-        background-color: #47627A !important;
-        border-color: #47627A !important;
-        text-decoration: none !important;
-    }

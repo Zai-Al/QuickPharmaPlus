@@ -232,13 +232,16 @@
     background: white;
     padding: 40px 50px;
     margin-top: 10px;
-    margin-bottom:20px;
+    margin-bottom:2em;
+    t
 }
 
 .form-wrapper-title {
     font-weight: 600;
     text-align: center;
     margin-bottom: 30px;
+    text-align:left;
+    margin-left: 5.5em;
 }
 
 .add-category-form {
@@ -247,6 +250,7 @@
     justify-content: space-between; /* evenly distributes all child elements */
     height: 100%;
     align-items: center;
+    gap:2em;
 }
 
 /* -------------------------------------------------- */

@@ -3,12 +3,15 @@ import { useNavigate } from "react-router-dom";
 import "./EmployeesList.css";
 
 import FormWrapper from "../../../../Components/InternalSystem/GeneralComponents/Form";
-import InputTextField from "../../../../Components/InternalSystem/GeneralComponents/InputTextField";
-import Dropdown from "../../../../Components/InternalSystem/GeneralComponents/FilterDropDown";
-import CityDropDown from "../../../../Components/InternalSystem/GeneralComponents/CityDropDown";
+import AddButton from "../../../../Components/Form/FormAddButton";
+import TextField from "../../../../Components/Form/FormTextField";
+import Dropdown from "../../../../Components/Form/FormDropDownList";
+import CityDropDown from "../../../../Components/Form/CityDropDown";
+import AdressInput from "../../../../Components/Form/AdressField";
 
-import AddButton from "../../../../Components/InternalSystem/Buttons/AddButton";
-import CancelButton from "../../../../Components/InternalSystem/Buttons/CancelButton";
+import FormHeader from "../../../../Components/InternalSystem/FormHeader";
+
+
 
 export default function AddEmployee() {
     const navigate = useNavigate();
@@ -78,9 +81,8 @@ export default function AddEmployee() {
 
     return (
         <div className="add-employee-page">
-            <div className="add-employee-header">
-                <CancelButton to="/employees" text="Cancel" />
-            </div>
+            <FormHeader title="Add New Employee Record" to="/employees" />
+
 
 
             {successMessage && (
@@ -97,15 +99,14 @@ export default function AddEmployee() {
                 </div>
             )}
 
-            <FormWrapper title="Add New Employee Record ">
+            <FormWrapper title="Enter New Employee Details:">
                 <form className="add-employee-form" onSubmit={handleSubmit}>
 
                     {/* FULL WIDTH FIELDS */}
-                    <InputTextField 
+                    <TextField 
                         placeholder="Name"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="form-control"
                     />
 
                     <Dropdown
@@ -113,34 +114,30 @@ export default function AddEmployee() {
                         options={roleOptions}
                         value={role}
                         onChange={(e) => setRole(e.target.value)}
-                        className="form-control"
                     />
 
-                    <InputTextField
+                    <TextField
                         placeholder="Email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="form-control"
                     />
 
-                    <InputTextField
+                    <TextField
                         placeholder="Temporary Password"
                         value={tempPassword}
                         onChange={(e) => setTempPassword(e.target.value)}
-                        className="form-control"
                     />
 
-                    <InputTextField
+                    <TextField
                         placeholder="Phone Number"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
-                        className="form-control"
                     />
 
                     {/* 2-IN-A-ROW (CITY + BLOCK) */}
-                    {/* ADDRESS SECTION — TWO PER ROW */}
                     <div className="address-row">
-                        <div className="city-wrapper">
+
+                        <div className="address-column">
                             <CityDropDown
                                 value={city}
                                 onChange={(e) => setCity(e.target.value)}
@@ -149,37 +146,39 @@ export default function AddEmployee() {
                             />
                         </div>
 
+                        <div className="address-column">
+                            <AdressInput
+                                placeholder="Block"
+                                value={block}
+                                onChange={(e) => setBlock(e.target.value)}
+                            />
+                        </div>
 
-
-
-                        <InputTextField
-                            placeholder="Block"
-                            value={block}
-                            onChange={(e) => setBlock(e.target.value)}
-                            className="form-control address-input"
-                        />
                     </div>
-
+                    {/* 2-IN-A-ROW (CITY + BLOCK) */}
                     <div className="address-row">
-                        <InputTextField
-                            placeholder="Road"
-                            value={road}
-                            onChange={(e) => setRoad(e.target.value)}
-                            className="form-control address-input"
-                        />
 
-                        <InputTextField
-                            placeholder="Building/Flat"
-                            value={building}
-                            onChange={(e) => setBuilding(e.target.value)}
-                            className="form-control address-input"
-                        />
+                        <div className="address-column">
+                            <AdressInput
+                                placeholder="Road"
+                                value={road}
+                                onChange={(e) => setRoad(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="address-column">
+                            <AdressInput
+                                placeholder="Building"
+                                value={building}
+                                onChange={(e) => setBuilding(e.target.value)}
+                            />
+                        </div>
+
                     </div>
 
+                    <AddButton text="Add New Employee" />
 
-                    <div className="add-btn-wrapper">
-                        <AddButton text="Add New Employee" type="submit" />
-                    </div>
+
                 </form>
             </FormWrapper>
         </div>

@@ -43,33 +43,43 @@
     gap: 1.2em;
 }
 
-    /* All inputs same width */
-    .product-input,
-    .add-product-form .form-control,
-    .add-product-form select {
-        width: 500px !important;
-        height: 45px;
-        border-radius: 8px;
-        border: 1px solid #ccc;
-        font-size: 15px;
-        padding: 8px 12px;
-    }
 
 /* Checkbox */
-.controlled-label {
-    width: 500px;
+/* Entire field container */
+.controlled-field {
+    width: 80%;
     font-size: 16px;
-    font-weight: 600;
+    font-weight: 400;
     margin-top: 10px;
+    margin-bottom: 1em;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 0.5em 1em;
 }
 
+/* The text on the left */
+.controlled-text {
+    display: flex;
+    align-items: center;
+}
+
+/* Checkbox styling */
 .controlled-checkbox {
     width: 20px;
     height: 20px;
     cursor: pointer;
+    accent-color: #1D2D44; /* YOUR THEME COLOR */
+    border: 1px solid #ccc;
+}
+
+/* Make sure the checkbox is centered vertically */
+.form-check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Upload photo button wrapper */
@@ -83,8 +93,4 @@
 .add-product-btn-wrapper {
     width: 500px;
     margin-top: 20px;
-}
-
-.add-btn{
-
 }

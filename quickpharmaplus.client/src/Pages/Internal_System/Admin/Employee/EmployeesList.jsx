@@ -5,7 +5,7 @@ import "./EmployeesList.css";
 import DataTable from "../../../../Components/InternalSystem/Table/DataTable";
 import EditButton from "../../../../Components/InternalSystem/Buttons/EditButton";
 import DeleteButton from "../../../../Components/InternalSystem/Buttons/DeleteButton";
-import AddButton from "../../../../Components/InternalSystem/Buttons/AddButton";
+import PageAddButton from "../../../../Components/InternalSystem/Buttons/PageAddButton";
 import SearchTextField from "../../../../Components/InternalSystem/GeneralComponents/FilterTextField";
 import FilterLeft from "../../../../Components/InternalSystem/GeneralComponents/FilterLeft";
 import FilterRight from "../../../../Components/InternalSystem/GeneralComponents/FilterRight";
@@ -70,7 +70,7 @@ export default function EmployeesList() {
                 </FilterLeft>
 
                 <FilterRight>
-                    <AddButton to="/employees/add" text="Add New Employee" />
+                    <PageAddButton to="/employees/add" text="Add New Employee" />
                 </FilterRight>
             </FilterSection>
 

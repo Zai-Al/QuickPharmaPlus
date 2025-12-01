@@ -5,7 +5,7 @@ import "./InventoryList.css";
 import DataTable from "../../../../Components/InternalSystem/Table/DataTable";
 import EditButton from "../../../../Components/InternalSystem/Buttons/EditButton";
 import DeleteButton from "../../../../Components/InternalSystem/Buttons/DeleteButton";
-import AddButton from "../../../../Components/InternalSystem/Buttons/AddButton";
+import PageAddButton from "../../../../Components/InternalSystem/Buttons/PageAddButton";
 
 import FilterSection from "../../../../Components/InternalSystem/GeneralComponents/FilterSection";
 import FilterLeft from "../../../../Components/InternalSystem/GeneralComponents/FilterLeft";
@@ -73,7 +73,7 @@ export default function InventoryList() {
 
                 {/* RIGHT SIDE (Add + Search Button) */}
                 <FilterRight>
-                    <AddButton to="/inventory/add" text="Add New Category" />
+                    <PageAddButton to="/inventory/add" text="Add New Inventory" />
                 </FilterRight>
             </FilterSection>
 

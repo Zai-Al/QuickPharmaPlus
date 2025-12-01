@@ -8,7 +8,7 @@ import "./ReportList.css";
 import DataTable from "../../../../Components/InternalSystem/Table/DataTable";
 import EditButton from "../../../../Components/InternalSystem/Buttons/EditButton";
 import DeleteButton from "../../../../Components/InternalSystem/Buttons/DeleteButton";
-import AddButton from "../../../../Components/InternalSystem/Buttons/AddButton";
+import PageAddButton from "../../../../Components/InternalSystem/Buttons/PageAddButton";
 
 import SearchTextField from "../../../../Components/InternalSystem/GeneralComponents/FilterTextField";
 import FilterDropdown from "../../../../Components/InternalSystem/GeneralComponents/FilterDropDown";
@@ -83,7 +83,7 @@ export default function ReportsList() {
                 </FilterLeft>
 
                 <FilterRight>
-                    <AddButton to="/reports/add" text="Generate New Report" />
+                    <PageAddButton to="/reports/generate" text="Generate New Report" />
                 </FilterRight>
             </FilterSection>
 

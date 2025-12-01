@@ -5,7 +5,7 @@ import "./ProductsList.css";
 import DataTable from "../../../Components/InternalSystem/Table/DataTable";
 import EditButton from "../../../Components/InternalSystem/Buttons/EditButton";
 import DeleteButton from "../../../Components/InternalSystem/Buttons/DeleteButton";
-import AddButton from "../../../Components/InternalSystem/Buttons/AddButton";
+import PageAddButton from "../../../Components/InternalSystem/Buttons/PageAddButton";
 
 
 import ViewButton from "../../../Components/InternalSystem/Buttons/ViewButton";
@@ -74,7 +74,7 @@ export default function ProductsList() {
                 </FilterLeft>
 
                 <FilterRight>
-                    <AddButton to="/addProduct" text="Add New Product" />
+                    <PageAddButton to="/addProduct" text="Add New Product" />
                 </FilterRight>
             </FilterSection>
 
