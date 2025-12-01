@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -10,10 +10,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="ModelsDTO\CategoryCreateDto.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Remove="wwwroot\CHANGELOG.md" />
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="ModelsDTO\Category\CategoryCreateDto.cs" />
     <None Include="wwwroot\CHANGELOG.md" />
   </ItemGroup>
 
@@ -39,7 +44,7 @@
 
   <ItemGroup>
     <Folder Include="Controllers\External_System\" />
-    <Folder Include="Controllers\Internal_System\" />
+    <Folder Include="Controllers\User_Managment\" />
   </ItemGroup>
 
 </Project>

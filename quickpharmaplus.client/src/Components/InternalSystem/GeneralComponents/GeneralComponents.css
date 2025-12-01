@@ -1,4 +1,4 @@
-/* -------------------------------------------------- */
+﻿/* -------------------------------------------------- */
 /*            FILTER SECTION MAIN WRAPPER             */
 /* -------------------------------------------------- */
 
@@ -9,7 +9,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    /* NEW � ensures exact left and right alignment */
+    /* NEW — ensures exact left and right alignment */
     padding: 0 0;
 }
 
@@ -217,4 +217,74 @@
 
 .react-datepicker__day--keyboard-selected {
     background-color: #32BCC7 !important;
+}
+
+
+/* ========================================================= */
+/* ================= FORM WRAPPER SECTION ================== */
+/* ========================================================= */
+.form-wrapper-container {
+    width: 80%;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* spreads title + form */
+    background: white;
+    padding: 40px 50px;
+    margin-top: 10px;
+    margin-bottom:20px;
+}
+
+.form-wrapper-title {
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.add-category-form {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* evenly distributes all child elements */
+    height: 100%;
+    align-items: center;
+}
+
+/* -------------------------------------------------- */
+/*               REUSABLE INPUT TEXT FIELD            */
+/* -------------------------------------------------- */
+
+.input-text-field {
+    width: 70%;
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-size: 1rem;
+    margin-bottom: 25px;
+    /* Prevent Bootstrap dark mode override */
+    background-color: white !important;
+    color: #333 !important;
+}
+
+    /* Focus styling (same as your filter text input) */
+    .input-text-field:focus {
+        border-color: #598199 !important;
+        box-shadow: 0 0 5px rgba(89,129,153,0.5) !important;
+        background-color: white !important;
+        color: #333 !important;
+    }
+
+    /* Placeholder color */
+    .input-text-field::placeholder {
+        color: #777 !important;
+    }
+
+
+/* ========================================================= */
+/* ==================== IMAGE PREVIEW ====================== */
+/* ========================================================= */
+.preview-img {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 6px;
+    margin-top: 15px;
 }

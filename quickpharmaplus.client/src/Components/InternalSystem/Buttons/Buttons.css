@@ -160,3 +160,27 @@
     align-items: center;
     margin-top: 1.5rem;
 }
+
+
+/* ========================================================= */
+/*                       UPLOAD BUTTON                       */
+/* ========================================================= */
+.upload-btn {
+    width: 340px;
+    background-color: #93d3d3;
+    padding: 12px;
+    text-align: center;
+    font-size: 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: white;
+    font-weight: 600;
+    margin-bottom: 25px;
+}
+
+.upload-icon {
+    margin-right: 8px;
+}
+
+.file-input {
+    display: none;

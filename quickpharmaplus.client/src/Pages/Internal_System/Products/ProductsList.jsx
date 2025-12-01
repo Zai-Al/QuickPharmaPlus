@@ -74,7 +74,7 @@ export default function ProductsList() {
                 </FilterLeft>
 
                 <FilterRight>
-                    <AddButton to="/products/add" text="Add New Product" />
+                    <AddButton to="/addProduct" text="Add New Product" />
                 </FilterRight>
             </FilterSection>
 

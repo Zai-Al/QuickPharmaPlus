@@ -1,0 +1,90 @@
+/* ================================
+   PAGE BASE
+================================ */
+.add-product-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 40px;
+}
+
+/* ================================
+   HEADER (TITLE + CANCEL)
+================================ */
+.add-product-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 100%;
+}
+
+.add-product-title {
+    text-align: center;
+    font-weight: 700;
+    width: 100%;
+}
+
+.add-product-header .internal-cancel-btn {
+    position: absolute;
+    right: 110px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* ================================
+   FORM
+================================ */
+.add-product-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.2em;
+}
+
+    /* All inputs same width */
+    .product-input,
+    .add-product-form .form-control,
+    .add-product-form select {
+        width: 500px !important;
+        height: 45px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        font-size: 15px;
+        padding: 8px 12px;
+    }
+
+/* Checkbox */
+.controlled-label {
+    width: 500px;
+    font-size: 16px;
+    font-weight: 600;
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.controlled-checkbox {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+/* Upload photo button wrapper */
+.upload-wrapper {
+    width: 500px;
+    display: flex;
+    justify-content: center;
+}
+
+/* Add button alignment */
+.add-product-btn-wrapper {
+    width: 500px;
+    margin-top: 20px;
+}
+
+.add-btn{
+
+}

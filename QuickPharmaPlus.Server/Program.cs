@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using QuickPharmaPlus.Server.Identity;
 using QuickPharmaPlus.Server.Models;
+using QuickPharmaPlus.Server.Repositories;
 
 namespace QuickPharmaPlus.Server
 {
@@ -46,6 +47,10 @@ namespace QuickPharmaPlus.Server
                           .AllowAnyMethod()
                 );
             });
+
+            //adding the repostries 
+            builder.Services.AddScoped<CategoryRepository>();
+
 
             var app = builder.Build();
 

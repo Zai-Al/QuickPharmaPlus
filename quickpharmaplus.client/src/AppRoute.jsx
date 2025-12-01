@@ -24,10 +24,14 @@ import ManagerDashboard from "./Pages/Internal_System/Dashboards/ManagerDashboar
 
 // Internal system pages
 import EmployeesList from "./Pages/Internal_System/Admin/Employee/EmployeesList.jsx";
+import AddEmployee from "./Pages/Internal_System/Admin/Employee/AddEmployee.jsx";
 import SupplierList from "./Pages/Internal_System/Suppliers/SupplierList.jsx";
 import OrdersList from "./Pages/Internal_System/Orders/OrdersList.jsx";
 import ProductsList from "./Pages/Internal_System/Products/ProductsList.jsx";
+import AddProduct from "./Pages/Internal_System/Products/AddProduct.jsx";
 import CategoryList from "./Pages/Internal_System/Admin/Category/CategoryList.jsx";
+import AddCategory from "./Pages/Internal_System/Admin/Category/AddCategory.jsx";
+
 import InventoryList from "./Pages/Internal_System/Admin/Inventory/InventoryList.jsx";
 import PerscriptionsList from "./Pages/Internal_System/Perscriptions/PerscriptionsList.jsx";
 import ReportList from "./Pages/Internal_System/Admin/Report/ReportList.jsx";
@@ -143,6 +147,15 @@ export default function AppRoutes() {
                             />
 
                             <Route
+                                path="/addProduct"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
+                                        <AddProduct />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
                                 path="/orders"
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
@@ -161,10 +174,27 @@ export default function AppRoutes() {
                             />
 
                             <Route
+                                path="/employees/add"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin"]}>
+                                        <AddEmployee />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
                                 path="/categories"
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin"]}>
                                         <CategoryList/>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/categories/add"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin"]}>
+                                        <AddCategory />
                                     </ProtectedRoute>
                                 }
                             />

@@ -1,0 +1,22 @@
+.internal-cancel-btn {
+    background-color: #F4A640;
+    color: white;
+    font-weight: 600;
+    padding: 6px 18px;
+    border-radius: 10px;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+    .internal-cancel-btn:hover {
+        background-color: #e0902f;
+    }
+
+.cancel-icon {
+    font-weight: bold;
+    color: white;
+}
