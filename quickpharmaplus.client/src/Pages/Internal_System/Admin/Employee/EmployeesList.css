@@ -146,7 +146,7 @@
 /* --- BUTTON WRAPPER (centers the Add button) --- */
 .add-employee-btn-wrapper {
     margin-top: 25px;
-    width: 500px;     /* same width as text fields */
+    width: 100%;     /* same width as text fields */
     text-align: center;
 }
 /* ========================================================= */
@@ -173,3 +173,21 @@
     border: 1px solid #ccc;
     box-sizing: border-box;
 }
+
+
+.address-row {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem; /* space between City and Block */
+    width: 80%;
+}
+
+.address-column {
+    flex: 1; /* each item takes equal full space */
+    max-width: 500px; /* match your other large inputs */
+}
+
+    .address-column select,
+    .address-column input {
+        width: 100%; /* makes the field fill the whole column */
+    }

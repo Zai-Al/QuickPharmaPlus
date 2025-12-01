@@ -5,8 +5,7 @@ import "./CategoryList.css";
 import DataTable from "../../../../Components/InternalSystem/Table/DataTable";
 import EditButton from "../../../../Components/InternalSystem/Buttons/EditButton";
 import DeleteButton from "../../../../Components/InternalSystem/Buttons/DeleteButton";
-import AddButton from "../../../../Components/InternalSystem/Buttons/AddButton";
-
+import PageAddButton from "../../../../Components/InternalSystem/Buttons/PageAddButton";
 import FilterSection from "../../../../Components/InternalSystem/GeneralComponents/FilterSection";
 import FilterLeft from "../../../../Components/InternalSystem/GeneralComponents/FilterLeft";
 import FilterRight from "../../../../Components/InternalSystem/GeneralComponents/FilterRight";
@@ -65,7 +64,7 @@ export default function CategoryList() {
 
                 {/* RIGHT FILTER (Add Button) */}
                 <FilterRight>
-                    <AddButton to="/categories/add" text="Add New Category" />
+                    <PageAddButton to="/categories/add" text="Add New Category" />
                 </FilterRight>
             </FilterSection>
 

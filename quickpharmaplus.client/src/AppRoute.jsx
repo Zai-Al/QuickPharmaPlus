@@ -26,15 +26,23 @@ import ManagerDashboard from "./Pages/Internal_System/Dashboards/ManagerDashboar
 import EmployeesList from "./Pages/Internal_System/Admin/Employee/EmployeesList.jsx";
 import AddEmployee from "./Pages/Internal_System/Admin/Employee/AddEmployee.jsx";
 import SupplierList from "./Pages/Internal_System/Suppliers/SupplierList.jsx";
+import AddSupplier from "./Pages/Internal_System/Suppliers/AddSupplier.jsx";
+
 import OrdersList from "./Pages/Internal_System/Orders/OrdersList.jsx";
+import CreateOrder from "./Pages/Internal_System/Orders/CreateOrder.jsx";
+import CreateAutomatedOrder from "./Pages/Internal_System/Orders/CreateAutomatedOrder.jsx";
+
 import ProductsList from "./Pages/Internal_System/Products/ProductsList.jsx";
 import AddProduct from "./Pages/Internal_System/Products/AddProduct.jsx";
 import CategoryList from "./Pages/Internal_System/Admin/Category/CategoryList.jsx";
 import AddCategory from "./Pages/Internal_System/Admin/Category/AddCategory.jsx";
 
 import InventoryList from "./Pages/Internal_System/Admin/Inventory/InventoryList.jsx";
+import AddInventory from "./Pages/Internal_System/Admin/Inventory/AddInventory.jsx";
+
 import PerscriptionsList from "./Pages/Internal_System/Perscriptions/PerscriptionsList.jsx";
 import ReportList from "./Pages/Internal_System/Admin/Report/ReportList.jsx";
+import GenerateReport from "./Pages/Internal_System/Admin/Report/GenerateReport.jsx";
 import ExpiredProducts from "./Pages/Internal_System/Admin/Expired/ExpiredProductsList.jsx";
 import LogsList from "./Pages/Internal_System/Admin/QuickPharmaLog/LogsList.jsx";
 import DeliveryRequests from "./Pages/Internal_System/Delivery/DeliveryRequestList.jsx";
@@ -129,6 +137,15 @@ export default function AppRoutes() {
                             />
 
                             <Route
+                                path="/suppliers/add"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
+                                        <AddSupplier />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
                                 path="/prescriptions"
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
@@ -160,6 +177,24 @@ export default function AppRoutes() {
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
                                         <OrdersList />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
+                                path="/orders/create-auto"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
+                                        <CreateAutomatedOrder />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
+                                path="/orders/create"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
+                                        <CreateOrder />
                                     </ProtectedRoute>
                                 }
                             />
@@ -200,6 +235,15 @@ export default function AppRoutes() {
                             />
 
                             <Route
+                                path="/inventory/add"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin"]}>
+                                        <AddInventory />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
                                 path="/inventory"
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin"]}>
@@ -231,6 +275,14 @@ export default function AppRoutes() {
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin"]}>
                                         <ReportList />
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/reports/generate"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin"]}>
+                                        <GenerateReport />
                                     </ProtectedRoute>
                                 }
                             />

@@ -1,0 +1,50 @@
+/* ================================
+   PAGE BASE
+================================ */
+.add-inventory-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 40px;
+}
+
+/* ================================
+   HEADER (TITLE + CANCEL)
+================================ */
+.add-inventory-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 100%;
+}
+
+.add-inventory-title {
+    text-align: center;
+    font-weight: 700;
+    width: 100%;
+}
+
+.add-inventory-header .internal-cancel-btn {
+    position: absolute;
+    right: 110px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* ================================
+   FORM
+================================ */
+.add-inventory-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.2em;
+}
+
+
+.inventory-date-picker .react-datepicker-wrapper {
+    width: 80%;
+    align-items: center;
+}

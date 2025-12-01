@@ -3,12 +3,12 @@ import { useNavigate } from "react-router-dom";
 import "./AddProduct.css";
 
 import FormWrapper from "../../../Components/InternalSystem/GeneralComponents/Form";
-import InputTextField from "../../../Components/InternalSystem/GeneralComponents/InputTextField";
-import Dropdown from "../../../Components/InternalSystem/GeneralComponents/FilterDropDown";
-import UploadPhoto from "../../../Components/InternalSystem/Buttons/UploadButton";
-import AddButton from "../../../Components/InternalSystem/Buttons/AddButton";
-import CancelButton from "../../../Components/InternalSystem/Buttons/CancelButton";
-import DatePicker from "../../../Components/InternalSystem/GeneralComponents/DatePicker";
+import InputTextField from "../../../Components/Form/FormTextField";
+import Dropdown from "../../../Components/Form/FormDropDownList";
+import UploadPhoto from "../../../Components/Form/FormUploudButton";
+import AddButton from "../../../Components/Form/FormAddButton";
+import DatePicker from "../../../Components/Form/FormDatePicker";
+import FormHeader from "../../../Components/InternalSystem/FormHeader";
 
 
 export default function AddProduct() {
@@ -92,12 +92,9 @@ export default function AddProduct() {
         <div className="add-product-page">
 
             {/* HEADER (Title + Cancel Button) */}
-            <div className="add-product-header">
-                <h1 className="add-product-title">Add New Product</h1>-
-                <CancelButton to="/products" text="Cancel" />
-            </div>
+            <FormHeader title="Add New Product Record" to="/products" />
 
-            <FormWrapper title="">
+            <FormWrapper title="Enter New Produt Details:">
 
                 <form className="add-product-form" onSubmit={handleSubmit}>
 
@@ -146,7 +143,6 @@ export default function AddProduct() {
                         placeholder="Unit Price"
                         value={unitPrice}
                         onChange={(e) => setUnitPrice(e.target.value)}
-                        className="product-input"
                     />
 
                     {/* QUANTITY */}
@@ -154,40 +150,38 @@ export default function AddProduct() {
                         placeholder="Quantity"
                         value={quantity}
                         onChange={(e) => setQuantity(e.target.value)}
-                        className="product-input"
                     />
 
-                    {/* CONTROLLED SUBSTANCE CHECKBOX */}
-                    <label className="controlled-label">
-                        Controlled Substance
-                        <input
-                            type="checkbox"
-                            className="controlled-checkbox"
-                            checked={isControlled}
-                            onChange={(e) => setIsControlled(e.target.checked)}
-                        />
-                    </label>
+                    <div className="controlled-field">
+                        <span className="controlled-text">Controlled Substance</span>
+
+                        <div className="form-check">
+                            <input
+                                className="form-check-input controlled-checkbox"
+                                type="checkbox"
+                                id="controlledCheck"
+                                checked={isControlled}
+                                onChange={(e) => setIsControlled(e.target.checked)}
+                            />
+                        </div>
+                    </div>
 
                     {/* EXPIRY DATE */}
 
                     <DatePicker
                         name="expiryDate"
                         type="date"
-                        className="form-control product-input"
+                        className="product-input"
                         selected={expiryDate}
                         onChange={(d) => setExpiryDate(e.target.value)}
                         placeholderText="Enter Expiry Date"
                     />
 
                     {/* UPLOAD PRODUCT PHOTO */}
-                    <div className="upload-wrapper">
                         <UploadPhoto text="Upload Product Photo" />
-                    </div>
 
                     {/* BUTTON */}
-                    <div className="add-product-btn-wrapper">
                         <AddButton text="Add New Product" type="submit" />
-                    </div>
                 </form>
             </FormWrapper>
         </div>

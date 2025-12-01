@@ -82,8 +82,8 @@ export default function ExpiredProductsList() {
             <FilterSection>
                 <FilterLeft>
                     <FilterDropdown
-                        name="category"
-                        placeholder="Filter Products by Category"
+                        name="supplier"
+                        placeholder="Filter Products by Supplier Name"
                     />
 
                     <DataPicker

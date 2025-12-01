@@ -1,0 +1,44 @@
+/* ================================
+   PAGE BASE
+================================ */
+.generate-report-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 40px;
+}
+
+/* ================================
+   HEADER (TITLE + CANCEL)
+================================ */
+.generate-report-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 100%;
+}
+
+.generate-report-title {
+    text-align: center;
+    font-weight: 700;
+    width: 100%;
+}
+
+.generate-report-header .internal-cancel-btn {
+    position: absolute;
+    right: 110px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* ================================
+   FORM
+================================ */
+.generate-report-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.2em;
+}

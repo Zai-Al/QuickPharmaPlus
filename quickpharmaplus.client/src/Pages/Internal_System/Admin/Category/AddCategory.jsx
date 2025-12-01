@@ -2,12 +2,14 @@
 import { useNavigate } from "react-router-dom";
 import "./CategoryList.css";
 
-import AddButton from "../../../../Components/InternalSystem/Buttons/AddButton";
-import UploadButton from "../../../../Components/InternalSystem/Buttons/UploadButton";
+import AddButton from "../../../../Components/Form/FormAddButton";
+import TextField from "../../../../Components/Form/FormTextField";
+import UploadButton from "../../../../Components/Form/FormUploudButton";
+
 import ImagePreview from "../../../../Components/InternalSystem/GeneralComponents/ImagePreview";
-import InputTextField from "../../../../Components/InternalSystem/GeneralComponents/InputTextField";
 import FormWrapper from "../../../../Components/InternalSystem/GeneralComponents/Form";
 
+import FormHeader from "../../../../Components/InternalSystem/FormHeader";
 export default function AddCategory() {
     const [categoryName, setCategoryName] = useState("");
     const [categoryImage, setCategoryImage] = useState(null);
@@ -88,7 +90,8 @@ export default function AddCategory() {
 
     return (
         <div className="add-category-page">
-            <h2 className="add-category-title">Add Category</h2>
+            <FormHeader title="Add New Category Record" to="/categories" />
+
 
             {/* ---------------- SUCCESS ALERT ---------------- */}
             {successMessage && (
@@ -110,8 +113,7 @@ export default function AddCategory() {
                 <form className="add-category-form" onSubmit={handleSubmit}>
 
                     {/* -------- CATEGORY NAME VALIDATION -------- */}
-                    <div className="form-group mb-3">
-                        <InputTextField
+                        <TextField
                             placeholder="Enter Category Name"
                             value={categoryName}
                             onChange={(e) => {
@@ -121,7 +123,6 @@ export default function AddCategory() {
                                 setNameError(validateName(value));
                             }}
                             onBlur={() => setIsNameTouched(true)}
-                            className={`form-control ${nameError && isNameTouched ? "is-invalid" : ""}`}
                         />
 
                         {nameError && isNameTouched && (
@@ -129,7 +130,6 @@ export default function AddCategory() {
                                 {nameError}
                             </div>
                         )}
-                    </div>
 
                     {/* -------- IMAGE UPLOAD -------- */}
                     <UploadButton
@@ -141,15 +141,8 @@ export default function AddCategory() {
                     <ImagePreview src={previewImage} />
 
                     {/* -------- SUBMIT BUTTON -------- */}
-                    <div className="add-btn-wrapper">
                         {/*<AddButton text="Add New Category" type="submit" />*/}
-                        <button type="submit" class="add-btn-custom  d-flex align-items-center gap-4">
-                    
-                            <i className="bi bi-plus-circle fs-5"></i>
-                            Add New Category
-                        </button>
-
-                    </div>
+                        <AddButton text="Add New Category" />
                 </form>
             </FormWrapper>
         </div>

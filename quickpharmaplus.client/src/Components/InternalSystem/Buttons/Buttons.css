@@ -2,7 +2,7 @@
 /*                  REUSABLE ADD BUTTON               */
 /* -------------------------------------------------- */
 
-.add-btn-custom {
+.page-add-btn-custom {
     background-color: #598199 !important; /* Blue-grey */
     border-color: #598199 !important;
     color: white !important;
@@ -15,7 +15,7 @@
     justify-content: center;
 }
 
-    .add-btn-custom:hover {
+    .page-add-btn-custom:hover {
         background-color: #47627A !important;
         border-color: #47627A !important;
         text-decoration: none !important;

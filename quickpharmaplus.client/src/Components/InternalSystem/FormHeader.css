@@ -1,0 +1,27 @@
+/* ============================= */
+/*   REUSABLE FORM HEADER BAR    */
+/* ============================= */
+
+.form-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Center the title */
+    position: relative; /* Needed for absolute CancelButton */
+    width: 100%;
+    margin-bottom: 1.5rem;
+}
+
+    /* Title styling */
+    .form-section-header h2 {
+        font-weight: 700;
+        margin: 0;
+        text-align: center;
+    }
+
+    /* Cancel button right alignment */
+    .form-section-header .header-cancel-btn {
+        position: absolute;
+        right: 110px; /* same spacing as your Employee page */
+        top: 50%;
+        transform: translateY(-50%);
+    }
