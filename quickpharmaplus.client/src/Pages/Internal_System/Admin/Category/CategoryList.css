@@ -117,3 +117,54 @@ form-group{
     width:80%;
 }
 
+/* -------------------------------------------------- */
+/*                  REUSABLE ADD BUTTON               */
+/* -------------------------------------------------- */
+
+.page-add-btn-custom {
+    background-color: #598199 !important; /* Blue-grey */
+    border-color: #598199 !important;
+    color: white !important;
+    border-radius: 8px;
+    font-weight: 500;
+    padding: 10px 18px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+    .page-add-btn-custom:hover {
+        background-color: #47627A !important;
+        border-color: #47627A !important;
+        text-decoration: none !important;
+    }
+
+
+/* -------------------------------------------------- */
+/*                    ADD POPUP BOX                   */
+/* -------------------------------------------------- */
+
+.custom-popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.custom-popup-box {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    width: 400px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+

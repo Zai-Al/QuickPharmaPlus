@@ -6,7 +6,7 @@ import "./ReportList.css";
    =========================== */
 
 import DataTable from "../../../../Components/InternalSystem/Table/DataTable";
-import EditButton from "../../../../Components/InternalSystem/Buttons/EditButton";
+import ViewButton from "../../../../Components/InternalSystem/Buttons/ViewButton";
 import DeleteButton from "../../../../Components/InternalSystem/Buttons/DeleteButton";
 import PageAddButton from "../../../../Components/InternalSystem/Buttons/PageAddButton";
 
@@ -51,7 +51,8 @@ export default function ReportsList() {
     ];
 
     const renderMap = {
-        view: (row) => <EditButton to={`/reports/view/${row.id}`} text="View Details" />,
+        //view: (row) => <ViewButton to={`/reports/view/${row.id}`} text="View Details" />,
+        view: () => <ViewButton to="/report/details" text="View Details" />,
         delete: (row) => (
             <DeleteButton
                 onClick={() => {

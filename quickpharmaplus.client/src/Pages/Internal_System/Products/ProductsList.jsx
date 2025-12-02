@@ -49,7 +49,7 @@ export default function ProductsList() {
     // Custom rendering for special columns
     const renderMap = {
         //view: (row) => <ViewButton to={`/products/view${row.id}`} />,
-        view: () => <ViewButton to="/products/view" />,
+        view: () => <ViewButton to="/products/view" text="View Details"/>,
         edit: (row) => <EditButton to={`/product/edit/${row.id}`} />,
         delete: (row) => (
             <DeleteButton

@@ -10,6 +10,8 @@ import FilterSection from "../../../../Components/InternalSystem/GeneralComponen
 import FilterLeft from "../../../../Components/InternalSystem/GeneralComponents/FilterLeft";
 import FilterRight from "../../../../Components/InternalSystem/GeneralComponents/FilterRight";
 import SearchTextField from "../../../../Components/InternalSystem/GeneralComponents/FilterTextField";
+import ViewButton from "../../../../Components/InternalSystem/Buttons/ViewButton";
+
 
 import Pagination from "../../../../Components/InternalSystem/GeneralComponents/Pagination";
 import DeleteModal from "../../../../Components/InternalSystem/Modals/DeleteModal";
@@ -27,12 +29,19 @@ export default function CategoryList() {
     const columns = [
         { key: "name", label: "Category Name" },
         { key: "productCount", label: "Number of Products" },
+        { key: "view", label: "View Types" },
         { key: "edit", label: "Edit" },
         { key: "delete", label: "Delete" }
     ];
 
+
     // Button renderers
     const renderMap = {
+        //view: (row) => (
+        //    <ViewButton to={`/categories/edit/${row.id}`} text="View Types" />
+
+        //),
+        view: () => <ViewButton to="/category/type" text="View Types" />,
         edit: (row) => (
             <EditButton to={`/categories/edit/${row.id}`} />
         ),
@@ -44,6 +53,7 @@ export default function CategoryList() {
                 }}
             />
         )
+
     };
 
     return (

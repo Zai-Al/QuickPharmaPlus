@@ -1,0 +1,49 @@
+/* =========================================================
+   REPORT DETAILS PAGE LAYOUT
+   ========================================================= */
+
+.report-page {
+    padding-top: 20px;
+    padding-bottom: 40px;
+}
+
+.report-title-wrapper h2 {
+    margin-bottom: 2em !important;
+}
+
+/* =========================================================
+   DOCUMENT CARD STYLE (MATCHES OTHER DETAILS CARDS)
+   ========================================================= */
+
+.doc-card {
+    border: 1px solid #d6d6d6;
+    border-radius: 10px;
+    padding: 25px;
+    margin-bottom: 2em;
+    background-color: #ffffff;
+    width: 100%;
+    text-align: left;
+}
+
+/* Card Title */
+.doc-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 20px;
+}
+
+/* Buttons row */
+.doc-buttons {
+    display: flex;
+    gap: 20px;
+    justify-content: flex-start;
+}
+
+/* Optional: Card header (if used by your Card component) */
+.card-header {
+    background-color: #f3f3f3 !important;
+    border-bottom: 1px solid #d6d6d6 !important;
+    padding: 12px 18px !important;
+    border-top-left-radius: 10px !important;
+    border-top-right-radius: 10px !important;
+}
