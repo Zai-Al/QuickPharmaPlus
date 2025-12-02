@@ -1,0 +1,112 @@
+/* ========================================================= */
+/*                     VIEW DOCUMENT BUTTON                  */
+/* ========================================================= */
+
+.view-document-btn {
+    background-color: #89D6D4 !important;
+    border-color: #89D6D4 !important;
+    color: white !important;
+    border-radius: 8px;
+    font-weight: 500;
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 80% !important;
+    cursor: pointer;
+    border: none;
+}
+
+.view-document-icon {
+    margin-right: 8px;
+    font-size: 16px;
+}
+
+.view-document-btn:hover {
+    background-color: #7abcbc !important;
+    border-color: #7abcbc !important;
+    text-decoration: none !important;
+    color: white !important;
+}
+
+
+
+/* ========================================================= */
+/*                   DOWNLOAD DOCUMENT BUTTON                */
+/* ========================================================= */
+
+.download-btn-custom {
+    background-color: #598199 !important;
+    border-color: #598199 !important;
+    color: white !important;
+    border-radius: 8px;
+    font-weight: 500;
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 80% !important;
+}
+
+    .download-btn-custom:hover {
+        background-color: #47627A !important;
+        border-color: #47627A !important;
+        text-decoration: none !important;
+    }
+
+
+
+/* ================================
+   APPROVE & REJECT BUTTON STYLES
+================================== */
+
+.approve-btn,
+.reject-btn {
+    padding: 12px 40px;
+    border: none;
+    border-radius: 6px;
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center; /* vertical centering */
+    justify-content: center; /* horizontal centering */
+    gap: 10px; /* spacing between icon + text */
+    cursor: pointer;
+    text-align: center;
+    width: fit-content; /* fixes left shift */
+}
+
+
+/* Approve Button */
+.approve-btn {
+    background-color: #5b7d95; /* Blue-grey like screenshot */
+    color: white;
+}
+
+    .approve-btn:hover {
+        background-color: #476274;
+    }
+
+/* Reject Button */
+.reject-btn {
+    background-color: #ff4a21; /* Orange-red */
+    color: white;
+}
+
+    .reject-btn:hover {
+        background-color: #d93b12;
+    }
+
+    /* Icon alignment */
+    .approve-btn i,
+    .reject-btn i {
+        font-size: 18px;
+    }
+
+/* Wrap buttons section */
+.action-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-top: 25px;
+}

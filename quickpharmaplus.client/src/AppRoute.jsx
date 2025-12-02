@@ -34,6 +34,8 @@ import CreateAutomatedOrder from "./Pages/Internal_System/Orders/CreateAutomated
 
 import ProductsList from "./Pages/Internal_System/Products/ProductsList.jsx";
 import AddProduct from "./Pages/Internal_System/Products/AddProduct.jsx";
+import ViewProduct from "./Pages/Internal_System/Products/ViewProductDetails.jsx";
+
 import CategoryList from "./Pages/Internal_System/Admin/Category/CategoryList.jsx";
 import AddCategory from "./Pages/Internal_System/Admin/Category/AddCategory.jsx";
 
@@ -41,12 +43,17 @@ import InventoryList from "./Pages/Internal_System/Admin/Inventory/InventoryList
 import AddInventory from "./Pages/Internal_System/Admin/Inventory/AddInventory.jsx";
 
 import PerscriptionsList from "./Pages/Internal_System/Perscriptions/PerscriptionsList.jsx";
+import ViewPerscription from "./Pages/Internal_System/Perscriptions/PerscriptionDetails.jsx";
+import ApprovePerscription from "./Pages/Internal_System/Perscriptions/PerscriptionApproval.jsx";
+
 import ReportList from "./Pages/Internal_System/Admin/Report/ReportList.jsx";
 import GenerateReport from "./Pages/Internal_System/Admin/Report/GenerateReport.jsx";
 import ExpiredProducts from "./Pages/Internal_System/Admin/Expired/ExpiredProductsList.jsx";
 import LogsList from "./Pages/Internal_System/Admin/QuickPharmaLog/LogsList.jsx";
 import DeliveryRequests from "./Pages/Internal_System/Delivery/DeliveryRequestList.jsx";
 
+
+import SafetyCheck from "./Pages/Internal_System/SafetyCheck/SafetyCheck.jsx";
 
 export default function AppRoutes() {
     return (
@@ -85,6 +92,15 @@ export default function AppRoutes() {
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist", "Driver"]}>
                                         <EditInternalProfile />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
+                                path="/safety-checks"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist", "Driver"]}>
+                                        <SafetyCheck />
                                     </ProtectedRoute>
                                 }
                             />
@@ -155,6 +171,25 @@ export default function AppRoutes() {
                             />
 
                             <Route
+                                path="//perscription/view"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
+                                        <ViewPerscription />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+
+                            <Route
+                                path= "/prescriptions/approve"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
+                                        <ApprovePerscription />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
                                 path="/products"
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
@@ -168,6 +203,15 @@ export default function AppRoutes() {
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
                                         <AddProduct />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
+                                path="/products/view"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
+                                        <ViewProduct />
                                     </ProtectedRoute>
                                 }
                             />

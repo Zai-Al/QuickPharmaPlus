@@ -2,6 +2,7 @@
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { Calendar3 } from "react-bootstrap-icons"; // Bootstrap icon
+import "./GeneralComponents.css";
 
 const CustomInput = forwardRef(({ value, onClick, placeholderText }, ref) => (
     <div className="date-picker-wrapper" onClick={onClick}>
