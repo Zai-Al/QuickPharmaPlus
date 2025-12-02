@@ -27,28 +27,27 @@ import EmployeesList from "./Pages/Internal_System/Admin/Employee/EmployeesList.
 import AddEmployee from "./Pages/Internal_System/Admin/Employee/AddEmployee.jsx";
 import SupplierList from "./Pages/Internal_System/Suppliers/SupplierList.jsx";
 import AddSupplier from "./Pages/Internal_System/Suppliers/AddSupplier.jsx";
-
 import OrdersList from "./Pages/Internal_System/Orders/OrdersList.jsx";
 import CreateOrder from "./Pages/Internal_System/Orders/CreateOrder.jsx";
 import CreateAutomatedOrder from "./Pages/Internal_System/Orders/CreateAutomatedOrder.jsx";
-
 import ProductsList from "./Pages/Internal_System/Products/ProductsList.jsx";
 import AddProduct from "./Pages/Internal_System/Products/AddProduct.jsx";
 import ViewProduct from "./Pages/Internal_System/Products/ViewProductDetails.jsx";
-
 import CategoryList from "./Pages/Internal_System/Admin/Category/CategoryList.jsx";
 import AddCategory from "./Pages/Internal_System/Admin/Category/AddCategory.jsx";
-
+import CategoryType from "./Pages/Internal_System/Admin/Category/Types.jsx";
 import InventoryList from "./Pages/Internal_System/Admin/Inventory/InventoryList.jsx";
 import AddInventory from "./Pages/Internal_System/Admin/Inventory/AddInventory.jsx";
-
 import PerscriptionsList from "./Pages/Internal_System/Perscriptions/PerscriptionsList.jsx";
 import ViewPerscription from "./Pages/Internal_System/Perscriptions/PerscriptionDetails.jsx";
 import ApprovePerscription from "./Pages/Internal_System/Perscriptions/PerscriptionApproval.jsx";
 
 import ReportList from "./Pages/Internal_System/Admin/Report/ReportList.jsx";
 import GenerateReport from "./Pages/Internal_System/Admin/Report/GenerateReport.jsx";
+import ReportDetails from "./Pages/Internal_System/Admin/Report/ReportDetails.jsx";
+
 import ExpiredProducts from "./Pages/Internal_System/Admin/Expired/ExpiredProductsList.jsx";
+
 import LogsList from "./Pages/Internal_System/Admin/QuickPharmaLog/LogsList.jsx";
 import DeliveryRequests from "./Pages/Internal_System/Delivery/DeliveryRequestList.jsx";
 
@@ -279,6 +278,15 @@ export default function AppRoutes() {
                             />
 
                             <Route
+                                path="/category/type"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin"]}>
+                                        <CategoryType />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
                                 path="/inventory/add"
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin"]}>
@@ -322,6 +330,16 @@ export default function AppRoutes() {
                                     </ProtectedRoute>
                                 }
                             />
+
+                            <Route
+                                path="/report/details"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin"]}>
+                                        <ReportDetails />
+                                    </ProtectedRoute>
+                                }
+                            />
+
                             <Route
                                 path="/reports/generate"
                                 element={

@@ -42,7 +42,7 @@ export default function PrescriptionList() {
         //view: (row) => (
         //    <button className="view-btn">View Details</button>
         //)
-        view: () => <ViewButton to="/perscription/view" />,
+        view: () => <ViewButton to="/perscription/view" text="View Details"/>,
 
     };
 
