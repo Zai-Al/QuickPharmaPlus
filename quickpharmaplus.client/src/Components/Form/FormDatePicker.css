@@ -4,8 +4,14 @@
 
 /* Wrapper around input + icon */
 .form-date-picker-wrapper {
-    position: relative;
+
     width: 100%;
+    justify-content:center;
+    align-items:center;
+}
+
+form-data-input{
+    width: 80%;
 }
 
 /* Your input styling */

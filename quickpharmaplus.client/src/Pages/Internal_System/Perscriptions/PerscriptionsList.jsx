@@ -11,7 +11,7 @@ import DataPicker from "../../../Components/InternalSystem/GeneralComponents/Dat
 import FilterLeft from "../../../Components/InternalSystem/GeneralComponents/FilterLeft";
 import FilterSection from "../../../Components/InternalSystem/GeneralComponents/FilterSection";
 import Pagination from "../../../Components/InternalSystem/GeneralComponents/Pagination";
-
+import ViewButton from "../../../Components/InternalSystem//Buttons/ViewButton";
 export default function PrescriptionList() {
 
     /* ---------------------------- */
@@ -39,9 +39,11 @@ export default function PrescriptionList() {
     ];
 
     const renderMap = {
-        view: (row) => (
-            <button className="view-btn">View Details</button>
-        )
+        //view: (row) => (
+        //    <button className="view-btn">View Details</button>
+        //)
+        view: () => <ViewButton to="/perscription/view" />,
+
     };
 
     return (

@@ -1,0 +1,41 @@
+.prescription-page {
+    padding-top: 20px;
+    padding-bottom: 40px;
+}
+
+/* =========================================================
+   DOCUMENT CARD STYLE (MATCHES NORMAL CARD)
+   ========================================================= */
+
+.doc-card {
+    border: 1px solid #d6d6d6;
+    border-radius: 10px;
+    padding: 25px;
+    margin-bottom: 35px;
+    background-color: #ffffff;
+    width: 100%;
+    text-align:left;
+}
+
+/* Document card title */
+.doc-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 20px;
+}
+
+/* Buttons row inside card */
+.doc-buttons {
+    display: flex;
+    gap: 20px;
+    justify-content: flex-start;
+}
+
+/* Card Header */
+.card-header {
+    background-color: #f3f3f3 !important;
+    border-bottom: 1px solid #d6d6d6 !important;
+    padding: 12px 18px !important;
+    border-top-left-radius: 10px !important;
+    border-top-right-radius: 10px !important;
+}

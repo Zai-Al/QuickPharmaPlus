@@ -132,13 +132,13 @@
 /* Wrapper around input + icon */
 .date-picker-wrapper {
     position: relative;
-    width: 340px; /* same width as your filters */
+    width: 300px; /* same width as your filters */
     margin-right: 2em;
 }
 
 /* Your input styling */
 .filter-date-picker {
-    width: 100%;
+    width: 340px;
     border-radius: 6px;
     padding: 8px 12px;
     font-size: 0.95rem;
