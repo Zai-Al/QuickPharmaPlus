@@ -1,0 +1,23 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="24" cy="24" r="20" fill="#F2A93B"/>
+  
+  <!-- Clock outer ring -->
+  <circle
+    cx="24"
+    cy="24"
+    r="11"
+    stroke="#FFFFFF"
+    stroke-width="2.6"
+    fill="none"
+  />
+  
+  <!-- Clock hands -->
+  <path
+    d="M24 19V24L28 26"
+    stroke="#FFFFFF"
+    stroke-width="2.6"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

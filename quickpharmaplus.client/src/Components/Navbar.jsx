@@ -171,7 +171,17 @@ export default function Navbar() {
                     {/* --------------------------------------------------------- */}
                     {isCustomer && (
                         <>
-                            {/* TODO: add future customer navigation here */}
+                            <li className="nav-item">
+                                <NavLink to="/healthProfile" className="nav-link px-3">Health Profile</NavLink>
+                            </li>
+
+                            <li className="nav-item">
+                                <NavLink to="/terms" className="nav-link px-3">Terms of Use</NavLink>
+                            </li>
+
+                            <li className="nav-item">
+                                <NavLink to="/privacy" className="nav-link px-3">Privacy Policy</NavLink>
+                            </li>
                         </>
                     )}
 

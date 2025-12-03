@@ -1,0 +1,117 @@
+/* ----------------------------------------- */
+/*   Buttons used across Health Profile      */
+/* ----------------------------------------- */
+
+.qp-edit-btn {
+    background-color: #3FA6AB !important;
+    border-color: #3FA6AB !important;
+    color: white !important;
+}
+
+.qp-add-btn {
+    background-color: #598199 !important;
+    border-color: #598199 !important;
+    color: white !important;
+}
+
+/* ----------------------------------------- */
+/*              Page header                  */
+/* ----------------------------------------- */
+
+.qp-page-header {
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    width: 100vw;
+    background-color: rgba(162, 199, 224, 0.5); /* #A2C7E0 @ 50% */
+    padding: 25px 0;
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+/* Teal table header with 50% opacity background */
+.qp-table-header th {
+    background-color: rgba(63, 166, 171, 0.5); /* #3FA6AB, 50% */
+    color: white;
+    border-color: rgba(63, 166, 171, 0.5);
+}
+
+.small-label label {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+/* Remove borders from summary rows in the prescription items table */
+.order-items-table table tbody tr.summary-row > td {
+    border-top: none !important;
+    border-bottom: none !important;
+}
+
+/* ----------------------------------------- */
+/*     Fix global centering from starter     */
+/* ----------------------------------------- */
+
+body {
+    display: block !important;
+    place-items: initial !important;
+}
+
+/* ----------------------------------------- */
+/*   Plan details layout + full-width table  */
+/* ----------------------------------------- */
+
+/* Container for this page */
+.plan-details-page {
+    text-align: left;
+}
+
+/* Make the card itself fill the container width */
+.order-summary-card {
+    width: 100%;
+}
+
+    /* Normal padding inside the box */
+    .order-summary-card .card-body {
+        padding: 1.5rem;
+    }
+
+/* Header row inside the card */
+.plan-details-header {
+    
+    padding-bottom: 0.75rem;
+    width: 100%;
+}
+
+.plan-details-actions {
+    margin-block-end: auto;
+    width:13%;
+}
+/* Right-side buttons: avoid stretching full width on larger screens */
+.plan-details-actions .btn {
+    white-space: nowrap;
+}
+
+/* Full-width table specifically inside the plan-details card */
+.order-summary-card .order-items-table {
+    width: 100%;
+}
+
+    .order-summary-card .order-items-table .table-responsive {
+        width: 100%;
+    }
+
+    .order-summary-card .order-items-table table,
+    .order-summary-card .order-items-table .table {
+        width: 100% !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        margin-bottom: 0;
+    }
+
+/* Make cells look neat (applies everywhere the table is used) */
+.order-items-table th,
+.order-items-table td {
+    vertical-align: middle;
+}

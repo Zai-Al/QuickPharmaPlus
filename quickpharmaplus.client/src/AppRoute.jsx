@@ -54,6 +54,12 @@ import DeliveryRequests from "./Pages/Internal_System/Delivery/DeliveryRequestLi
 
 import SafetyCheck from "./Pages/Internal_System/SafetyCheck/SafetyCheck.jsx";
 
+
+// External System Pages
+import HealthProfile from "./Pages/External_System/Health_Profile/HomeProfile.jsx";
+import PrescriptionDetails from "./Pages/External_System/Health_Profile/PrescriptionDetails.jsx";
+import PlanDetails from "./Pages/External_System/Health_Profile/PlanDetails.jsx";
+
 export default function AppRoutes() {
     return (
         <Routes>
@@ -357,6 +363,21 @@ export default function AppRoutes() {
                                     </ProtectedRoute>
                                 }
                             />
+
+                            {/* External system pages */} 
+                            <Route path="/healthProfile" element=<ProtectedRoute allowedRoles={["Customer"]}>
+                                <HealthProfile />
+                            </ProtectedRoute> />
+
+                            <Route
+                                path="/prescriptions/:id"
+                                element=<ProtectedRoute allowedRoles={["Customer"]}>
+                                    <PrescriptionDetails />
+                           </ProtectedRoute> />
+
+                            <Route path="/PlanDetails/:id" element=<ProtectedRoute allowedRoles={["Customer"]}>
+                                <PlanDetails />
+                            </ProtectedRoute> />
 
                         </Routes>
                     </Layout>
