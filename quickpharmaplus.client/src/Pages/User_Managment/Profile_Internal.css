@@ -1,24 +1,25 @@
 /* FULL PAGE */
+
 .profile-page {
     padding-top: 40px;
 }
-
 /* HEADER TITLE ON TOP */
+
 .profile-header {
     margin-bottom: 30px;
 }
 
-.profile-header h3{
-    font-weight: 400;
-    padding-top: 1em;
-}
-
-.welcome-text {
-        margin-top: 10px;
-        color: #333;
+    .profile-header h3 {
+        font-weight: 400;
+        padding-top: 1em;
     }
 
+.welcome-text {
+    margin-top: 10px;
+    color: #333;
+}
 /* FORM AREA */
+
 .profile-wrapper {
     width: 100%;
     margin-top: 3em;
@@ -27,40 +28,39 @@
 .profile-box {
     width: 350px;
 }
-
 /* LABELS LEFT ALIGNED */
+
 .profile-label {
     font-weight: 600;
     display: block;
     text-align: left;
     margin-bottom: 6px;
 }
-
 /* INPUTS */
+
 .profile-input {
     padding: 10px;
     height: 40px;
     margin-bottom: 3em;
 }
-
 /* SPACING BETWEEN FIELDS */
+
 .mb-4 {
     margin-bottom: 1.5rem !important;
 }
-
 /* EDIT BUTTON */
+
 .edit-btn {
     background-color: #598199;
     color: white;
     font-weight: 600;
-
 }
 
     .edit-btn:hover {
         background-color: #9AB2C1;
     }
-
 /* RESET PASSWORD LINK */
+
 .reset-link {
     color: #0066cc;
 }
@@ -69,3 +69,13 @@
         text-decoration: underline;
     }
 
+.logout-container {
+    position: absolute;
+    top: 8.5em;
+    right: 15em;
+}
+
+.logout-btn {
+    border-radius: 10px;
+    font-weight: 500;
+}

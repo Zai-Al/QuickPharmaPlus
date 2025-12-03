@@ -1,0 +1,109 @@
+/* -------------------------------------------------- */
+/*              REUSABLE DATE PICKER FILTER           */
+/* -------------------------------------------------- */
+
+/* Wrapper around input + icon */
+.form-date-picker-wrapper {
+
+    width: 100%;
+    justify-content:center;
+    align-items:center;
+}
+
+form-data-input{
+    width: 80%;
+}
+
+/* Your input styling */
+.form-date-picker {
+    width: 100%;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.95rem;
+    background-color: #e8f3f3;
+    color: #333;
+    border: 2px solid #32BCC7;
+    cursor: pointer;
+}
+
+    /* Prevent text cursor */
+    .form-date-picker:read-only {
+        caret-color: transparent;
+    }
+
+    /* Placeholder styling */
+    .form-date-picker::placeholder {
+        color: #598199;
+        opacity: 0.8;
+        font-style: italic;
+    }
+
+    /* Focus state */
+    .form-date-picker:focus {
+        border-color: #598199 !important;
+        box-shadow: 0 0 6px rgba(89,129,153,0.5) !important;
+        outline: none;
+    }
+
+    /* Hover state */
+    .form-date-picker:hover {
+        border-color: #32BCC7;
+        background-color: #f0fafa;
+    }
+
+    /* Disabled state */
+    .form-date-picker:disabled {
+        background-color: #f5f5f5;
+        border-color: #ccc;
+        color: #999;
+        cursor: not-allowed;
+    }
+
+/* Calendar icon */
+.calendar-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #32BCC7;
+    font-size: 20px;
+    pointer-events: none;
+}
+
+.react-datepicker-wrapper{
+    align-items:center;
+}
+/* Icon hover interaction */
+.form-date-picker-wrapper:hover .calendar-icon {
+    color: #598199;
+    transition: color 0.2s ease-in-out;
+}
+
+/* Calendar popup styling */
+.react-datepicker {
+    border: 2px solid #32BCC7 !important;
+    border-radius: 10px !important;
+}
+
+.react-datepicker__header {
+    background-color: #e8f3f3 !important;
+    border-bottom: 1px solid #32BCC7 !important;
+}
+
+.react-datepicker__day--selected {
+    background-color: #32BCC7 !important;
+    color: white !important;
+}
+
+.react-datepicker__day--keyboard-selected {
+    background-color: #32BCC7 !important;
+}
+
+/* This ensures the wrapper, input container, and input all take the specified width */
+.full-width-datepicker,
+.full-width-datepicker > div.react-datepicker-wrapper,
+.full-width-datepicker > div > div.react-datepicker__input-container,
+.full-width-datepicker > div > div.react-datepicker__input-container input {
+    width: 80%; /* or any specific width like 300px */
+}
+

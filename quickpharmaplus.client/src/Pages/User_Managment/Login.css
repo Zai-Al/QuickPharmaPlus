@@ -3,6 +3,10 @@
     min-height: 100%;
 }
 
+p {
+    font-family: 'Segoe UI', Arial, sans-serif !important;
+}
+
 /* LEFT BACKGROUND */
 .login-left {
     width: 45%;

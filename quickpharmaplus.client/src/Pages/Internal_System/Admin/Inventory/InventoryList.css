@@ -1,0 +1,64 @@
+/* ----------------------------------------- */
+/*                PAGE LAYOUT                */
+/* ----------------------------------------- */
+
+.inventory-page {
+    width: 100%;
+    padding: 2rem 0;
+}
+
+.inventory-title {
+    margin-bottom: 2rem;
+}
+
+/* ----------------------------------------- */
+/*                  TABLE                    */
+/* ----------------------------------------- */
+
+.inventory-table-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.inventory-table th {
+    background-color: #e8f3f3;
+    text-align: center;
+    font-weight: 600;
+}
+
+.inventory-table td {
+    text-align: center;
+}
+
+/* ----------------------------------------- */
+/*            SPECIAL BUTTON (Search)         */
+/* ----------------------------------------- */
+
+.search-btn {
+    height: 40px;
+    padding: 0 20px;
+    background-color: #4f7d8a;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+    .search-btn:hover {
+        background-color: #7fa4af;
+    }
+
+/* ----------------------------------------- */
+/*                  MODAL                    */
+/* ----------------------------------------- */
+
+.delete-modal-content {
+    border-radius: 18px;
+    padding: 1rem 0;
+}
+
+.delete-text {
+    font-size: 1.1rem;
+    font-weight: 500;
+}

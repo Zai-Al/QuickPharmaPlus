@@ -1,0 +1,294 @@
+﻿/* -------------------------------------------------- */
+/*            FILTER SECTION MAIN WRAPPER             */
+/* -------------------------------------------------- */
+
+.filter-section-wrapper {
+    max-width: 1200px; /* SAME as the table */
+    margin: 0 auto 2rem auto;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    /* NEW — ensures exact left and right alignment */
+    padding: 0 0;
+}
+
+/* -------------------------------------------------- */
+/*               LEFT SIDE (TEXT INPUTS)              */
+/* -------------------------------------------------- */
+
+.filter-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* -------------------------------------------------- */
+/*              RIGHT SIDE (BUTTONS AREA)             */
+/* -------------------------------------------------- */
+
+.filter-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* -------------------------------------------------- */
+/*               REUSABLE TEXT FIELD STYLE            */
+/* -------------------------------------------------- */
+
+.filter-text-input {
+    width: 340px;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.95rem;
+    margin-right: 2em;
+}
+
+    .filter-text-input:focus,
+    .filter-dropdown:focus {
+        border-color: #598199 !important;
+        box-shadow: 0 0 5px rgba(89,129,153,0.5) !important;
+    }
+
+/* -------------------------------------------------- */
+/*              REUSABLE DROPDOWN FILTER              */
+/* -------------------------------------------------- */
+
+.filter-dropdown {
+    width: 340px;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.95rem;
+    margin-right: 2em;
+}
+
+/* -------------------------------------------------- */
+/*            REUSEABLE PAGINATION COMPONENT          */
+/* -------------------------------------------------- */
+
+.pagination-container {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 18px;
+    font-weight: 500;
+}
+
+.pagination-placeholder {
+    margin-top: 20px;
+    text-align: center;
+    font-weight: 500;
+    color: #1D2D44; /* Dark blue */
+    font-size: 15px;
+}
+
+.pagination-btn {
+    background: none;
+    border: none;
+    color: #1D2D44; /* Dark blue */
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+    .pagination-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+.pagination-pages {
+    display: flex;
+    gap: 8px;
+}
+
+.pagination-page-btn {
+    background: white;
+    border: 1px solid #1D2D44;
+    color: #1D2D44;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+    .pagination-page-btn:hover {
+        background: #1D2D44;
+        color: white;
+    }
+
+    .pagination-page-btn.active {
+        background: #1D2D44;
+        color: white;
+    }
+
+/* -------------------------------------------------- */
+/*              REUSABLE DATE PICKER FILTER           */
+/* -------------------------------------------------- */
+
+/* Wrapper around input + icon */
+.date-picker-wrapper {
+    position: relative;
+    width: 300px; /* same width as your filters */
+    margin-right: 2em;
+}
+
+/* Your input styling */
+.filter-date-picker {
+    width: 340px;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.95rem;
+    background-color: #e8f3f3;
+    color: #333;
+    border: 2px solid #32BCC7;
+    cursor: pointer;
+    margin-right: 2em;
+}
+
+    /* Prevent text cursor */
+    .filter-date-picker:read-only {
+        caret-color: transparent;
+    }
+
+    /* Placeholder styling */
+    .filter-date-picker::placeholder {
+        color: #598199;
+        opacity: 0.8;
+        font-style: italic;
+    }
+
+    /* Focus state */
+    .filter-date-picker:focus {
+        border-color: #598199 !important;
+        box-shadow: 0 0 6px rgba(89,129,153,0.5) !important;
+        outline: none;
+    }
+
+    /* Hover state */
+    .filter-date-picker:hover {
+        border-color: #32BCC7;
+        background-color: #f0fafa;
+    }
+
+    /* Disabled state */
+    .filter-date-picker:disabled {
+        background-color: #f5f5f5;
+        border-color: #ccc;
+        color: #999;
+        cursor: not-allowed;
+    }
+
+/* Calendar icon */
+.calendar-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #32BCC7;
+    font-size: 20px;
+    pointer-events: none;
+}
+
+/* Icon hover interaction */
+.date-picker-wrapper:hover .calendar-icon {
+    color: #598199;
+    transition: color 0.2s ease-in-out;
+}
+
+/* Calendar popup styling */
+.react-datepicker {
+    border: 2px solid #32BCC7 !important;
+    border-radius: 10px !important;
+}
+
+.react-datepicker__header {
+    background-color: #e8f3f3 !important;
+    border-bottom: 1px solid #32BCC7 !important;
+}
+
+.react-datepicker__day--selected {
+    background-color: #32BCC7 !important;
+    color: white !important;
+}
+
+.react-datepicker__day--keyboard-selected {
+    background-color: #32BCC7 !important;
+}
+
+
+/* ========================================================= */
+/* ================= FORM WRAPPER SECTION ================== */
+/* ========================================================= */
+.form-wrapper-container {
+    width: 80%;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* spreads title + form */
+    background: white;
+    padding: 40px 50px;
+    margin-top: 10px;
+    margin-bottom:2em;
+    t
+}
+
+.form-wrapper-title {
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 30px;
+    text-align:left;
+    margin-left: 5.5em;
+}
+
+.add-category-form {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* evenly distributes all child elements */
+    height: 100%;
+    align-items: center;
+    gap:2em;
+}
+
+/* -------------------------------------------------- */
+/*               REUSABLE INPUT TEXT FIELD            */
+/* -------------------------------------------------- */
+
+.input-text-field {
+    width: 70%;
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-size: 1rem;
+    margin-bottom: 25px;
+    /* Prevent Bootstrap dark mode override */
+    background-color: white !important;
+    color: #333 !important;
+}
+
+    /* Focus styling (same as your filter text input) */
+    .input-text-field:focus {
+        border-color: #598199 !important;
+        box-shadow: 0 0 5px rgba(89,129,153,0.5) !important;
+        background-color: white !important;
+        color: #333 !important;
+    }
+
+    /* Placeholder color */
+    .input-text-field::placeholder {
+        color: #777 !important;
+    }
+
+
+/* ========================================================= */
+/* ==================== IMAGE PREVIEW ====================== */
+/* ========================================================= */
+.preview-img {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 6px;
+    margin-top: 15px;
+}

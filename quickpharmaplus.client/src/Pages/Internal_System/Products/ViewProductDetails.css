@@ -1,0 +1,87 @@
+/* ============================================
+   PRODUCT DETAILS PAGE — MAIN CONTAINER
+   ============================================ */
+.product-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 20px;
+    border: 1px solid #dddddd;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    background-color: #ffffff;
+}
+
+/* ============================================
+   PRODUCT NAME
+   ============================================ */
+.product-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #333;
+}
+
+/* ============================================
+   IMAGE BOX
+   ============================================ */
+.product-image-box {
+    width: 150px;
+    height: 150px;
+    border: 1px solid #cccccc;
+    border-radius: 8px;
+    background-color: #f7f7f7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #777;
+    font-size: 14px;
+}
+
+/* ============================================
+   CARD GENERAL STYLE
+   ============================================ */
+.card {
+    border-radius: 10px !important;
+    background-color: #ffffff !important;
+    border: 1px solid #d6d6d6 !important;
+}
+
+.card-header {
+    background-color: #f3f3f3 !important;
+    border-bottom: 1px solid #d6d6d6 !important;
+    padding: 12px 18px !important;
+    border-top-left-radius: 10px !important;
+    border-top-right-radius: 10px !important;
+}
+
+.card-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
+    color: #333;
+}
+
+.card-body {
+    padding: 18px !important;
+}
+
+.card-text {
+    font-size: 15px;
+    color: #555;
+    line-height: 1.6;
+}
+
+/* ============================================
+   RESPONSIVE LAYOUT
+   ============================================ */
+@media (max-width: 768px) {
+    .product-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 20px;
+    }
+
+    .product-image-box {
+        margin: 0 auto;
+    }
+}

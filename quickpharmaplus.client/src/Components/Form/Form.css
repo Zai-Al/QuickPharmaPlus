@@ -1,0 +1,91 @@
+.add-btn-custom {
+    background-color: #598199 !important; /* Blue-grey */
+    border-color: #598199 !important;
+    color: white !important;
+    border-radius: 8px;
+    font-weight: 500;
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 80% !important;
+    
+    margin-bottom: 2em;
+}
+
+    .add-btn-custom:hover {
+        background-color: #47627A !important;
+        border-color: #47627A !important;
+        text-decoration: none !important;
+    }
+
+
+.form-text-input {
+    width: 80%;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.95rem;
+}
+
+    .form-text-input:focus,
+    .form-dropdown:focus {
+        border-color: #598199 !important;
+        box-shadow: 0 0 5px rgba(89,129,153,0.5) !important;
+    }
+
+
+/* ========================================================= */
+/*                       UPLOAD BUTTON                       */
+/* ========================================================= */
+.upload-btn {
+    width: 80%;
+    background-color: #93d3d3;
+    padding: 12px;
+    text-align: center;
+    font-size: 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: white;
+    font-weight: 600;
+    margin-bottom: 25px;
+}
+
+.upload-icon {
+    margin-right: 8px;
+}
+
+.file-input {
+    display: none;
+}
+
+/* -------------------------------------------------- */
+/*              REUSABLE DROPDOWN FILTER              */
+/* -------------------------------------------------- */
+
+.form-dropdown {
+    width: 80%;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.95rem;
+}
+
+
+.city-dropdown {
+    width: 70%;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.95rem;
+}
+
+.city-text-input {
+    width: 70%;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.95rem;
+}
+
+.city-input:focus,
+.city-dropdown:focus {
+    border-color: #598199 !important;
+    box-shadow: 0 0 5px rgba(89,129,153,0.5) !important;
+}

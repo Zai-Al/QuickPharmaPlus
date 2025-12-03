@@ -1,0 +1,193 @@
+/* ----------------------------------------- */
+/*                PAGE LAYOUT                */
+/* ----------------------------------------- */
+
+.employees-page {
+    width: 100%;
+    padding: 2rem 0;
+}
+
+.employees-title {
+    margin-bottom: 2rem;
+}
+
+/* ----------------------------------------- */
+/*                  TABLE                    */
+/* ----------------------------------------- */
+
+.employees-table-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.employees-table th {
+    background-color: #e8f3f3;
+    text-align: center;
+    font-weight: 600;
+}
+
+.employees-table td {
+    text-align: center;
+}
+
+/* ----------------------------------------- */
+/*                  MODAL                    */
+/* ----------------------------------------- */
+
+.delete-modal-content {
+    border-radius: 18px;
+    padding: 1rem 0;
+}
+
+.delete-text {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+
+/* ========================================================= */
+/* ===============  ADD EMPLOYEE PAGE STYLING  ============== */
+/* ========================================================= */
+
+.add-employee-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 30px;
+}
+
+.add-employee-header {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* title centered */
+    position: relative; /* allows absolute cancel button */
+    width: 100%;
+}
+
+
+/* --- MAIN PAGE TITLE --- */
+.add-employee-title {
+    font-weight: 700;
+    text-align: center;
+    width: 100%;
+}
+
+.add-employee-header .internal-cancel-btn {
+    position: absolute;
+    right: 110px; /* match Edit Profile */
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* --- FORM CONTAINER PANEL --- */
+.add-employee-container {
+    width: 80%;             /* Same width as your screenshot */
+    min-height: 100%;         /* Taller because more fields */
+    background: white;
+    padding: 40px 50px;
+    margin-top: 10px;
+}
+
+/* --- SECTION TITLE INSIDE FORM (the black bold title) --- */
+.add-employee-header {
+    font-weight: 600;
+    margin-bottom: 10px;
+    text-align: center;
+    font-size: 22px;
+}
+
+/* --- FORM (centers fields vertically & horizontally) --- */
+.add-employee-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap:1em;
+}
+
+/* --- FIXED WIDTH INPUTS (match screenshot) --- */
+.add-employee-input {
+    width: auto;  /* fields on the left before address section */
+    padding: 12px 14px;
+    font-size: 16px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    margin-bottom: 25px;
+}
+
+/* --- DROPDOWN (role select) --- */
+.add-employee-select {
+    width: 500px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    margin-bottom: 25px;
+    background-color: white;
+}
+
+/* --- ADDRESS GRID (City + Block, Road + Building) --- */
+.add-employee-grid {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    width: 100%;
+    margin-bottom: 25px;
+}
+
+/* --- SMALL INPUTS (City, Block, Road, Building) --- */
+.add-employee-small-input {
+    width: 230px;
+    padding: 12px 14px;
+    font-size: 16px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+}
+
+/* --- BUTTON WRAPPER (centers the Add button) --- */
+.add-employee-btn-wrapper {
+    margin-top: 25px;
+    width: 100%;     /* same width as text fields */
+    text-align: center;
+}
+/* ========================================================= */
+/* ===============  ADDRESS SECTION STYLING  ================ */
+/* ========================================================= */
+
+/* Two items per row */
+.address-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 1em;
+    margin-bottom: 1em;
+}
+
+
+/* Each Address Input (City, Block, Road, Building) */
+.address-input {
+    width: 150px !important;
+    height: 40px !important; 
+    padding: 8px 10px;
+    font-size: 14px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+}
+
+
+.address-row {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem; /* space between City and Block */
+    width: 80%;
+}
+
+.address-column {
+    flex: 1; /* each item takes equal full space */
+    max-width: 500px; /* match your other large inputs */
+}
+
+    .address-column select,
+    .address-column input {
+        width: 100%; /* makes the field fill the whole column */
+    }

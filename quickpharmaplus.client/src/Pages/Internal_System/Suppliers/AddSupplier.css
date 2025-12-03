@@ -1,0 +1,53 @@
+/* ================================
+   PAGE BASE
+================================ */
+.add-supplier-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 40px;
+}
+
+/* ================================
+   FORM
+================================ */
+.add-supplier-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.2em;
+}
+
+/* ================================
+   ADDRESS ROWS (Updated)
+================================ */
+.address-row {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem; /* matches AddEmployee spacing */
+    width: 80%;
+    margin-bottom: 1em;
+}
+
+.address-column {
+    flex: 1; /* each field takes equal width */
+    max-width: 500px; /* same width as AddEmployee's input fields */
+}
+
+    /* Ensures dropdown & input fill the entire column */
+    .address-column select,
+    .address-column input {
+        width: 100%;
+    }
+
+/* Input styling for Block, Road, Building (same as AddEmployee) */
+.address-input {
+    width: 150px !important;
+    height: 40px !important;
+    padding: 8px 10px;
+    font-size: 14px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+}
