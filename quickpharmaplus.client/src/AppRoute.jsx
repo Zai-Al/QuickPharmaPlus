@@ -59,6 +59,8 @@ import SafetyCheck from "./Pages/Internal_System/SafetyCheck/SafetyCheck.jsx";
 import HealthProfile from "./Pages/External_System/Health_Profile/HomeProfile.jsx";
 import PrescriptionDetails from "./Pages/External_System/Health_Profile/PrescriptionDetails.jsx";
 import PlanDetails from "./Pages/External_System/Health_Profile/PlanDetails.jsx";
+import MyOrders from "./Pages/External_System/My_Orders/MyOrders.jsx";
+import MyOrderDetails from "./Pages/External_System/My_Orders/MyOrderDetails.jsx";
 
 export default function AppRoutes() {
     return (
@@ -365,19 +367,42 @@ export default function AppRoutes() {
                             />
 
                             {/* External system pages */} 
-                            <Route path="/healthProfile" element=<ProtectedRoute allowedRoles={["Customer"]}>
+
+                            <Route path="/myOrders" element={<ProtectedRoute allowedRoles={["Customer"]}>
+                                <MyOrders />
+                            </ProtectedRoute>
+                            }
+                            />
+
+                            <Route path="/healthProfile" element={<ProtectedRoute allowedRoles={["Customer"]}>
                                 <HealthProfile />
-                            </ProtectedRoute> />
+                            </ProtectedRoute>
+                            }
+                            />
+
+                            <Route
+                                path="/myOrderDetails/:id"
+                                element={<ProtectedRoute allowedRoles={["Customer"]}>
+                                    <MyOrderDetails />
+                                </ProtectedRoute>
+                                }
+                            />
 
                             <Route
                                 path="/prescriptions/:id"
-                                element=<ProtectedRoute allowedRoles={["Customer"]}>
+                                element={<ProtectedRoute allowedRoles={["Customer"]}>
                                     <PrescriptionDetails />
-                           </ProtectedRoute> />
+                                </ProtectedRoute>
+                                }
+                            />
 
-                            <Route path="/PlanDetails/:id" element=<ProtectedRoute allowedRoles={["Customer"]}>
+                            <Route path="/PlanDetails/:id" element={<ProtectedRoute allowedRoles={["Customer"]}>
                                 <PlanDetails />
-                            </ProtectedRoute> />
+                            </ProtectedRoute>
+                            }
+                            />
+
+                            
 
                         </Routes>
                     </Layout>

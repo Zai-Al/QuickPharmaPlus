@@ -172,6 +172,10 @@ export default function Navbar() {
                     {isCustomer && (
                         <>
                             <li className="nav-item">
+                                <NavLink to="/myOrders" className="nav-link px-3">My Orders</NavLink>
+                            </li>
+
+                            <li className="nav-item">
                                 <NavLink to="/healthProfile" className="nav-link px-3">Health Profile</NavLink>
                             </li>
 

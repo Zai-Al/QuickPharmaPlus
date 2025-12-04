@@ -29,7 +29,7 @@ export default function DialogModal({
                         </div>
 
                         <div className="modal-body">
-                            <p>{body}</p>
+                            {typeof body === "string" ? <p>{body}</p> : body}
                         </div>
 
                         <div className="modal-footer">

@@ -1,14 +1,11 @@
 import TableFormat from "./TableFormat";
-
-function formatCurrency(amount, currency = "BHD") {
-    if (amount == null || isNaN(amount)) return `0.00 ${currency}`;
-    return `${amount.toFixed(2)} ${currency}`;
-}
+import formatCurrency from "../Shared_Components/formatCurrency.js";
 
 export default function OrderItemsTable({
     items = [],
     currency = "BHD",
     shippingMethod = "", // "", "pickup", "delivery"
+    title = "Prescription Summary",
 }) {
     const DELIVERY_FEE_DELIVERY = 1.0; // when delivery is chosen
 
@@ -30,7 +27,7 @@ export default function OrderItemsTable({
 
     return (
         <div className="order-items-table">
-            <h5 className="mt-4 mb-3 text-start">Prescription Summary</h5>
+            <h5 className="mt-4 mb-3 text-start">{title}</h5>
 
             <TableFormat headers={["Product", "Price", "Quantity", "Subtotal"]}>
                 {/* Item rows */}
