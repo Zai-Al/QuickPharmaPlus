@@ -24,7 +24,7 @@ namespace QuickPharmaPlus.Server.Repositories
                 })
                 .ToListAsync();
         }
-       
+
         // 2. GET CATEGORY BY ID
         public async Task<Category?> GetCategoryByIdAsync(int id)
         {

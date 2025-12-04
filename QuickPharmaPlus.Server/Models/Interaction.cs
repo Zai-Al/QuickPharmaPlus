@@ -28,4 +28,16 @@ public partial class Interaction
 
     [Column("IngredientB_id")]
     public int? IngredientBId { get; set; }
+
+    [ForeignKey("IngredientAId")]
+    [InverseProperty("InteractionIngredientAs")]
+    public virtual Ingredient? IngredientA { get; set; }
+
+    [ForeignKey("IngredientBId")]
+    [InverseProperty("InteractionIngredientBs")]
+    public virtual Ingredient? IngredientB { get; set; }
+
+    [ForeignKey("InteractionTypeId")]
+    [InverseProperty("Interactions")]
+    public virtual InteractionType? InteractionType { get; set; }
 }

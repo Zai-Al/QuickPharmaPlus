@@ -20,6 +20,9 @@ public partial class Ingredient
     [InverseProperty("Ingredient")]
     public virtual ICollection<IngredientProduct> IngredientProducts { get; set; } = new List<IngredientProduct>();
 
-    [InverseProperty("Ingredient")]
-    public virtual ICollection<Interaction> Interactions { get; set; } = new List<Interaction>();
+    [InverseProperty("IngredientA")]
+    public virtual ICollection<Interaction> InteractionIngredientAs { get; set; } = new List<Interaction>();
+
+    [InverseProperty("IngredientB")]
+    public virtual ICollection<Interaction> InteractionIngredientBs { get; set; } = new List<Interaction>();
 }
