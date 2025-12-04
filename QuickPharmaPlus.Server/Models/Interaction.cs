@@ -7,10 +7,10 @@ using Microsoft.EntityFrameworkCore;
 namespace QuickPharmaPlus.Server.Models;
 
 [Table("Interaction")]
-[Index("IngredientAId", Name = "IX_Interaction_IngredientA")]
-[Index("IngredientBId", Name = "IX_Interaction_IngredientB")]
+[Index("IngredientAId", Name = "IXFK_Interaction_Ingredient")]
+[Index("IngredientAId", Name = "IXFK_Interaction_Ingredient_02")]
 [Index("InteractionTypeId", Name = "IXFK_Interaction_Interaction_Type")]
-
+[Index("IngredientAId", "IngredientBId", Name = "UQ_IngredientPairs", IsUnique = true)]
 public partial class Interaction
 {
     [Key]
@@ -28,16 +28,4 @@ public partial class Interaction
 
     [Column("IngredientB_id")]
     public int? IngredientBId { get; set; }
-
-    [ForeignKey("IngredientAId")]
-    [InverseProperty("InteractionsA")]
-    public virtual Ingredient? IngredientA { get; set; }
-
-    [ForeignKey("IngredientBId")]
-    [InverseProperty("InteractionsB")]
-    public virtual Ingredient? IngredientB { get; set; }
-
-    [ForeignKey("InteractionTypeId")]
-    [InverseProperty("Interactions")]
-    public virtual InteractionType? InteractionType { get; set; }
 }
