@@ -32,9 +32,6 @@ public partial class Inventory
     [InverseProperty("Inventories")]
     public virtual Branch? Branch { get; set; }
 
-    [InverseProperty("Inventory")]
-    public virtual ICollection<Log> Logs { get; set; } = new List<Log>();
-
     [ForeignKey("ProductId")]
     [InverseProperty("Inventories")]
     public virtual Product? Product { get; set; }

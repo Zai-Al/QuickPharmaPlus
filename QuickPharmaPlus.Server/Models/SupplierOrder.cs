@@ -38,6 +38,18 @@ public partial class SupplierOrder
     [Column("Supplier_Order_Type_id")]
     public int? SupplierOrderTypeId { get; set; }
 
+    [ForeignKey("EmployeeId")]
+    [InverseProperty("SupplierOrders")]
+    public virtual User? Employee { get; set; }
+
+    [ForeignKey("ProductId")]
+    [InverseProperty("SupplierOrders")]
+    public virtual Product? Product { get; set; }
+
+    [ForeignKey("SupplierId")]
+    [InverseProperty("SupplierOrders")]
+    public virtual Supplier? Supplier { get; set; }
+
     [ForeignKey("SupplierOrderTypeId")]
     [InverseProperty("SupplierOrders")]
     public virtual SupplierOrderType? SupplierOrderType { get; set; }
