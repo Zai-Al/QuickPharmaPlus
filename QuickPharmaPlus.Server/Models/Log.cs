@@ -28,4 +28,11 @@ public partial class Log
     [ForeignKey("LogTypeId")]
     [InverseProperty("Logs")]
     public virtual LogType? LogType { get; set; }
+
+    [InverseProperty("Log")]
+    public virtual ICollection<Report> Reports { get; set; } = new List<Report>();
+
+    [ForeignKey("UserId")]
+    [InverseProperty("Logs")]
+    public virtual User? User { get; set; }
 }

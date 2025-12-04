@@ -62,6 +62,9 @@ public partial class User
     public virtual ICollection<HealthProfile> HealthProfiles { get; set; } = new List<HealthProfile>();
 
     [InverseProperty("User")]
+    public virtual ICollection<Log> Logs { get; set; } = new List<Log>();
+
+    [InverseProperty("User")]
     public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
 
     [InverseProperty("User")]

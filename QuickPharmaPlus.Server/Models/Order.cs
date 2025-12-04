@@ -32,9 +32,6 @@ public partial class Order
     [Column("Shipping_id")]
     public int? ShippingId { get; set; }
 
-    [InverseProperty("Order")]
-    public virtual ICollection<Log> Logs { get; set; } = new List<Log>();
-
     [ForeignKey("OrderStatusId")]
     [InverseProperty("Orders")]
     public virtual OrderStatus? OrderStatus { get; set; }
