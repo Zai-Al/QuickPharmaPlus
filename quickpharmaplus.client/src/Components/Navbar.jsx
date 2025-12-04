@@ -186,6 +186,10 @@ export default function Navbar() {
                             <li className="nav-item">
                                 <NavLink to="/privacy" className="nav-link px-3">Privacy Policy</NavLink>
                             </li>
+
+                            <li className="nav-item">
+                                <NavLink to="/cart" className="nav-link px-3">Cart</NavLink>
+                            </li>
                         </>
                     )}
 

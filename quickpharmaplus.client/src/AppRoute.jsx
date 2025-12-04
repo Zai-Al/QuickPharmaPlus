@@ -61,6 +61,7 @@ import PrescriptionDetails from "./Pages/External_System/Health_Profile/Prescrip
 import PlanDetails from "./Pages/External_System/Health_Profile/PlanDetails.jsx";
 import MyOrders from "./Pages/External_System/My_Orders/MyOrders.jsx";
 import MyOrderDetails from "./Pages/External_System/My_Orders/MyOrderDetails.jsx";
+import Cart from "./Pages/External_System/Cart_And_Wish_List/Cart.jsx";
 
 export default function AppRoutes() {
     return (
@@ -376,6 +377,12 @@ export default function AppRoutes() {
 
                             <Route path="/healthProfile" element={<ProtectedRoute allowedRoles={["Customer"]}>
                                 <HealthProfile />
+                            </ProtectedRoute>
+                            }
+                            />
+
+                            <Route path="/cart" element={<ProtectedRoute allowedRoles={["Customer"]}>
+                                <Cart />
                             </ProtectedRoute>
                             }
                             />
