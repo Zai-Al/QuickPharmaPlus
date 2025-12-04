@@ -3,7 +3,8 @@ import iconApproved from "../../../assets/icons/status-approved.svg";
 import iconPending from "../../../assets/icons/status-pending.svg";
 import iconRejected from "../../../assets/icons/status-rejected.svg";
 import iconExpired from "../../../assets/icons/status-expired.svg";
-
+import iconDelivery from "../../../assets/icons/status-delivery.svg";
+import iconCompleted from "../../../assets/icons/status-completed.svg";
 
 const STATUS_UI_MAP = {
     // Shared statuses
@@ -32,23 +33,27 @@ const STATUS_UI_MAP = {
         icon: iconApproved,
         label: "Ongoing",
     },
-
-    // Add as many as you want here:
-    // "In Progress": {
-    //     color: "#3B82F6",
-    //     icon: iconInProgress,
-    //     label: "In Progress",
-    // },
-    // "On Hold": {
-    //     color: "#A855F7",
-    //     icon: iconOnHold,
-    //     label: "On Hold",
-    // },
-    // "Ready for Pickup": {
-    //     color: "#22C55E",
-    //     icon: iconPickup,
-    //     label: "Ready for Pickup",
-    // },
+    Confirmed: {
+        color: "#1FCB87",
+        icon: iconApproved,
+        label: "Confirmed",
+    },
+    Completed: {
+        color: "#9AA09E",
+        icon: iconCompleted,
+        label: "Completed",
+    },
+    "Out for Delivery": {
+        color: "#1D59FE",
+        icon: iconDelivery,
+        label: "Out for Delivery",
+    },
+    Cancelled: {
+        color: "#EB5757",
+        icon: iconRejected,
+        label: "Cancelled",
+    },
+    
 };
 
 // Helper function every page can use
