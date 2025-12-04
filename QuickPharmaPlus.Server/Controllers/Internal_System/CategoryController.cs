@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using QuickPharmaPlus.Server.Models;
-using QuickPharmaPlus.Server.Repositories;
 using QuickPharmaPlus.Server.ModelsDTO.Category;       // <-- You will create this folder/file
 using Microsoft.AspNetCore.Http;
+using QuickPharmaPlus.Server.Repositories.Implementation;
 
 namespace QuickPharmaPlus.Server.Controllers
 {

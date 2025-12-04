@@ -10,7 +10,9 @@ import ImagePreview from "../../../../Components/InternalSystem/GeneralComponent
 import FormWrapper from "../../../../Components/InternalSystem/GeneralComponents/Form";
 
 import FormHeader from "../../../../Components/InternalSystem/FormHeader";
+
 export default function AddCategory() {
+
     const [categoryName, setCategoryName] = useState("");
     const [categoryImage, setCategoryImage] = useState(null);
     const [previewImage, setPreviewImage] = useState(null);
@@ -18,7 +20,6 @@ export default function AddCategory() {
     const [successMessage, setSuccessMessage] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
 
-    // validation
     const [nameError, setNameError] = useState("");
     const [isNameTouched, setIsNameTouched] = useState(false);
 
@@ -36,16 +37,12 @@ export default function AddCategory() {
 
     /* ---------------------- VALIDATION LOGIC ---------------------- */
     const validateName = (value) => {
-        if (!value.trim()) {
-            return "Category name is required.";
-        }
-        if (value.trim().length < 3) {
-            return "Category name must be at least 3 characters.";
-        }
+        if (!value.trim()) return "Category name is required.";
+        if (value.trim().length < 3) return "Category name must be at least 3 characters.";
         return "";
     };
 
-    /* -------------------------- SUBMIT FORM -------------------------- */
+    /* ---------------------- SUBMIT FORM ---------------------- */
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -65,10 +62,13 @@ export default function AddCategory() {
             formData.append("CategoryImage", categoryImage);
         }
 
+        // Use dynamic API URL from Vite config
+        const baseURL = import.meta.env.VITE_API_BASE_URL;
+
         try {
-            const response = await fetch("https://localhost:7231/api/Category/add", {
+            const response = await fetch(`${baseURL}/api/Category/add`, {
                 method: "POST",
-                body: formData,
+                body: formData
             });
 
             console.log("Response status:", response.status);
@@ -92,7 +92,6 @@ export default function AddCategory() {
         <div className="add-category-page">
             <FormHeader title="Add New Category Record" to="/categories" />
 
-
             {/* ---------------- SUCCESS ALERT ---------------- */}
             {successMessage && (
                 <div className="alert alert-dismissible alert-success">
@@ -112,37 +111,33 @@ export default function AddCategory() {
             <FormWrapper title="Enter New Category Details:">
                 <form className="add-category-form" onSubmit={handleSubmit}>
 
-                    {/* -------- CATEGORY NAME VALIDATION -------- */}
-                        <TextField
-                            placeholder="Enter Category Name"
-                            value={categoryName}
-                            onChange={(e) => {
-                                const value = e.target.value;
-                                setCategoryName(value);
-                                setIsNameTouched(true);
-                                setNameError(validateName(value));
-                            }}
-                            onBlur={() => setIsNameTouched(true)}
-                        />
+                    <TextField
+                        placeholder="Enter Category Name"
+                        value={categoryName}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            setCategoryName(value);
+                            setIsNameTouched(true);
+                            setNameError(validateName(value));
+                        }}
+                        onBlur={() => setIsNameTouched(true)}
+                    />
 
-                        {nameError && isNameTouched && (
-                            <div className="invalid-feedback d-block">
-                                {nameError}
-                            </div>
-                        )}
+                    {nameError && isNameTouched && (
+                        <div className="invalid-feedback d-block">
+                            {nameError}
+                        </div>
+                    )}
 
-                    {/* -------- IMAGE UPLOAD -------- */}
                     <UploadButton
                         text="Upload Category Photo"
                         onUpload={handleUpload}
                     />
 
-                    {/* -------- IMAGE PREVIEW -------- */}
                     <ImagePreview src={previewImage} />
 
-                    {/* -------- SUBMIT BUTTON -------- */}
-                        {/*<AddButton text="Add New Category" type="submit" />*/}
-                        <AddButton text="Add New Category" />
+                    <AddButton text="Add New Category" type="submit" />
+
                 </form>
             </FormWrapper>
         </div>

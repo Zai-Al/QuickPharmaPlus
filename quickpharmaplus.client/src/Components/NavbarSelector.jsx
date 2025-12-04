@@ -1,6 +1,6 @@
 // NavbarSelector.jsx
 import { useContext } from "react";
-import { AuthContext } from "../Context/AuthContext";
+import { AuthContext } from "../Context/AuthContext.jsx";
 import { useLocation } from "react-router-dom";
 import Navbar from "./Navbar";   // unified navbar
 

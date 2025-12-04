@@ -1,6 +1,6 @@
 ﻿import { useContext } from "react";
 import { Navigate } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
+import { AuthContext } from "../context/AuthContext.jsx";
 
 // This component protects routes based on authentication and optionally role.
 export default function ProtectedRoute({ children, allowedRoles }) {

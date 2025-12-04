@@ -1,7 +1,7 @@
 ﻿using QuickPharmaPlus.Server.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace QuickPharmaPlus.Server.Repositories
+namespace QuickPharmaPlus.Server.Repositories.Implementation
 {
     public class CategoryRepository
     {

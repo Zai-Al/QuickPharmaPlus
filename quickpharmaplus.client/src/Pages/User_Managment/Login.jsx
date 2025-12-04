@@ -2,15 +2,13 @@ import "./Login.css";
 import background from "../../assets/Background.png";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useContext } from "react";
-import axios from "axios";
-import { AuthContext } from "../../context/AuthContext";
+import { AuthContext } from "../../context/AuthContext.jsx";
 
 export default function Login() {
 
     const navigate = useNavigate();
 
     // Access the global authentication context
-    // setUser will store the logged-in user in global state
     const { setUser } = useContext(AuthContext);
 
     // Local state for form inputs and error message
@@ -23,23 +21,32 @@ export default function Login() {
         e.preventDefault();
         setError("");
 
+        // Use the environment variable we configured
+        const baseURL = import.meta.env.VITE_API_BASE_URL;
+
         try {
-            // Send login request to backend API
-            const response = await axios.post("https://localhost:7231/api/auth/login", {
-                email: email,
-                password: password
+            // Make the login request using fetch
+            const response = await fetch(`${baseURL}/api/auth/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email, password })
             });
 
-            // The response contains the logged-in user's data and roles
-            const user = response.data;
+            if (!response.ok) {
+                throw new Error("Invalid email or password.");
+            }
 
-            // Save the user in the global context (for navbar, dashboards, etc.)
+            const user = await response.json();
+
+            // Save the user in the global context
             setUser(user);
 
-            // Save to localStorage to keep user logged-in after refresh
+            // Save to localStorage to keep the user logged in after a page refresh
             localStorage.setItem("user", JSON.stringify(user));
 
-            // Redirect user to the correct dashboard based on their role
+            // Redirect user based on roles
             if (user.roles?.includes("Admin")) {
                 navigate("/adminDashboard");
             } else if (user.roles?.includes("Pharmacist")) {
@@ -53,11 +60,11 @@ export default function Login() {
             }
 
         } catch (err) {
-            // This runs if the login fails
             console.error("LOGIN ERROR:", err);
             setError("Invalid email or password.");
         }
     };
+
 
     return (
         <div className="login-wrapper d-flex">
@@ -80,12 +87,12 @@ export default function Login() {
 
                 <div className="login-box">
 
-                    {/* Display error message if login fails */}
+                    {/* Display error message */}
                     {error && (
                         <div className="alert alert-danger py-2">{error}</div>
                     )}
 
-                    {/* Email input */}
+                    {/* Email */}
                     <label className="form-label fw-bold mt-3 login-label">Email</label>
                     <input
                         type="email"
@@ -95,7 +102,7 @@ export default function Login() {
                         onChange={(e) => setEmail(e.target.value)}
                     />
 
-                    {/* Password input */}
+                    {/* Password */}
                     <label className="form-label fw-bold mt-4 login-label">Password</label>
                     <input
                         type="password"
@@ -105,7 +112,7 @@ export default function Login() {
                         onChange={(e) => setPassword(e.target.value)}
                     />
 
-                    {/* Forgot password link */}
+                    {/* Forgot password */}
                     <div className="text-end mt-2">
                         <Link to="/forgotPassword" className="login-link">
                             Forgot Password?
@@ -120,16 +127,16 @@ export default function Login() {
                         Login
                     </button>
 
-                    {/* Link to registration page */}
+                    {/* Registration link */}
                     <p className="text-center mt-3">
                         Don't have an account?{" "}
                         <Link to="/register" className="login-link">
                             Sign up
                         </Link>
                     </p>
+
                 </div>
             </div>
         </div>
     );
 }
-

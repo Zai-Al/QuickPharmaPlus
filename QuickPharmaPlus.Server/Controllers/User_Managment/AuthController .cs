@@ -1,7 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
-using QuickPharmaPlus.Server.Identity;                 // ← Namespace for ApplicationUser + IdentityContext
-using QuickPharmaPlus.Server.ModelsDTO.Auth;           // ← Namespace where LoginRequest.cs lives
+using QuickPharmaPlus.Server.Identity;
+using QuickPharmaPlus.Server.ModelsDTO.Auth;
+using QuickPharmaPlus.Server.Models;
+using Microsoft.EntityFrameworkCore;
+using QuickPharmaPlus.Server.Repositories.Interface;
 
 namespace QuickPharmaPlus.Server.Controllers.User_Management
 {
@@ -11,13 +14,19 @@ namespace QuickPharmaPlus.Server.Controllers.User_Management
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly QuickPharmaPlusDbContext _context;
+        private readonly IUserRepository _userRepository; 
 
         public AuthController(
             UserManager<ApplicationUser> userManager,
-            SignInManager<ApplicationUser> signInManager)
+            SignInManager<ApplicationUser> signInManager,
+            QuickPharmaPlusDbContext context,
+            IUserRepository userRepository)  
         {
             _userManager = userManager;
             _signInManager = signInManager;
+            _context = context;
+            _userRepository = userRepository;
         }
 
         // ===========================
@@ -44,14 +53,30 @@ namespace QuickPharmaPlus.Server.Controllers.User_Management
             // 3. Get roles
             var roles = await _userManager.GetRolesAsync(user);
 
-            // 4. Return user info + roles
+            // NEW: Get profile from your User table
+            var appUser = await _userRepository.GetUserByEmailAsync(user.Email);
+
+            if (appUser == null)
+                return Unauthorized("User profile not found.");
+
+            // 4. Return user info + roles  (your original comment stays here)
             return Ok(new
             {
                 user.Id,
                 user.Email,
                 user.UserName,
-                Roles = roles
+                Roles = roles,
+
+                //added profile fields
+                appUser.UserId,
+                appUser.FirstName,
+                appUser.LastName,
+                appUser.ContactNumber,
+                appUser.BranchId,
+                appUser.RoleId,
+                appUser.AddressId
             });
         }
+
     }
 }
