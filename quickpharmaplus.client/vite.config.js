@@ -1,5 +1,5 @@
 import { fileURLToPath, URL } from 'node:url';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
@@ -51,29 +51,38 @@ const target =
             : 'https://localhost:5001';
 
 // Final Vite config
-export default defineConfig({
-    plugins: [react()],
-    resolve: {
-        alias: {
-            '@': fileURLToPath(new URL('./src', import.meta.url)),
-        },
-    },
-    server: {
-        port: parseInt(env.DEV_SERVER_PORT || '5173'),
-        https: {
-            key: fs.readFileSync(keyFilePath),
-            cert: fs.readFileSync(certFilePath),
-        },
-        proxy: {
-            '/api': {
-                target,
-                changeOrigin: true,
-                secure: false,
+export default defineConfig(({ mode }) => {
+    // Load environment variables for the current mode (e.g., 'development')
+    const env = loadEnv(mode, process.cwd());
+
+    return {
+        plugins: [react()],
+        resolve: {
+            alias: {
+                '@': fileURLToPath(new URL('./src', import.meta.url)),
             },
         },
-    },
-    build: {
-        outDir: 'dist',
-        emptyOutDir: true,
-    },
+        server: {
+            port: parseInt(env.DEV_SERVER_PORT || '5173'),
+            https: {
+                key: fs.readFileSync(keyFilePath),
+                cert: fs.readFileSync(certFilePath),
+            },
+            proxy: {
+                '/api': {
+                    target: target,
+                    changeOrigin: true,
+                    secure: false,
+                },
+            },
+        },
+        build: {
+            outDir: 'dist',
+            emptyOutDir: true,
+        },
+        define: {
+            // Define the API base URL with a fallback
+            'import.meta.env.VITE_API_BASE_URL': JSON.stringify(env.VITE_API_BASE_URL || 'https://localhost:7231')
+        }
+    };
 });
