@@ -50,7 +50,10 @@ namespace QuickPharmaPlus.Server.Controllers.User_Management
             if (!result.Succeeded)
                 return Unauthorized("Invalid email or password.");
 
-            // 3. Get roles
+            //3. Sign in the user to create auth cookie
+            await _signInManager.SignInAsync(user, isPersistent: false);
+
+            // 4. Get roles
             var roles = await _userManager.GetRolesAsync(user);
 
             // NEW: Get profile from your User table
@@ -59,7 +62,7 @@ namespace QuickPharmaPlus.Server.Controllers.User_Management
             if (appUser == null)
                 return Unauthorized("User profile not found.");
 
-            // 4. Return user info + roles  (your original comment stays here)
+            // 5. Return user info + roles  (your original comment stays here)
             return Ok(new
             {
                 user.Id,

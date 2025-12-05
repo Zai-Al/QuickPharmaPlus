@@ -6,6 +6,9 @@ import { AuthContext } from "../Context/AuthContext.jsx";
 
 export default function Navbar() {
     const { user } = useContext(AuthContext);
+    const fName = user?.firstName || "";
+    const lName = user?.lastName || "";
+    const fullName = `${fName} ${lName}`.trim();
 
     const roles = user?.roles || [];
 
@@ -15,8 +18,6 @@ export default function Navbar() {
     const isDriver = roles.includes("Driver");
     const isEmployee = isManager || isPharmacist;
     const isCustomer = roles.includes("Customer");
-
-    const loggedInUser = user?.email || "User";
 
 
     return (
@@ -222,7 +223,7 @@ export default function Navbar() {
                     className="btn btn-dark d-flex align-items-center gap-2 px-3 py-2"
                 >
                     <i className="bi bi-person-circle fs-5"></i>
-                    {loggedInUser}
+                    {fullName}
                 </Link>
 
             </div>

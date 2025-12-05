@@ -44,7 +44,6 @@
 
   <ItemGroup>
     <Folder Include="Controllers\External_System\" />
-    <Folder Include="Controllers\User_Managment\" />
   </ItemGroup>
 
 </Project>

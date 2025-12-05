@@ -21,32 +21,59 @@ namespace QuickPharmaPlus.Server
             builder.Services.AddDbContext<IdentityContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+
             // 3) ADD IDENTITY
             builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
                 .AddEntityFrameworkStores<IdentityContext>()
                 .AddDefaultTokenProviders();
 
             // 4) COOKIES FOR REACT FRONTEND
+            // FIX — Prevent Identity from sending HTML redirect pages to API clients
             builder.Services.ConfigureApplicationCookie(options =>
             {
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.None;
                 options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-                options.LoginPath = "/api/auth/unauthorized";
+
+                // disable redirect response — return 401 instead
+                options.Events.OnRedirectToLogin = context =>
+                {
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return Task.CompletedTask;
+                };
+
+                options.Events.OnRedirectToAccessDenied = context =>
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    return Task.CompletedTask;
+                };
             });
+
 
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
             // 5) CORS FOR REACT
+            // Read allowed origin from configuration (appsettings or env). Example: "https://localhost:5173"
+            var reactOrigin = builder.Configuration["ReactDevOrigin"] ?? "https://localhost:5173";
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowReactApp", policy =>
-                    policy.AllowAnyOrigin()
+                    policy.WithOrigins(reactOrigin)   // MUST be explicit when allowing credentials
                           .AllowAnyHeader()
                           .AllowAnyMethod()
+                          .AllowCredentials()
                 );
+            });
+
+            //adding application cookies
+            builder.Services.ConfigureApplicationCookie(options =>
+            {
+                options.Cookie.SameSite = SameSiteMode.None;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+                // return 401 instead of redirect
+                options.Events.OnRedirectToLogin = ctx => { ctx.Response.StatusCode = 401; return Task.CompletedTask; };
             });
 
             //adding the repostries 
@@ -72,6 +99,7 @@ namespace QuickPharmaPlus.Server
 
             app.UseHttpsRedirection();
 
+            // Apply CORS before authentication/authorization
             app.UseCors("AllowReactApp");
             app.UseAuthentication();
             app.UseAuthorization();
@@ -116,6 +144,9 @@ namespace QuickPharmaPlus.Server
             await CreateUser(userManager, "ali.alsayegh@quickpharmaplus.com", "Manager123!", "Manager");
             await CreateUser(userManager, "maryam.aljaber@quickpharmaplus.com", "Manager123!", "Manager");
             await CreateUser(userManager, "jassim.alrumaihi@quickpharmaplus.com", "Manager123!", "Manager");
+
+            //for testing reset/forgot password
+            await CreateUser(userManager, "zainabalawi08@gmail.com", "User123!", "Manager");
 
             //Pharmacists seeding
             await CreateUser(userManager, "ahmed.alhaddad@quickpharmaplus.com", "Pharma123!", "Pharmacist");
