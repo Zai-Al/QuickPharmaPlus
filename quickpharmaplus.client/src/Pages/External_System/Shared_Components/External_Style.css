@@ -141,3 +141,40 @@ body {
 .order-summary-margin {
     margin-bottom: 2rem !important;
 }
+
+/*Cart*/
+.summary-label {
+    font-size: 1rem; /* was smaller */
+    font-weight: 500;
+}
+
+.summary-value {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.order-summary-grid {
+    display: grid;
+    grid-template-columns: 1fr auto; 
+    row-gap: 10px;
+    font-size: 1.1rem;
+    width: 60%; 
+    margin: 1.5rem auto 2rem auto;
+}
+
+.order-summary-grid div:first-child {
+    text-align: left;
+}
+
+.order-summary-grid div:nth-child(2) {
+    text-align: right;
+}
+
+
+/* Increase space below button */
+.card-body .btn {
+    margin-top: 10px;
+}
+.card {
+    padding: 1.25rem; /* default 2rem is too big */
+}
