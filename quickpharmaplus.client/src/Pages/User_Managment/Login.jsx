@@ -28,6 +28,7 @@ export default function Login() {
             // Make the login request using fetch
             const response = await fetch(`${baseURL}/api/auth/login`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json'
                 },
@@ -43,8 +44,8 @@ export default function Login() {
             // Save the user in the global context
             setUser(user);
 
-            // Save to localStorage to keep the user logged in after a page refresh
-            localStorage.setItem("user", JSON.stringify(user));
+            // Save to the session to keep the user logged in after a page refresh
+            sessionStorage.setItem("user", JSON.stringify(user));
 
             // Redirect user based on roles
             if (user.roles?.includes("Admin")) {
