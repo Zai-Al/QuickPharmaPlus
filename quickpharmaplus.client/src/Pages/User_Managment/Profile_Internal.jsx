@@ -73,13 +73,6 @@ export default function Profile_Internal() {
                         </Link>
                     </div>
 
-                    {/* RESET PASSWORD BUTTON */}
-                    <div className="text-center mt-2">
-                        <Link to="/forgotPassword" className="reset-link">
-                            Forgot Password
-                        </Link>
-                    </div>
-
                 </div> {/* <-- closes profile-box */}
 
             </div> {/* <-- closes profile-wrapper */}

@@ -63,6 +63,7 @@ export default defineConfig(({ mode }) => {
             },
         },
         server: {
+            open: false,
             port: parseInt(env.DEV_SERVER_PORT || '5173'),
             https: {
                 key: fs.readFileSync(keyFilePath),
