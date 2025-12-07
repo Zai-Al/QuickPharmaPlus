@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Mail;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
@@ -61,7 +62,15 @@ namespace QuickPharmaPlus.Server
             });
 
 
-            builder.Services.AddControllers();
+            builder.Services.AddControllers()
+                .AddJsonOptions(opts =>
+                {
+                    // Prevent System.Text.Json from throwing on entity navigation cycles
+                    opts.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+
+                    // Increase allowed depth for very deep graphs (optional)
+                    opts.JsonSerializerOptions.MaxDepth = 64;
+                });
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
@@ -98,6 +107,8 @@ namespace QuickPharmaPlus.Server
             //adding the repostries 
             builder.Services.AddScoped<CategoryRepository>();
             builder.Services.AddScoped<IUserRepository, UserRepository>();
+            builder.Services.AddScoped<ICityRepository, CityRepository>();
+
 
 
 
@@ -201,7 +212,7 @@ namespace QuickPharmaPlus.Server
 
             //for testing reset/forgot password
             await CreateUser(userManager, "zainabalawi08@gmail.com", "User123!", "Manager");
-            await CreateUser(userManager, "z.alawi@outlook.com", "Zainab123!", "Manager");
+            await CreateUser(userManager, "z.alawi@outlook.com", "Zainab123!", "Pharmacist");
 
 
             //Pharmacists seeding

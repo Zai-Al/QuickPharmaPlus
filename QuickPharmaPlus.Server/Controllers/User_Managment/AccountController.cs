@@ -15,12 +15,18 @@ namespace QuickPharmaPlus.Server.Controllers
     public class AccountController : ControllerBase
     {
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly IEmailSender _emailSender;
         private readonly IWebHostEnvironment _env;
 
-        public AccountController(UserManager<ApplicationUser> userManager, IEmailSender emailSender, IWebHostEnvironment env)
+        public AccountController(
+            UserManager<ApplicationUser> userManager,
+            SignInManager<ApplicationUser> signInManager,
+            IEmailSender emailSender,
+            IWebHostEnvironment env)
         {
             _userManager = userManager;
+            _signInManager = signInManager;
             _emailSender = emailSender;
             _env = env;
         }
@@ -201,5 +207,20 @@ namespace QuickPharmaPlus.Server.Controllers
             return Ok(new { errors });
         }
 
+        // ============================
+        // LOGOUT
+        // ============================
+        [Authorize]
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout()
+        {
+            // Sign out Identity (clears cookie)
+            await _signInManager.SignOutAsync();
+
+            // Optionally clear any server-side session state here:
+            HttpContext.Session.Clear();
+
+            return Ok(new { success = true });
+        }
     }
 }
