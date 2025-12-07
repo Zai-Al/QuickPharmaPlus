@@ -1,11 +1,13 @@
-import { NavLink, Link } from "react-router-dom";
+ï»¿import { NavLink, Link } from "react-router-dom";
 import { useContext } from "react";
 import logo from "../assets/Logo.png";
 import "./Navigation.css";
 import { AuthContext } from "../Context/AuthContext.jsx";
 
-export default function Navbar() {
-    const { user } = useContext(AuthContext);
+export default function Navbar({ user: propUser }) {
+    const { user: ctxUser } = useContext(AuthContext);
+    const user = propUser ?? ctxUser;
+
     const fName = user?.firstName || "";
     const lName = user?.lastName || "";
     const fullName = `${fName} ${lName}`.trim();
@@ -26,7 +28,7 @@ export default function Navbar() {
         >
             <div className="container-fluid">
 
-                {/* LEFT — LOGO */}
+                {/* LEFT â€” LOGO */}
                 <div className="navbar-brand d-flex align-items-center me-4">
                     <img
                         src={logo}
@@ -42,7 +44,7 @@ export default function Navbar() {
 
 
                     {/* --------------------------------------------------------- */}
-                    {/* ADMIN NAVBAR (copied exactly from AdminNavbar.jsx) */}
+                    {/* ADMIN NAVBAR */}
                     {/* --------------------------------------------------------- */}
                     {isAdmin && (
                         <>
@@ -98,7 +100,6 @@ export default function Navbar() {
 
                     {/* --------------------------------------------------------- */}
                     {/* EMPLOYEE NAVBAR (Manager + Pharmacist) */}
-                    {/* copied from EmployeeNavbar.jsx */}
                     {/* --------------------------------------------------------- */}
                     {isEmployee && (
                         <>
@@ -142,7 +143,6 @@ export default function Navbar() {
 
                     {/* --------------------------------------------------------- */}
                     {/* DRIVER NAVBAR */}
-                    {/* copied from DriverNavbar.jsx */}
                     {/* --------------------------------------------------------- */}
                     {isDriver && (
                         <>
@@ -168,7 +168,7 @@ export default function Navbar() {
 
 
                     {/* --------------------------------------------------------- */}
-                    {/* CUSTOMER NAVBAR  (Empty placeholder for now) */}
+                    {/* CUSTOMER NAVBAR */}
                     {/* --------------------------------------------------------- */}
                     {isCustomer && (
                         <>
@@ -197,12 +197,10 @@ export default function Navbar() {
 
 
                     {/* --------------------------------------------------------- */}
-                    {/* DEFAULT PUBLIC NAVBAR (Logout or not logged in) */}
+                    {/* DEFAULT PUBLIC NAVBAR (Anonymous / Not logged in) */}
                     {/* --------------------------------------------------------- */}
                     {!isAdmin && !isEmployee && !isDriver && !isCustomer && (
                         <>
-                            {/* TODO: add general/default navigation here */}
-
                             <li className="nav-item">
                                 <NavLink to="/terms" className="nav-link px-3">Terms of Use</NavLink>
                             </li>
@@ -217,13 +215,13 @@ export default function Navbar() {
 
 
 
-                {/* RIGHT — PROFILE BUTTON */}
+                {/* RIGHT â€” PROFILE / ACCOUNT BUTTON */}
                 <Link
-                    to="/profileInternal"
+                    to={user ? "/profileInternal" : "/login"}
                     className="btn btn-dark d-flex align-items-center gap-2 px-3 py-2"
                 >
                     <i className="bi bi-person-circle fs-5"></i>
-                    {fullName}
+                    {user ? fullName : "Login"}
                 </Link>
 
             </div>
