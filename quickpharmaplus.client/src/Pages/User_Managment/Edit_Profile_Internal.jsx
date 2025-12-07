@@ -396,7 +396,7 @@ export default function EditProfile_Internal() {
                             />
 
                             {showCityDropdown && (filteredCities || []).length > 0 && (
-                                <ul className="list-group position-absolute w-100" style={{ zIndex: 1500, maxHeight: 200, overflowY: "auto" }}>
+                                <ul className="list-group position-absolute w-100 city-dropdown" style={{ zIndex: 1500, maxHeight: 200, overflowY: "auto" }}>
                                     {filteredCities.map((c, idx) => (
                                         <li
                                             key={c.cityId}
