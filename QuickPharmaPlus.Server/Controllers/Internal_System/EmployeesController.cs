@@ -1,10 +1,11 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using System;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using QuickPharmaPlus.Server.Models;
-using QuickPharmaPlus.Server.ModelsDTO.Category;  
+using QuickPharmaPlus.Server.ModelsDTO.Category;
 using QuickPharmaPlus.Server.Repositories.Implementation;
 using QuickPharmaPlus.Server.Repositories.Interface;
-
 
 namespace QuickPharmaPlus.Server.Controllers.Internal_System
 {
@@ -19,7 +20,7 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
             _repo = repo;
         }
 
-        [HttpGet ("employees")]
+        [HttpGet("employees")]
         public async Task<IActionResult> GetAll()
         {
             return Ok(await _repo.GetAllEmployeesAsync());
@@ -43,18 +44,41 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, User user)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             user.UserId = id;
-            var updated = await _repo.UpdateEmployeeAsync(user);
-            if (updated == null) return NotFound();
-            return Ok(updated);
+
+            try
+            {
+                var updated = await _repo.UpdateEmployeeAsync(user);
+                if (updated == null) return NotFound();
+                return Ok(updated);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // domain validation (e.g. duplicate email)
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception)
+            {
+                // log if you have a logger; return generic error to client
+                return StatusCode(StatusCodes.Status500InternalServerError, new { error = "An unexpected error occurred." });
+            }
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var result = await _repo.DeleteEmployeeAsync(id);
-            return result ? Ok() : NotFound();
+            try
+            {
+                var result = await _repo.DeleteEmployeeAsync(id);
+                return result ? Ok() : NotFound();
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { error = "An unexpected error occurred." });
+            }
         }
-
     }
 }

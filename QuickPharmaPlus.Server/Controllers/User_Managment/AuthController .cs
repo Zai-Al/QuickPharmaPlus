@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Linq;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
 using QuickPharmaPlus.Server.Identity;
 using QuickPharmaPlus.Server.ModelsDTO.Auth;
@@ -56,29 +57,39 @@ namespace QuickPharmaPlus.Server.Controllers.User_Management
             // 4. Get roles
             var roles = await _userManager.GetRolesAsync(user);
 
-            // NEW: Get profile from your User table
+            // NEW: Get profile from your User table (repository includes Address + City via ThenInclude)
             var appUser = await _userRepository.GetUserByEmailAsync(user.Email);
 
             if (appUser == null)
                 return Unauthorized("User profile not found.");
 
-            // 5. Return user info + roles  (your original comment stays here)
-            return Ok(new
+            // Build DTO including Address + City
+            var response = new LoggedInUserResponse
             {
-                user.Id,
-                user.Email,
-                user.UserName,
-                Roles = roles,
+                IdentityId = user.Id,
+                UserId = appUser.UserId,
+                Email = user.Email,
+                Roles = roles?.ToArray(),
 
-                //added profile fields
-                appUser.UserId,
-                appUser.FirstName,
-                appUser.LastName,
-                appUser.ContactNumber,
-                appUser.BranchId,
-                appUser.RoleId,
-                appUser.AddressId
-            });
+                FirstName = appUser.FirstName,
+                LastName = appUser.LastName,
+                ContactNumber = appUser.ContactNumber,
+
+                BranchId = appUser.BranchId,
+                RoleId = appUser.RoleId,
+                AddressId = appUser.AddressId,
+
+                Address = appUser.Address is not null ? new AddressDto
+                {
+                    AddressId = appUser.Address.AddressId,
+                    Street = appUser.Address.Street,
+                    Block = appUser.Address.Block,
+                    BuildingNumber = appUser.Address.BuildingNumber,
+                    City = appUser.Address.City?.CityName
+                } : null
+            };
+
+            return Ok(response);
         }
 
     }

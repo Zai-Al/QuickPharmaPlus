@@ -14,5 +14,8 @@
         public int? BranchId { get; set; }
         public int? RoleId { get; set; }
         public int? AddressId { get; set; }
+
+        // New: full address payload
+        public AddressDto? Address { get; set; }
     }
 }
