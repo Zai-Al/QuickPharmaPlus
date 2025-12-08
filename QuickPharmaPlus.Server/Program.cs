@@ -1,9 +1,14 @@
+using System.Net;
+using System.Net.Mail;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using QuickPharmaPlus.Server.Identity;
 using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.Repositories.Implementation;
 using QuickPharmaPlus.Server.Repositories.Interface;
+using QuickPharmaPlus.Server.Services;
 
 namespace QuickPharmaPlus.Server
 {
@@ -26,6 +31,13 @@ namespace QuickPharmaPlus.Server
             builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
                 .AddEntityFrameworkStores<IdentityContext>()
                 .AddDefaultTokenProviders();
+
+            // Configure token lifespan for password reset and email confirmation
+            builder.Services.Configure<DataProtectionTokenProviderOptions>(opt =>
+            {
+                opt.TokenLifespan = TimeSpan.FromHours(2);
+            });
+
 
             // 4) COOKIES FOR REACT FRONTEND
             // FIX — Prevent Identity from sending HTML redirect pages to API clients
@@ -50,7 +62,15 @@ namespace QuickPharmaPlus.Server
             });
 
 
-            builder.Services.AddControllers();
+            builder.Services.AddControllers()
+                .AddJsonOptions(opts =>
+                {
+                    // Prevent System.Text.Json from throwing on entity navigation cycles
+                    opts.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+
+                    // Increase allowed depth for very deep graphs (optional)
+                    opts.JsonSerializerOptions.MaxDepth = 64;
+                });
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
@@ -76,13 +96,58 @@ namespace QuickPharmaPlus.Server
                 options.Events.OnRedirectToLogin = ctx => { ctx.Response.StatusCode = 401; return Task.CompletedTask; };
             });
 
+
+            // register email sender: use DevEmailSender in Development, SmtpEmailSender in Production
+            builder.Services.AddTransient<IEmailSender, SendGridEmailSender>();
+
+
+
+
+
             //adding the repostries 
             builder.Services.AddScoped<CategoryRepository>();
             builder.Services.AddScoped<IUserRepository, UserRepository>();
+            builder.Services.AddScoped<ICityRepository, CityRepository>();
+
 
 
 
             var app = builder.Build();
+
+            // --- TEMPORARY SMTP TEST ---
+            // This block runs once at startup to confirm email sending works.
+            // Remove it after you verify.
+            try
+            {
+                var smtpConfig = builder.Configuration.GetSection("EmailSettings:Smtp");
+                var host = smtpConfig["Host"];
+                var port = int.Parse(smtpConfig["Port"]);
+                var user = smtpConfig["User"];
+                var pass = smtpConfig["Pass"];
+                var from = smtpConfig["From"];
+
+                using var smtp = new SmtpClient(host, port)
+                {
+                    EnableSsl = true,
+                    UseDefaultCredentials = false,
+                    Credentials = new NetworkCredential(user, pass)
+                };
+
+                var testRecipient = "yourpersonalemail@gmail.com"; // change to your own inbox
+                var mail = new MailMessage(from, testRecipient, "SMTP Test", "Hello from QuickPharma+ backend!");
+                await smtp.SendMailAsync(mail);
+
+                Console.WriteLine("Test email sent successfully.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($" SMTP test failed: {ex.Message}");
+            }
+            // --- END TEMPORARY SMTP TEST ---
+
+            // continue with middleware pipeline
+            app.UseDefaultFiles();
+            app.UseStaticFiles();
 
             // 6) SEED ROLES + USERS
             await SeedRoles(app);
@@ -147,6 +212,8 @@ namespace QuickPharmaPlus.Server
 
             //for testing reset/forgot password
             await CreateUser(userManager, "zainabalawi08@gmail.com", "User123!", "Manager");
+            await CreateUser(userManager, "z.alawi@outlook.com", "Zainab123!", "Pharmacist");
+
 
             //Pharmacists seeding
             await CreateUser(userManager, "ahmed.alhaddad@quickpharmaplus.com", "Pharma123!", "Pharmacist");

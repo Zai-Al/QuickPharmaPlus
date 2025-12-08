@@ -1,31 +1,111 @@
-﻿import { Link } from "react-router-dom";
+﻿import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useContext } from "react";
+import { AuthContext } from "../../Context/AuthContext.jsx";
 import "./Profile_Internal.css";
 
 export default function Profile_Internal() {
+    const { user: ctxUser, setUser } = useContext(AuthContext);
+    const location = useLocation();
+    const navigate = useNavigate();
 
-    const loggedInUser = "AdminUser";
+    // Accept user passed via route state first, otherwise fall back to AuthContext
+    const passedUser = location.state?.user;
+    const user = passedUser ?? ctxUser ?? {};
+
+    // Compose display values with safe fallbacks for different possible shapes
+    const firstName = user?.firstName ?? user?.givenName ?? user?.name ?? user?.FirstName ?? "";
+    const lastName = user?.lastName ?? user?.familyName ?? user?.LastName ?? "";
+    const fullName = `${firstName} ${lastName}`.trim() || user?.username || "User";
+
+    // include server field names (contactNumber / ContactNumber) as fallbacks
+    const phoneNumber =
+        user?.contactNumber ??
+        user?.ContactNumber ??
+        user?.phoneNumber ??
+        user?.phone ??
+        user?.contact?.phone ??
+        user?.ContactNumber ??
+        "";
+
+    // Address may come as a string or an object with fields.
+    const addrObj = user?.address ?? user?.Address;
+
+    const street = addrObj?.street ?? addrObj?.Street ?? "";
+    const block = addrObj?.block ?? addrObj?.Block ?? "";
+    const building = addrObj?.buildingNumber ?? addrObj?.BuildingNumber ?? addrObj?.buildingFloor ?? "";
+
+    // city can be a string or nested object (e.g., { cityName })
+    const city =
+        addrObj?.city?.cityName ??
+        addrObj?.city?.CityName ??
+        addrObj?.city ??
+        user?.city ??
+        user?.City?.cityName ??
+        user?.City?.CityName ??
+        "";
+
+    // Format address exactly as requested:
+    // City name, Block No. "block", Street No. "street", Building No. "building"
+    const formattedParts = [];
+
+    if (city) formattedParts.push(city);
+    if (block) formattedParts.push(`Block No. ${block}`);
+    if (street) formattedParts.push(`Street No. ${street}`);
+    if (building) formattedParts.push(`Building No. ${building}`);
+
+    const addressDisplay =
+        formattedParts.length > 0
+            ? formattedParts.join(", ")
+            : typeof addrObj === "string"
+                ? addrObj
+                : user?.address ?? "";
+
+    // Logout handler: call server logout, clear client state and sessionStorage then redirect
+    const handleLogout = async (e) => {
+        e.preventDefault();
+
+        try {
+            const baseURL = import.meta.env.VITE_API_BASE_URL;
+            await fetch(`${baseURL}/api/account/logout`, {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            });
+
+            // Clear client-side auth
+            setUser(null);
+            sessionStorage.removeItem("user");
+
+            // Redirect to login
+            navigate("/login");
+        } catch (err) {
+            console.error("Logout failed:", err);
+            // still clear client state to avoid stuck UI
+            setUser(null);
+            sessionStorage.removeItem("user");
+            navigate("/login");
+        }
+    };
 
     return (
         <div className="profile-page">
-
-
             {/* LOGOUT BUTTON TOP-RIGHT */}
             <div className="logout-container">
-                <Link
-                    to="/login"
+                <button
+                    onClick={handleLogout}
                     className="btn btn-dark d-flex align-items-center gap-2 px-3 py-2 logout-btn"
-                // TODO: Add ASP.NET session termination logic here
-                // Example: call API: /api/account/logout
                 >
                     <i className="bi bi-box-arrow-right"></i>
                     Logout
-                </Link>
+                </button>
             </div>
 
             {/* PAGE TITLE */}
             <div className="profile-header text-center">
                 <h1 className="fw-bold">User Profile</h1>
-                <h3 className="welcome-text">Welcome {loggedInUser}!</h3>
+                <h3 className="welcome-text">Welcome {fullName}!</h3>
             </div>
 
             {/* PROFILE FORM BOX */}
@@ -37,7 +117,7 @@ export default function Profile_Internal() {
                         <input
                             type="text"
                             className="form-control profile-input"
-                            value={loggedInUser}
+                            value={fullName}
                             disabled
                         />
                     </div>
@@ -47,6 +127,7 @@ export default function Profile_Internal() {
                         <input
                             type="text"
                             className="form-control profile-input"
+                            value={phoneNumber ?? ""}
                             placeholder="Phone Number"
                             disabled
                         />
@@ -57,12 +138,19 @@ export default function Profile_Internal() {
                         <input
                             type="text"
                             className="form-control profile-input"
+                            value={addressDisplay ?? ""}
                             placeholder="Address"
                             disabled
                         />
                     </div>
 
-                    <Link to="/editProfileInternal" className="btn w-100 edit-btn mb-3 text-center">
+                    <Link
+                        to={{
+                            pathname: "/editProfileInternal",
+                            state: { user }
+                        }}
+                        className="btn w-100 edit-btn mb-3 text-center"
+                    >
                         Edit
                     </Link>
 
@@ -73,17 +161,8 @@ export default function Profile_Internal() {
                         </Link>
                     </div>
 
-                    {/* RESET PASSWORD BUTTON */}
-                    <div className="text-center mt-2">
-                        <Link to="/forgotPassword" className="reset-link">
-                            Forgot Password
-                        </Link>
-                    </div>
-
                 </div> {/* <-- closes profile-box */}
-
             </div> {/* <-- closes profile-wrapper */}
-
-        </div> // <-- closes profile-page
+        </div>
     );
 }

@@ -8,19 +8,15 @@ export default function NavbarSelector() {
     const { user } = useContext(AuthContext);
     const location = useLocation();
 
-    // Pages where navbar should not appear
+    // Pages where navbar should not appear (utility pages)
     const hideOnPages = [
-        "/login",
-        "/register",
         "/forgotPassword",
-        "/resetPassword"
+        "/resetPassworPublic"
     ];
 
-    // no navbar on login/registration pages
+    // don't render navbar on certain utility pages
     if (hideOnPages.includes(location.pathname)) return null;
 
-    // no navbar before login
-    if (!user) return null;
-
+    // always render Navbar; Navbar will show role-based or default links when user is null
     return <Navbar user={user} />;
 }
