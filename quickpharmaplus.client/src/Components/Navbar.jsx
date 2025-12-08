@@ -3,6 +3,7 @@ import { useContext } from "react";
 import logo from "../assets/Logo.png";
 import "./Navigation.css";
 import { AuthContext } from "../Context/AuthContext.jsx";
+import ExpandableSearch from "../Pages/External_System/Shared_Components/ExpandableSearch";
 
 export default function Navbar({ user: propUser }) {
     const { user: ctxUser } = useContext(AuthContext);
@@ -173,6 +174,14 @@ export default function Navbar({ user: propUser }) {
                     {isCustomer && (
                         <>
                             <li className="nav-item">
+                                <NavLink to="/home" className="nav-link px-3">Home</NavLink>
+                            </li>
+
+                            <li className="nav-item">
+                                <NavLink to="/productsPage" className="nav-link px-3">Products</NavLink>
+                            </li>
+
+                            <li className="nav-item">
                                 <NavLink to="/myOrders" className="nav-link px-3">My Orders</NavLink>
                             </li>
 
@@ -188,6 +197,8 @@ export default function Navbar({ user: propUser }) {
                                 <NavLink to="/privacy" className="nav-link px-3">Privacy Policy</NavLink>
                             </li>
 
+                            <ExpandableSearch onSearch={(term) => console.log("Searching:", term)} />
+
                             <li className="nav-item">
                                 <NavLink to="/cart" className="nav-link px-3">Cart</NavLink>
                             </li>
@@ -201,6 +212,15 @@ export default function Navbar({ user: propUser }) {
                     {/* --------------------------------------------------------- */}
                     {!isAdmin && !isEmployee && !isDriver && !isCustomer && (
                         <>
+                            {/* TODO: add general/default navigation here */}
+                            <li className="nav-item">
+                                <NavLink to="/home" className="nav-link px-3">Home</NavLink>
+                            </li>
+
+                            <li className="nav-item">
+                                <NavLink to="/productsPage" className="nav-link px-3">Products</NavLink>
+                            </li>
+
                             <li className="nav-item">
                                 <NavLink to="/terms" className="nav-link px-3">Terms of Use</NavLink>
                             </li>
@@ -208,6 +228,7 @@ export default function Navbar({ user: propUser }) {
                             <li className="nav-item">
                                 <NavLink to="/privacy" className="nav-link px-3">Privacy Policy</NavLink>
                             </li>
+                            <ExpandableSearch onSearch={(term) => console.log("Searching:", term)} />
                         </>
                     )}
 
@@ -217,8 +238,13 @@ export default function Navbar({ user: propUser }) {
 
                 {/* RIGHT — PROFILE / ACCOUNT BUTTON */}
                 <Link
-                    to={user ? "/profileInternal" : "/login"}
-                    className="btn btn-dark d-flex align-items-center gap-2 px-3 py-2"
+                    to="/profileInternal"
+                    className="btn d-flex align-items-center gap-2 px-3 py-2"
+                    style={{
+                        border: "1px solid #000",
+                        borderRadius: "6px",
+                        background: "#fff"
+                    }}
                 >
                     <i className="bi bi-person-circle fs-5"></i>
                     {user ? fullName : "Login"}

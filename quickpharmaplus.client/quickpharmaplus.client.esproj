@@ -9,7 +9,7 @@
     <BuildOutputFolder>$(MSBuildProjectDirectory)\dist</BuildOutputFolder>
   </PropertyGroup>
   <ItemGroup>
-    <None Remove="src\Pages\ExternalSystem\**" />
-    <TypeScriptConfiguration Remove="src\Pages\ExternalSystem\**" />
+    <Folder Include="src\assets\Slides\" />
+    <Folder Include="src\Pages\ExternalSystem\" />
   </ItemGroup>
 </Project>

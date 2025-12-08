@@ -63,6 +63,9 @@ import PlanDetails from "./Pages/External_System/Health_Profile/PlanDetails.jsx"
 import MyOrders from "./Pages/External_System/My_Orders/MyOrders.jsx";
 import MyOrderDetails from "./Pages/External_System/My_Orders/MyOrderDetails.jsx";
 import Cart from "./Pages/External_System/Cart_And_Wish_List/Cart.jsx";
+import Home from "./Pages/External_System/Home/Home.jsx";
+import Product from "./Pages/External_System/Products/Product.jsx";
+
 
 export default function AppRoutes() {
     return (
@@ -380,6 +383,13 @@ export default function AppRoutes() {
                             />
 
                             {/* External system pages */} 
+
+                            
+                            <Route path="/home" element={<Home />} />
+                            <Route path="/productsPage" element={<Product />} />
+
+
+                            
 
                             <Route path="/myOrders" element={<ProtectedRoute allowedRoles={["Customer"]}>
                                 <MyOrders />

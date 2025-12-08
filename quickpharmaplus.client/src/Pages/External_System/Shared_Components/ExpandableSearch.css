@@ -1,0 +1,35 @@
+.expand-search {
+    position: relative;
+}
+
+    .expand-search .icon {
+        width: 22px;
+        height: 22px;
+        cursor: pointer;
+        
+    }
+
+    .expand-search .search-box {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        border: 1px solid #ccc;
+        padding: 0.4rem 0.6rem;
+        border-radius: 30px;
+        background: #fff;
+        transition: width 0.3s ease;
+    }
+
+    .expand-search input {
+        border: none;
+        outline: none;
+        font-size: 0.9rem;
+        width: 180px;
+    }
+
+    .expand-search.active .search-box {
+        width: 220px;
+    }
+.expand-search-icon {
+    /*background: #fff;*/
+}

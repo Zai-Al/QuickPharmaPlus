@@ -1,0 +1,148 @@
+.categories-row {
+    text-align: center;
+    margin: 4rem 0;
+}
+
+.categories-list {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+}
+
+.category-bubble {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.category-icon-wrapper {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 1px solid #d9d9d9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+}
+
+.category-icon {
+    max-width: 60%;
+    max-height: 60%;
+}
+
+.category-name {
+    font-size: 0.9rem;
+}
+
+/* src/Pages/External_System/HomeExternal.css */
+
+.home-external {
+    padding: 1.5rem 0 4rem;
+}
+
+/* Section titles like in your mockup */
+.home-section {
+    margin-top: 2.5rem;
+    background: #ffffff; /* default white for sections */
+}
+
+.home-section--highlight {
+    background: #e4f0f7; /* light blue strip for highlighted sections (Best Seller) */
+    padding: 1.5rem 0 2.5rem;
+    margin-top: 2.5rem;
+}
+
+.home-section-inner {
+    width: 90%; /* match slider’s width */
+    max-width: 1630px;
+    margin: 0 auto; /* centers the content */
+}
+
+.home-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 1.5rem; /* more gap between title and cards */
+    padding: 0 0.25rem; /* tiny breathing room from edges */
+}
+
+    .home-section-header h3 {
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+
+/* Wrapper that holds arrows + scroll row */
+.home-products-carousel {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* Scrollable horizontal product row */
+.home-products-row {
+    display: flex;
+    gap: 1.5rem;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    padding: 0.75rem 0 1rem;
+    flex-wrap: nowrap;
+    align-items: stretch;
+}
+
+    .home-products-row::-webkit-scrollbar {
+        display: none;
+    }
+
+/* Left / Right scroll arrows (simple circles beside row) */
+.carousel-arrow {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    border: 1px solid #d0dde7;
+    background: #ffffff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    cursor: pointer;
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4a6572;
+}
+
+    .carousel-arrow:hover {
+        background: #16a7b8;
+        color: #fff;
+        border-color: #16a7b8;
+    }
+
+/* On smaller screens, hide arrows (swipe instead) */
+@media (max-width: 768px) {
+    .carousel-arrow {
+        display: none;
+    }
+}
+
+/* "View All Products" button next to section title */
+.view-all-btn {
+    background: none;
+    border: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #16a7b8;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+    .view-all-btn:hover {
+        text-decoration: underline;
+    }
