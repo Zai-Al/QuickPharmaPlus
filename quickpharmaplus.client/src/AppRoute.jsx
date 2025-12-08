@@ -15,6 +15,7 @@ import EditInternalProfile from "./Pages/User_Managment/Edit_Profile_Internal.js
 import Register from "./Pages/User_Managment/Register.jsx";
 import ResetPassword from "./Pages/User_Managment/Reset_Password.jsx";
 import ForgotPassword from "./Pages/User_Managment/Forgot_Password.jsx";
+import PublicResetPassword from "./Pages/User_Managment/Reset_Password_Public.jsx";
 
 // Dashboards
 import AdminDashboard from "./Pages/Internal_System/Dashboards/AdminDashboard.jsx";
@@ -82,8 +83,9 @@ export default function AppRoutes() {
                             <Route path="/privacy" element={<Privacy />} />
                             <Route path="/terms" element={<TermsOfUse />} />
                             <Route path="/register" element={<Register />} />
-                            <Route path="/resetPassword" element={<ResetPassword />} />
                             <Route path="/forgotPassword" element={<ForgotPassword />} />
+                            <Route path="/reset-password-public" element={<PublicResetPassword />} />
+
 
                             {/* Unauthorized page */}
                             <Route path="/unauthorized" element={<Unauthorized />} />
@@ -98,6 +100,16 @@ export default function AppRoutes() {
                                     </ProtectedRoute>
                                 }
                             />
+
+                            <Route
+                                path="/resetPassword"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist", "Driver"]}>
+                                        <ResetPassword />
+                                    </ProtectedRoute>
+                                }
+                            />
+
 
                             <Route
                                 path="/editProfileInternal"

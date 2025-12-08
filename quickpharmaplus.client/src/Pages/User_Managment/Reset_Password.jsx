@@ -200,15 +200,9 @@ export default function ResetPasswordInternal() {
                         {fieldErrors.confirm && <div className="invalid-feedback">{fieldErrors.confirm}</div>}
                     </div>
 
-                    {serverMessage && !showModal && (
-                        <div className="alert alert-danger alert-dismissible">
-                            <button type="button" className="btn-close" data-bs-dismiss="alert"></button>
-                            <strong>Error! </strong> {serverMessage}
-                        </div>
-                    )}
 
                     <button type="submit" className="btn reset-submit-btn w-100 mt-4" disabled={submitting || validating}>
-                        {submitting ? "Saving…" : "Reset Password"}
+                        {submitting ? "Saving" : "Reset Password"}
                     </button>
                 </form>
             </div>
