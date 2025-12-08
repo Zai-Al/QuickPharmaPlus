@@ -3,6 +3,9 @@ import HomeSlider from "./HomeSlider";
 import CategoriesRow from "./CategoriesRow";
 import "./Home.css";
 import ProductRowSection from "../Shared_Components/ProductRowSection";
+import { useState } from "react";
+import DialogModal from "../../../Components/InternalSystem/Modals/ConfirmModal";
+
 
 // Later you’ll replace these with real data from your API/DB
 const mockCategories = [
@@ -152,13 +155,66 @@ const mockNewProducts = [
 ];
 
 export default function HomeExternal() {
-    // UI-only for now: just log actions
-    const handleToggleFavorite = (productId, isFavorite) => {
-        console.log("toggle favorite for", productId, "->", isFavorite);
+    const [cartItems, setCartItems] = useState([]);
+    const [pendingProduct, setPendingProduct] = useState(null);
+    const [interactionMessages, setInteractionMessages] = useState([]);
+    const [showInteractionDialog, setShowInteractionDialog] = useState(false);
+
+    // fake "backend" interaction check
+    const mockCheckInteractions = (currentCart, productToAdd) => {
+        const messages = [];
+
+        // For now: use incompatibilities field on the product itself
+        if (productToAdd.incompatibilities?.length) {
+            messages.push(
+                ...productToAdd.incompatibilities.map(
+                    (msg) => `• ${msg}`
+                )
+            );
+        }
+
+        // You can also compare with existing cart items later
+        // currentCart.forEach(item => { ... })
+
+        return messages;
     };
 
-    const handleAddToCart = (productId) => {
-        console.log("add to cart", productId);
+    const actuallyAddToCart = (product) => {
+        setCartItems((prev) => [...prev, product]);
+        console.log("Added to cart:", product.name);
+    };
+
+    // Called from ProductRowSection / ProductCard
+    const handleAddToCartRequest = (product) => {
+        const interactions = mockCheckInteractions(cartItems, product);
+
+        if (interactions.length === 0) {
+            // No problems -> just add
+            actuallyAddToCart(product);
+            return;
+        }
+
+        // There are interactions -> show dialog
+        setPendingProduct(product);
+        setInteractionMessages(interactions);
+        setShowInteractionDialog(true);
+    };
+
+    const handleCancelAdd = () => {
+        setShowInteractionDialog(false);
+        setPendingProduct(null);
+        setInteractionMessages([]);
+    };
+
+    const handleConfirmAdd = () => {
+        if (pendingProduct) {
+            actuallyAddToCart(pendingProduct);
+        }
+        handleCancelAdd();
+    };
+
+    const handleToggleFavorite = (product) => {
+        console.log("toggle favorite for", product.id);
     };
 
     return (
@@ -169,21 +225,47 @@ export default function HomeExternal() {
             {/* Categories */}
             <CategoriesRow categories={mockCategories} />
 
-            {/* Best Seller section with arrows + scroll */}
+            {/* Best Seller section */}
             <ProductRowSection
                 title="Best Seller"
                 products={mockBestSellers}
-                onToggleFavorite={handleToggleFavorite}
-                onAddToCart={handleAddToCart}
                 highlight
+                onAddToCart={handleAddToCartRequest}
+                onToggleFavorite={handleToggleFavorite}
             />
 
-            {/* New Products section with arrows + scroll */}
+            {/* New Products section */}
             <ProductRowSection
                 title="New Products"
                 products={mockNewProducts}
+                onAddToCart={handleAddToCartRequest}
                 onToggleFavorite={handleToggleFavorite}
-                onAddToCart={handleAddToCart}
+            />
+
+            {/* Interaction warning dialog */}
+            <DialogModal
+                show={showInteractionDialog}
+                title="Medication Interaction Warning"
+                body={
+                    <div>
+                        <p>
+                            We found possible interactions when adding{" "}
+                            <strong>{pendingProduct?.name}</strong>:
+                        </p>
+                        <ul>
+                            {interactionMessages.map((msg, idx) => (
+                                <li key={idx}>{msg}</li>
+                            ))}
+                        </ul>
+                        <p>
+                            Do you still want to add this product to your cart?
+                        </p>
+                    </div>
+                }
+                confirmLabel="Proceed and Add"
+                cancelLabel="Cancel"
+                onConfirm={handleConfirmAdd}
+                onCancel={handleCancelAdd}
             />
         </div>
     );

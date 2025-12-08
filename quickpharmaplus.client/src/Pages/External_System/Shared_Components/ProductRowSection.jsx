@@ -1,14 +1,18 @@
 // src/Pages/External_System/Shared_Components/ProductCarouselSection.jsx
 import { useRef } from "react";
 import ProductCard from "./ProductCard";
+import { useNavigate } from "react-router-dom";
 import "../Home/Home.css";
 
 export default function ProductRowSection({
     title,
     products,
+    onAddToCart,
+    onToggleFavorite,
     highlight = false,          
 }) {
     const rowRef = useRef(null);
+    const navigate = useNavigate();
 
     const scroll = (direction) => {
         const container = rowRef.current;
@@ -28,6 +32,10 @@ export default function ProductRowSection({
         });
     };
 
+    const handleViewAll = () => {
+        navigate("/productsPage"); 
+    };
+
     return (
         <section
             className={`home-section ${highlight ? "home-section--highlight" : ""
@@ -38,8 +46,8 @@ export default function ProductRowSection({
                     <h3>{title}</h3>
                     <button
                         className="view-all-btn"
-                        onClick={() =>
-                            console.log("View all clicked for:", title)
+                        onClick={handleViewAll
+                            
                         }
                     >
                         View All Products
@@ -69,10 +77,10 @@ export default function ProductRowSection({
                                 categoryName={p.categoryName}
                                 productType={p.productType}
                                 onToggleFavorite={() =>
-                                    console.log("toggle fav", p.id)
+                                    onToggleFavorite?.(p)
                                 }
                                 onAddToCart={() =>
-                                    console.log("add to cart", p.id)
+                                    onAddToCart?.(p)
                                 }
                                 isPrescribed={p.requiresPrescription}
                                 hasIncompatibilities={

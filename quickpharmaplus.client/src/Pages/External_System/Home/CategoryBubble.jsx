@@ -5,7 +5,7 @@ export default function CategoryBubble({ id, name, iconUrl }) {
     const navigate = useNavigate();
 
     const handleClick = () => {
-        navigate(`/products?category=${id}`);
+        navigate(`/productsPage?category=${id}`);
     };
 
     return (

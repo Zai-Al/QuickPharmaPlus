@@ -10,6 +10,7 @@ const MOCK_PRODUCTS = [
     {
         id: 1,
         name: "Vitamin C 1000mg",
+        categoryId: 2,
         categoryName: "Vitamins",
         productType: "Tablets",
         price: 3.5,
@@ -23,6 +24,7 @@ const MOCK_PRODUCTS = [
     {
         id: 2,
         name: "Paracetamol 500mg",
+        categoryId: 4,
         categoryName: "Pain Relief",
         productType: "Tablets",
         price: 1.2,
@@ -36,6 +38,7 @@ const MOCK_PRODUCTS = [
     {
         id: 3,
         name: "Blood Pressure Tabs",
+        categoryId: 5,
         categoryName: "Heart & BP",
         productType: "Tablets",
         price: 7.8,
@@ -49,6 +52,7 @@ const MOCK_PRODUCTS = [
     {
         id: 4,
         name: "Blood Pressure Tabs",
+        categoryId: 5,
         categoryName: "Heart & BP",
         productType: "Tablets",
         price: 7.8,
@@ -62,6 +66,7 @@ const MOCK_PRODUCTS = [
     {
         id: 5,
         name: "Blood Pressure Tabs",
+        categoryId: 5,
         categoryName: "Heart & BP",
         productType: "Tablets",
         price: 7.8,
@@ -75,6 +80,7 @@ const MOCK_PRODUCTS = [
     {
         id: 6,
         name: "Blood Pressure Tabs",
+        categoryId: 5,
         categoryName: "Heart & BP",
         productType: "Tablets",
         price: 7.8,
@@ -88,6 +94,7 @@ const MOCK_PRODUCTS = [
     {
         id: 7,
         name: "Blood Pressure Tabs",
+        categoryId: 5,
         categoryName: "Heart & BP",
         productType: "Tablets",
         price: 7.8,
@@ -102,13 +109,13 @@ const MOCK_PRODUCTS = [
 ];
 
 const BRANCHES = ["Sitra", "Budaiya", "Bilad", "Salmanya"];
+
 const CATEGORY_OPTIONS = [
-    "Vitamins",
-    "Pain Relief",
-    "Heart & BP",
-    "Cold & Flu",
-    "Skin Care",
-    "Baby Care",
+    { id: 1, name: "Cold & Flu", iconUrl: null },
+    { id: 2, name: "Vitamins", iconUrl: null },
+    { id: 3, name: "Skin Care", iconUrl: null },
+    { id: 4, name: "Pain Relief", iconUrl: null },
+    { id: 5, name: "Baby Care", iconUrl: null },
 ];
 
 const TYPES = ["Tablets", "Capsules", "Syrup"];
@@ -122,12 +129,12 @@ const PRICE_RANGES = [
     "26BHD - 30BHD",
 ];
 
-
 export default function Product() {
     const location = useLocation();
 
     // ---- filters / search state ----------------------
     const [searchText, setSearchText] = useState("");
+    // selectedCategories now holds numeric categoryIds
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [selectedTypes, setSelectedTypes] = useState([]);
     const [selectedBranches, setSelectedBranches] = useState([]);
@@ -142,11 +149,22 @@ export default function Product() {
     const [isPriceOpen, setIsPriceOpen] = useState(false);
     const [isSortOpen, setIsSortOpen] = useState(false);
 
-    // ---- read ?search= from URL whenever it changes ----
+    // ---- read from URL whenever it changes ----
     useEffect(() => {
         const params = new URLSearchParams(location.search);
+
+        // ?search=
         const urlSearch = params.get("search") || "";
         setSearchText(urlSearch);
+
+        // ?categoryId= (from Home page categories)
+        const categoryIdParam = params.get("categoryId");
+        if (categoryIdParam) {
+            const idNum = Number(categoryIdParam);
+            if (!Number.isNaN(idNum)) {
+                setSelectedCategories([idNum]);
+            }
+        }
     }, [location.search]);
 
     const handleBranchToggle = (branch) => {
@@ -157,38 +175,38 @@ export default function Product() {
         );
     };
 
-    const handleCategoryToggle = (cat) => {
+    // now working with numeric categoryIds
+    const handleCategoryToggle = (catId) => {
         setSelectedCategories((prev) =>
-            prev.includes(cat)
-                ? prev.filter((c) => c !== cat)  // unselect
-                : [...prev, cat]                 // select
+            prev.includes(catId)
+                ? prev.filter((c) => c !== catId) // unselect
+                : [...prev, catId] // select
         );
     };
 
     const handleTypesToggle = (t) => {
         setSelectedTypes((prev) =>
             prev.includes(t)
-                ? prev.filter((ty) => ty !== t)  // unselect
-                : [...prev, t]                 // select
+                ? prev.filter((ty) => ty !== t)
+                : [...prev, t]
         );
     };
 
     const handleBrandToggle = (br) => {
         setSelectedBrands((prev) =>
             prev.includes(br)
-                ? prev.filter((b) => b !== br) // unselect
-                : [...prev, br]                // select
+                ? prev.filter((b) => b !== br)
+                : [...prev, br]
         );
     };
 
     const handlePriceToggle = (range) => {
         setSelectedPrices((prev) =>
             prev.includes(range)
-                ? prev.filter((r) => r !== range) // unselect
-                : [...prev, range]                // select
+                ? prev.filter((r) => r !== range)
+                : [...prev, range]
         );
     };
-
 
     // ---- main filtering + sorting logic ----------------
     const filteredProducts = useMemo(() => {
@@ -208,13 +226,12 @@ export default function Product() {
             });
         }
 
-        // if user picked any categories, filter by them
+        // filter by selectedCategories (IDs) if any
         if (selectedCategories.length > 0) {
             list = list.filter((p) =>
-                selectedCategories.includes(p.categoryName)
+                selectedCategories.includes(p.categoryId)
             );
         }
-
 
         if (selectedTypes.length > 0) {
             list = list.filter((p) =>
@@ -225,6 +242,7 @@ export default function Product() {
         if (selectedBranches.length > 0) {
             list = list.filter((p) => selectedBranches.includes(p.branch));
         }
+
         if (selectedBrands.length > 0) {
             list = list.filter((p) => selectedBrands.includes(p.brand));
         }
@@ -237,15 +255,13 @@ export default function Product() {
                     // Extract ONLY numbers ignoring 'BHD' & spaces
                     const [min, max] = rg
                         .replace(/BHD/g, "") // remove BHD
-                        .split("-")          // split by dash
+                        .split("-") // split by dash
                         .map((v) => Number(v.trim())); // convert to numbers
 
                     return price >= min && price <= max;
                 });
             });
         }
-
-
 
         // Sorting
         if (sortBy === "price-asc") {
@@ -259,7 +275,15 @@ export default function Product() {
         }
 
         return list;
-    }, [searchText, selectedCategories, selectedTypes, selectedBranches, selectedBrands, selectedPrices, sortBy]);
+    }, [
+        searchText,
+        selectedCategories,
+        selectedTypes,
+        selectedBranches,
+        selectedBrands,
+        selectedPrices,
+        sortBy,
+    ]);
 
     const handleToggleFavorite = (id, isFav) => {
         console.log("Toggle favorite", id, isFav);
@@ -274,7 +298,6 @@ export default function Product() {
     return (
         <div className="products-page">
             <PageHeader title="Our Products" />
-            
 
             <div className="products-layout">
                 {/* LEFT: Filter sidebar */}
@@ -299,7 +322,9 @@ export default function Product() {
                                     type="button"
                                     className={
                                         "chip-btn" +
-                                        (selectedCategories.length === 0 ? " is-active" : "")
+                                        (selectedCategories.length === 0
+                                            ? " is-active"
+                                            : "")
                                     }
                                     onClick={() => setSelectedCategories([])}
                                 >
@@ -309,17 +334,27 @@ export default function Product() {
                                 {/* Each category can be toggled on/off */}
                                 <div className="filter-pill-row">
                                     {CATEGORY_OPTIONS.map((cat) => {
-                                        const active = selectedCategories.includes(cat);
+                                        const active =
+                                            selectedCategories.includes(
+                                                cat.id
+                                            );
                                         return (
                                             <button
-                                                key={cat}
+                                                key={cat.id}
                                                 type="button"
                                                 className={
-                                                    "chip-btn" + (active ? " is-active" : "")
+                                                    "chip-btn" +
+                                                    (active
+                                                        ? " is-active"
+                                                        : "")
                                                 }
-                                                onClick={() => handleCategoryToggle(cat)}
+                                                onClick={() =>
+                                                    handleCategoryToggle(
+                                                        cat.id
+                                                    )
+                                                }
                                             >
-                                                {cat}
+                                                {cat.name}
                                             </button>
                                         );
                                     })}
@@ -328,15 +363,14 @@ export default function Product() {
                         )}
                     </div>
 
-
                     {/* Type */}
-                    
-
                     <div className="filter-group">
                         <button
                             type="button"
                             className="filter-group-header"
-                            onClick={() => setIsTypeOpen((open) => !open)}
+                            onClick={() =>
+                                setIsTypeOpen((open) => !open)
+                            }
                         >
                             <span>Type</span>
                             <span>{isTypeOpen ? "-" : "+"}</span>
@@ -349,7 +383,9 @@ export default function Product() {
                                     type="button"
                                     className={
                                         "chip-btn" +
-                                        (selectedTypes.length === 0 ? " is-active" : "")
+                                        (selectedTypes.length === 0
+                                            ? " is-active"
+                                            : "")
                                     }
                                     onClick={() => setSelectedTypes([])}
                                 >
@@ -359,15 +395,21 @@ export default function Product() {
                                 {/* Each type can be toggled on/off */}
                                 <div className="filter-pill-row">
                                     {TYPES.map((t) => {
-                                        const active = selectedTypes.includes(t);
+                                        const active =
+                                            selectedTypes.includes(t);
                                         return (
                                             <button
                                                 key={t}
                                                 type="button"
                                                 className={
-                                                    "chip-btn" + (active ? " is-active" : "")
+                                                    "chip-btn" +
+                                                    (active
+                                                        ? " is-active"
+                                                        : "")
                                                 }
-                                                onClick={() => handleTypesToggle(t)}
+                                                onClick={() =>
+                                                    handleTypesToggle(t)
+                                                }
                                             >
                                                 {t}
                                             </button>
@@ -396,7 +438,10 @@ export default function Product() {
                                 <button
                                     type="button"
                                     className={
-                                        "chip-btn" + (selectedBranches.length === 0 ? " is-active" : "")
+                                        "chip-btn" +
+                                        (selectedBranches.length === 0
+                                            ? " is-active"
+                                            : "")
                                     }
                                     onClick={() => setSelectedBranches([])}
                                 >
@@ -406,13 +451,21 @@ export default function Product() {
                                 {/* Pill toggles */}
                                 <div className="filter-pill-row">
                                     {BRANCHES.map((branch) => {
-                                        const active = selectedBranches.includes(branch);
+                                        const active =
+                                            selectedBranches.includes(branch);
                                         return (
                                             <button
                                                 key={branch}
                                                 type="button"
-                                                className={"chip-btn" + (active ? " is-active" : "")}
-                                                onClick={() => handleBranchToggle(branch)}
+                                                className={
+                                                    "chip-btn" +
+                                                    (active
+                                                        ? " is-active"
+                                                        : "")
+                                                }
+                                                onClick={() =>
+                                                    handleBranchToggle(branch)
+                                                }
                                             >
                                                 {branch}
                                             </button>
@@ -421,10 +474,9 @@ export default function Product() {
                                 </div>
                             </div>
                         )}
-
                     </div>
 
-                    {/* Brand / Price placeholders for later */}
+                    {/* Brand */}
                     <div className="filter-group">
                         <button
                             type="button"
@@ -442,7 +494,10 @@ export default function Product() {
                                 <button
                                     type="button"
                                     className={
-                                        "chip-btn" + (selectedBrands.length === 0 ? " is-active" : "")
+                                        "chip-btn" +
+                                        (selectedBrands.length === 0
+                                            ? " is-active"
+                                            : "")
                                     }
                                     onClick={() => setSelectedBrands([])}
                                 >
@@ -451,13 +506,21 @@ export default function Product() {
 
                                 <div className="filter-pill-row">
                                     {BRANDS.map((br) => {
-                                        const active = selectedBrands.includes(br);
+                                        const active =
+                                            selectedBrands.includes(br);
                                         return (
                                             <button
                                                 key={br}
                                                 type="button"
-                                                className={"chip-btn" + (active ? " is-active" : "")}
-                                                onClick={() => handleBrandToggle(br)}
+                                                className={
+                                                    "chip-btn" +
+                                                    (active
+                                                        ? " is-active"
+                                                        : "")
+                                                }
+                                                onClick={() =>
+                                                    handleBrandToggle(br)
+                                                }
                                             >
                                                 {br}
                                             </button>
@@ -466,9 +529,9 @@ export default function Product() {
                                 </div>
                             </div>
                         )}
-
                     </div>
 
+                    {/* Price */}
                     <div className="filter-group">
                         <button
                             type="button"
@@ -486,7 +549,10 @@ export default function Product() {
                                 <button
                                     type="button"
                                     className={
-                                        "chip-btn" + (selectedPrices.length === 0 ? " is-active" : "")
+                                        "chip-btn" +
+                                        (selectedPrices.length === 0
+                                            ? " is-active"
+                                            : "")
                                     }
                                     onClick={() => setSelectedPrices([])}
                                 >
@@ -495,13 +561,21 @@ export default function Product() {
 
                                 <div className="filter-pill-row">
                                     {PRICE_RANGES.map((rg) => {
-                                        const active = selectedPrices.includes(rg);
+                                        const active =
+                                            selectedPrices.includes(rg);
                                         return (
                                             <button
                                                 key={rg}
                                                 type="button"
-                                                className={"chip-btn" + (active ? " is-active" : "")}
-                                                onClick={() => handlePriceToggle(rg)}
+                                                className={
+                                                    "chip-btn" +
+                                                    (active
+                                                        ? " is-active"
+                                                        : "")
+                                                }
+                                                onClick={() =>
+                                                    handlePriceToggle(rg)
+                                                }
                                             >
                                                 {rg}
                                             </button>
@@ -510,7 +584,6 @@ export default function Product() {
                                 </div>
                             </div>
                         )}
-
                     </div>
 
                     {/* Sort By */}

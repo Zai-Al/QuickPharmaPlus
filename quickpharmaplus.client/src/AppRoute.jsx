@@ -65,6 +65,7 @@ import MyOrderDetails from "./Pages/External_System/My_Orders/MyOrderDetails.jsx
 import Cart from "./Pages/External_System/Cart_And_Wish_List/Cart.jsx";
 import Home from "./Pages/External_System/Home/Home.jsx";
 import Product from "./Pages/External_System/Products/Product.jsx";
+import ProductDetails from "./Pages/External_System/Products/ProductDetails.jsx";
 
 
 export default function AppRoutes() {
@@ -427,6 +428,12 @@ export default function AppRoutes() {
 
                             <Route path="/PlanDetails/:id" element={<ProtectedRoute allowedRoles={["Customer"]}>
                                 <PlanDetails />
+                            </ProtectedRoute>
+                            }
+                            />
+
+                            <Route path="/productDetails/:id" element={<ProtectedRoute allowedRoles={["Customer"]}>
+                                <ProductDetails />
                             </ProtectedRoute>
                             }
                             />

@@ -22,7 +22,7 @@ export default function ProductCard({
 }) {
     const navigate = useNavigate();
 
-    const goToDetails = () => navigate(`/product/${id}`);
+    const goToDetails = () => navigate(`/productDetails/${id}`);
 
     const [isFavorite, setIsFavorite] = useState(initialFavorite);
 
