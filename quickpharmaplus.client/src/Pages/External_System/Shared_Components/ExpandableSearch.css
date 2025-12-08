@@ -1,35 +1,66 @@
-.expand-search {
+/* Outer container (the form) */
+.expand-search-container {
     position: relative;
+    display: flex;
+    align-items: center;
+    margin-left: 1rem;
 }
 
-    .expand-search .icon {
-        width: 22px;
-        height: 22px;
-        cursor: pointer;
-        
-    }
-
-    .expand-search .search-box {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        border: 1px solid #ccc;
-        padding: 0.4rem 0.6rem;
-        border-radius: 30px;
-        background: #fff;
-        transition: width 0.3s ease;
-    }
-
-    .expand-search input {
-        border: none;
-        outline: none;
-        font-size: 0.9rem;
-        width: 180px;
-    }
-
-    .expand-search.active .search-box {
-        width: 220px;
-    }
+/* The small icon button when collapsed */
 .expand-search-icon {
-    /*background: #fff;*/
+    background: #ffffff; /* white box */
+    
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
 }
+
+    .expand-search-icon svg {
+        color: #000000; /* black icon */
+    }
+
+/* Input when expanded */
+.expand-search-input {
+    background: #ffffff; /* white */
+    color: #000000; /* black text */
+    border: 1px solid #dcdcdc;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 0.9rem;
+    min-width: 220px;
+    outline: none;
+    margin-right: 0.4rem;
+}
+
+    .expand-search-input::placeholder {
+        color: #777777; /* soft grey placeholder */
+    }
+
+/* Close (X) button */
+.expand-search-close {
+    background: #ffffff;
+    border: 1px solid #dcdcdc;
+    border-radius: 999px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+}
+
+    .expand-search-close svg {
+        color: #000000; /* black X icon */
+    }
+
+    /* Small hover effect */
+    .expand-search-icon:hover,
+    .expand-search-close:hover,
+    .expand-search-input:focus {
+        border-color: #54b2b5; /* your teal accent */
+    }

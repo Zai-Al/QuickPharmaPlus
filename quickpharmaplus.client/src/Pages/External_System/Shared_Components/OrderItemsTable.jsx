@@ -1,5 +1,34 @@
 import TableFormat from "./TableFormat";
 import formatCurrency from "../Shared_Components/formatCurrency.js";
+import ProductInfoCell from "./ProductInfoCell";
+
+// Optional helper: same style as in Cart / WishList
+const buildIncompatibilityLines = (inc = {}) => {
+    const lines = [];
+
+    if (inc.medications && inc.medications.length) {
+        lines.push(
+            "Not compatible with: " +
+            inc.medications
+                .map((m) => m.otherProductName)
+                .join(", ")
+        );
+    }
+
+    if (inc.allergies && inc.allergies.length) {
+        lines.push(
+            "Allergy conflict: " + inc.allergies.join(", ")
+        );
+    }
+
+    if (inc.illnesses && inc.illnesses.length) {
+        lines.push(
+            "Illness conflict: " + inc.illnesses.join(", ")
+        );
+    }
+
+    return lines;
+};
 
 export default function OrderItemsTable({
     items = [],
@@ -14,7 +43,8 @@ export default function OrderItemsTable({
         0
     );
 
-    const hasMethod = shippingMethod === "pickup" || shippingMethod === "delivery";
+    const hasMethod =
+        shippingMethod === "pickup" || shippingMethod === "delivery";
 
     const deliveryFee =
         !hasMethod
@@ -31,73 +61,46 @@ export default function OrderItemsTable({
 
             <TableFormat headers={["Product", "Price", "Quantity", "Subtotal"]}>
                 {/* Item rows */}
-                {items.map((item) => (
-                    <tr key={item.id ?? item.name}>
-                        <td className="align-middle text-start ps-4">
-                            <div className="d-flex align-items-center gap-3">
-                                <div
-                                    style={{
-                                        width: "64px",
-                                        height: "64px",
-                                        borderRadius: "8px",
-                                        overflow: "hidden",
-                                        backgroundColor: "#f5f5f5",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                    }}
-                                >
-                                    {item.imageSrc ? (
-                                        <img
-                                            src={item.imageSrc}
-                                            alt={item.name}
-                                            style={{
-                                                width: "100%",
-                                                height: "100%",
-                                                objectFit: "cover",
-                                            }}
-                                        />
-                                    ) : (
-                                        <span
-                                            style={{
-                                                fontSize: "0.75rem",
-                                                color: "#999",
-                                            }}
-                                        >
-                                            No image
-                                        </span>
-                                    )}
-                                </div>
+                {items.map((item) => {
+                    const incLines = buildIncompatibilityLines(
+                        item.incompatibilities
+                    );
 
-                                <div>
-                                    <div className="fw-bold">{item.name}</div>
-                                    <div
-                                        className="text-muted"
-                                        style={{ fontSize: "0.85rem" }}
-                                    >
-                                        {item.category}
-                                        {item.type ? `, ${item.type}` : ""}
-                                    </div>
-                                </div>
-                            </div>
-                        </td>
+                    return (
+                        <tr key={item.id ?? item.name}>
+                            {/* Product cell now uses ProductInfoCell (with pills) */}
+                            <td className="align-middle text-start ps-4">
+                                <ProductInfoCell
+                                    imageSrc={item.imageSrc}
+                                    name={item.name}
+                                    category={item.category}
+                                    type={item.type}
+                                    incompatibilityLines={incLines}
+                                    prescribed={item.prescribed}
+                                />
+                            </td>
 
-                        <td className="align-middle">
-                            {formatCurrency(item.price || 0, currency)}
-                        </td>
+                            {/* Price */}
+                            <td className="align-middle">
+                                {formatCurrency(item.price || 0, currency)}
+                            </td>
 
-                        <td className="align-middle">
-                            {item.quantity ?? 0}
-                        </td>
+                            {/* Quantity */}
+                            <td className="align-middle">
+                                {item.quantity ?? 0}
+                            </td>
 
-                        <td className="align-middle">
-                            {formatCurrency(
-                                (item.price || 0) * (item.quantity || 0),
-                                currency
-                            )}
-                        </td>
-                    </tr>
-                ))}
+                            {/* Subtotal */}
+                            <td className="align-middle">
+                                {formatCurrency(
+                                    (item.price || 0) *
+                                    (item.quantity || 0),
+                                    currency
+                                )}
+                            </td>
+                        </tr>
+                    );
+                })}
 
                 {/* Subtotal always visible */}
                 <tr className="summary-row">
