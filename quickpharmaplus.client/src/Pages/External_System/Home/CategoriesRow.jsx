@@ -13,6 +13,7 @@ export default function CategoriesRow({ categories = [] }) {
                 {categories.map((cat) => (
                     <CategoryBubble
                         key={cat.id}
+                        id={cat.id}
                         name={cat.name}
                         iconUrl={cat.iconUrl}
                     />

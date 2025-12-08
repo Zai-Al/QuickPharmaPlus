@@ -1,10 +1,11 @@
 // src/Pages/Shared_Components/HomeSlider.jsx
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import "./HomeSlider.css";
 import Welcome from "../../../assets/Slides/welcome.png";
 import healthProfile from "../../../assets/Slides/health.png";
 import productsPage from "../../../assets/Slides/products-page.png";
+import { AuthContext } from "../../../Context/AuthContext.jsx";
 
 const SLIDE_INTERVAL_MS = 8000;
 
@@ -14,7 +15,7 @@ const slides = [
         title: "Welcome to QuickPharma+",
         subtitle:
             "Your trusted digital pharmacy experience. Manage prescriptions, shop wellness essentials, and access health support with ease.",
-        buttonText: null, // no button on this slide
+        buttonText: null,
         buttonLink: null,
         imageUrl: Welcome,
     },
@@ -33,7 +34,7 @@ const slides = [
         subtitle:
             "Browse trusted medications, supplements, and wellness products, with delivery or in-store pickup at your convenience.",
         buttonText: "Browse Our Products",
-        buttonLink: "/products",
+        buttonLink: "/productsPage",
         imageUrl: productsPage,
     },
 ];
@@ -43,8 +44,14 @@ export default function HomeSlider() {
     const timerRef = useRef(null);
     const navigate = useNavigate();
 
+    const { user } = useContext(AuthContext) || {};
+    const roles = user?.roles || [];
+    const isCustomer = roles.includes("Customer");
+
     const startAutoSlide = () => {
-        if (timerRef.current) clearInterval(timerRef.current);
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+        }
 
         timerRef.current = setInterval(() => {
             setCurrentIndex((prev) => (prev + 1) % slides.length);
@@ -53,19 +60,30 @@ export default function HomeSlider() {
 
     useEffect(() => {
         startAutoSlide();
+
         return () => {
-            if (timerRef.current) clearInterval(timerRef.current);
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+            }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleDotClick = (index) => {
         setCurrentIndex(index);
-        startAutoSlide(); // reset timer after manual change
+        startAutoSlide();
     };
 
-    const handleButtonClick = (link) => {
+    const handleButtonClick = (slide) => {
+        const link = slide.buttonLink;
         if (!link) return;
+
+        // Special rule: Health Profile only for Customer
+        if (link === "/healthProfile" && !isCustomer) {
+            navigate("/login");
+            return;
+        }
+
         navigate(link);
     };
 
@@ -94,9 +112,7 @@ export default function HomeSlider() {
                         {slide.buttonText && (
                             <button
                                 className="hero-button"
-                                onClick={() =>
-                                    handleButtonClick(slide.buttonLink)
-                                }
+                                onClick={() => handleButtonClick(slide)}
                             >
                                 {slide.buttonText}
                             </button>
