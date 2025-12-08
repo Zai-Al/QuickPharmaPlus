@@ -21,10 +21,21 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
         }
 
         [HttpGet("employees")]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll(
+    [FromQuery] int pageNumber = 1,
+    [FromQuery] int pageSize = 10)
         {
-            return Ok(await _repo.GetAllEmployeesAsync());
+            var result = await _repo.GetAllEmployeesAsync(pageNumber, pageSize);
+
+            return Ok(new
+            {
+                items = result.Items,
+                totalCount = result.TotalCount,
+                pageNumber,
+                pageSize
+            });
         }
+
 
         [HttpGet("employee/{id:int}")]
         public async Task<IActionResult> Get(int id)

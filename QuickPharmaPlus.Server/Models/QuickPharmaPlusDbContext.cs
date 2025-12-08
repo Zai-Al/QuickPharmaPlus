@@ -272,6 +272,10 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
         modelBuilder.Entity<Product>(entity =>
         {
+            entity.HasOne(d => d.Category).WithMany(p => p.Products)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Product_Category");
+
             entity.HasOne(d => d.ProductType).WithMany(p => p.Products).HasConstraintName("FK_Product_Product_Type");
 
             entity.HasOne(d => d.Supplier).WithMany(p => p.Products).HasConstraintName("FK_Product_Supplier");

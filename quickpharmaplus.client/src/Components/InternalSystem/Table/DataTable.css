@@ -17,15 +17,17 @@
 
     .data-table th {
         background-color: #e8f3f3;
-        text-align: center;
+        text-align: left;
         font-weight: 600;
-        padding: 12px;
+        padding: 8px;
     }
 
     .data-table td {
-        text-align: center;
-        padding: 10px;
+        text-align: left;
+        padding: 8px;
         vertical-align: middle;
+        font-size:13px;
+        font-weight:450;
     }
 
         /* ----------------------------------------- */

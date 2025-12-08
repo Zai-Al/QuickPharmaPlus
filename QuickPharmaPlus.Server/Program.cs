@@ -200,68 +200,67 @@ namespace QuickPharmaPlus.Server
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
 
-            //Admin seeding  
-            await CreateUser(userManager, "hassan.alkhalifa@quickpharmaplus.com", "Admin123!", "Admin");
-            
-            //Managers seeding
-            await CreateUser(userManager, "mansoor.alansari@quickpharmaplus.com", "Manager123!", "Manager");
-            await CreateUser(userManager, "fatima.alqattan@quickpharmaplus.com", "Manager123!", "Manager");
-            await CreateUser(userManager, "ali.alsayegh@quickpharmaplus.com", "Manager123!", "Manager");
-            await CreateUser(userManager, "maryam.aljaber@quickpharmaplus.com", "Manager123!", "Manager");
-            await CreateUser(userManager, "jassim.alrumaihi@quickpharmaplus.com", "Manager123!", "Manager");
+            // Admin seeding  
+            await CreateUser(userManager, "hassan.alkhalifa@gmail.com", "Admin123!", "Admin");
 
-            //for testing reset/forgot password
+            // Managers seeding
+            await CreateUser(userManager, "mansoor.alansari@gmail.com", "Manager123!", "Manager");
+            await CreateUser(userManager, "fatima.alqattan@gmail.com", "Manager123!", "Manager");
+            await CreateUser(userManager, "ali.alsayegh@gmail.com", "Manager123!", "Manager");
+            await CreateUser(userManager, "maryam.aljaber@gmail.com", "Manager123!", "Manager");
+            await CreateUser(userManager, "jassim.alrumaihi@gmail.com", "Manager123!", "Manager");
+
+            // For testing reset/forgot password
             await CreateUser(userManager, "zainabalawi08@gmail.com", "User123!", "Manager");
             await CreateUser(userManager, "z.alawi@outlook.com", "Zainab123!", "Pharmacist");
 
+            // Pharmacists seeding
+            await CreateUser(userManager, "ahmed.alhaddad@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "noora.almannai@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "yousef.saleh@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "maha.alkhaldi@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "hussain.qamber@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "aisha.alshoaibi@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "salman.almahroos@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "fatema.alaradi@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "mohamed.alfardan@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "zainab.almutawa@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "talal.aljishi@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "ruqaya.altajer@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "khalid.alzayani@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "laila.alhashemi@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "salwa.aldossary@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "hamza.almulla@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "jalila.aljowder@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "ammar.alshirawi@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "huda.alsubaie@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "nasser.alnoaimi@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "sumaya.albuainain@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "rashid.aleid@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "maryam.almatar@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "jaber.alaali@gmail.com", "Pharma123!", "Pharmacist");
+            await CreateUser(userManager, "dalal.alsaffar@gmail.com", "Pharma123!", "Pharmacist");
 
-            //Pharmacists seeding
-            await CreateUser(userManager, "ahmed.alhaddad@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "noora.almannai@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "yousef.saleh@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "maha.alkhaldi@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "hussain.qamber@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "aisha.alshoaibi@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "salman.almahroos@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "fatema.alaradi@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "mohamed.alfardan@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "zainab.almutawa@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "talal.aljishi@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "ruqaya.altajer@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "khalid.alzayani@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "laila.alhashemi@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "salwa.aldossary@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "hamza.almulla@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "jalila.aljowder@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "ammar.alshirawi@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "huda.alsubaie@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "nasser.alnoaimi@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "sumaya.albuainain@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "rashid.aleid@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "maryam.almatar@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "jaber.alaali@quickpharmaplus.com", "Pharma123!", "Pharmacist");
-            await CreateUser(userManager, "dalal.alsaffar@quickpharmaplus.com", "Pharma123!", "Pharmacist");
+            // Drivers seeding
+            await CreateUser(userManager, "ramesh.kumar@gmail.com", "Driver123!", "Driver");
+            await CreateUser(userManager, "sanjay.patel@gmail.com", "Driver123!", "Driver");
+            await CreateUser(userManager, "arjun.nair@gmail.com", "Driver123!", "Driver");
+            await CreateUser(userManager, "vijay.menon@gmail.com", "Driver123!", "Driver");
+            await CreateUser(userManager, "deepak.singh@gmail.com", "Driver123!", "Driver");
 
-            //Drivers seeding
-            await CreateUser(userManager, "ramesh.kumar@quickpharmaplus.com", "Driver123!", "Driver");
-            await CreateUser(userManager, "sanjay.patel@quickpharmaplus.com", "Driver123!", "Driver");
-            await CreateUser(userManager, "arjun.nair@quickpharmaplus.com", "Driver123!", "Driver");
-            await CreateUser(userManager, "vijay.menon@quickpharmaplus.com", "Driver123!", "Driver");
-            await CreateUser(userManager, "deepak.singh@quickpharmaplus.com", "Driver123!", "Driver");
-
-            //Customers seeding
+            // Customers seeding
             await CreateUser(userManager, "layla.hassan@gmail.com", "Customer123!", "Customer");
-            await CreateUser(userManager, "john.mitchell@outlook.com", "Customer123!", "Customer");
+            await CreateUser(userManager, "john.mitchell@gmail.com", "Customer123!", "Customer");
             await CreateUser(userManager, "sara.alm@gmail.com", "Customer123!", "Customer");
-            await CreateUser(userManager, "michael.turner@yahoo.com", "Customer123!", "Customer");
+            await CreateUser(userManager, "michael.turner@gmail.com", "Customer123!", "Customer");
             await CreateUser(userManager, "aisha.rahman@gmail.com", "Customer123!", "Customer");
-            await CreateUser(userManager, "david.collins@hotmail.com", "Customer123!", "Customer");
+            await CreateUser(userManager, "david.collins@gmail.com", "Customer123!", "Customer");
             await CreateUser(userManager, "fatima.isa@gmail.com", "Customer123!", "Customer");
-            await CreateUser(userManager, "adam.williams@outlook.com", "Customer123!", "Customer");
+            await CreateUser(userManager, "adam.williams@gmail.com", "Customer123!", "Customer");
             await CreateUser(userManager, "mariyam.alfarsi@gmail.com", "Customer123!", "Customer");
-            await CreateUser(userManager, "james.harrison@yahoo.com", "Customer123!", "Customer");
+            await CreateUser(userManager, "james.harrison@gmail.com", "Customer123!", "Customer");
             await CreateUser(userManager, "huda.saleem@gmail.com", "Customer123!", "Customer");
-            await CreateUser(userManager, "daniel.reed@outlook.com", "Customer123!", "Customer");
+            await CreateUser(userManager, "daniel.reed@gmail.com", "Customer123!", "Customer");
             await CreateUser(userManager, "noura.alsaad@gmail.com", "Customer123!", "Customer");
             await CreateUser(userManager, "emily.johnson@gmail.com", "Customer123!", "Customer");
             await CreateUser(userManager, "ahmed.yousif@gmail.com", "Customer123!", "Customer");
