@@ -66,6 +66,8 @@ import Cart from "./Pages/External_System/Cart_And_Wish_List/Cart.jsx";
 import Home from "./Pages/External_System/Home/Home.jsx";
 import Product from "./Pages/External_System/Products/Product.jsx";
 import ProductDetails from "./Pages/External_System/Products/ProductDetails.jsx";
+import WishList from "./Pages/External_System/Cart_And_Wish_List/WishList.jsx"; 
+
 
 
 export default function AppRoutes() {
@@ -406,6 +408,12 @@ export default function AppRoutes() {
 
                             <Route path="/cart" element={<ProtectedRoute allowedRoles={["Customer"]}>
                                 <Cart />
+                            </ProtectedRoute>
+                            }
+                            />
+
+                            <Route path="/wishList" element={<ProtectedRoute allowedRoles={["Customer"]}>
+                                <WishList />
                             </ProtectedRoute>
                             }
                             />

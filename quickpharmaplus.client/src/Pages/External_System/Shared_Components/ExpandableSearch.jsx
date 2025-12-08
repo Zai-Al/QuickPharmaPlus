@@ -1,3 +1,4 @@
+// ExpandableSearch.jsx
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "./ExpandableSearch.css";
@@ -26,7 +27,6 @@ export default function ExpandableSearch() {
         closeSearch();
     };
 
-    // Collapse if clicked outside
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (expanded && !e.target.closest(".expand-search-container")) {
@@ -49,7 +49,11 @@ export default function ExpandableSearch() {
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                     />
-                    <button type="button" className="expand-search-close" onClick={closeSearch}>
+                    <button
+                        type="button"
+                        className="expand-search-close"
+                        onClick={closeSearch}
+                    >
                         <FiX size={20} />
                     </button>
                 </>

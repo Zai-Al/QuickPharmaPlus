@@ -54,7 +54,7 @@ const MOCK_ORDER = {
 
 export default function MyOrderDetails() {
     const navigate = useNavigate();
-    const { id } = useParams(); // you can use this when you connect to API
+    useParams(); // you can use this when you connect to API
 
     const [order, setOrder] = useState(MOCK_ORDER);
 

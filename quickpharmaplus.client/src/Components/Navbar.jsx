@@ -4,8 +4,12 @@ import logo from "../assets/Logo.png";
 import "./Navigation.css";
 import { AuthContext } from "../Context/AuthContext.jsx";
 import ExpandableSearch from "../Pages/External_System/Shared_Components/ExpandableSearch";
+import { FiHeart} from "react-icons/fi";
+import { TiShoppingCart } from "react-icons/ti";
 
-export default function Navbar({ user: propUser }) {
+
+export default function Navbar({ user: propUser, cartCount = 0,
+    wishlistCount = 0, }) {
     const { user: ctxUser } = useContext(AuthContext);
     const user = propUser ?? ctxUser;
 
@@ -196,12 +200,10 @@ export default function Navbar({ user: propUser }) {
                             <li className="nav-item">
                                 <NavLink to="/privacy" className="nav-link px-3">Privacy Policy</NavLink>
                             </li>
+                            
 
-                            <ExpandableSearch onSearch={(term) => console.log("Searching:", term)} />
+                            
 
-                            <li className="nav-item">
-                                <NavLink to="/cart" className="nav-link px-3">Cart</NavLink>
-                            </li>
                         </>
                     )}
 
@@ -236,20 +238,48 @@ export default function Navbar({ user: propUser }) {
 
 
 
-                {/* RIGHT — PROFILE / ACCOUNT BUTTON */}
-                <Link
-                    to="/profileInternal"
-                    className="btn d-flex align-items-center gap-2 px-3 py-2"
-                    style={{
-                        border: "1px solid #000",
-                        borderRadius: "6px",
-                        background: "#fff"
-                    }}
-                >
-                    <i className="bi bi-person-circle fs-5"></i>
-                    {user ? fullName : "Login"}
-                </Link>
+                <div className="d-flex align-items-center gap-3">
+                    {isCustomer && (
+                        <>
+                            {/* Wishlist icon */}
+                            <ExpandableSearch onSearch={(term) => console.log("Searching:", term)} />
+                            <NavLink
+                                to="/wishList"
+                                className="nav-icon-link position-relative"
+                            >
+                                <FiHeart className="fs-5 nav-icon" />
+                                {wishlistCount > 0 && (
+                                    <span className="nav-badge">{wishlistCount}</span>
+                                )}
+                            </NavLink>
 
+                            {/* Cart icon */}
+                            <NavLink
+                                to="/cart"
+                                className="nav-icon-link position-relative"
+                            >
+                                <TiShoppingCart className="fs-5 nav-icon" />
+                                {cartCount > 0 && (
+                                    <span className="nav-badge">{cartCount}</span>
+                                )}
+                            </NavLink>
+                        </>
+                    )}
+
+                    {/* Profile / Login button */}
+                    <Link
+                        to="/profileInternal"
+                        className="btn d-flex align-items-center gap-2 px-3 py-2"
+                        style={{
+                            border: "1px solid #000",
+                            borderRadius: "6px",
+                            background: "#fff",
+                        }}
+                    >
+                        <i className="bi bi-person-circle fs-5"></i>
+                        {user ? fullName : "Login"}
+                    </Link>
+                </div>
             </div>
         </nav>
     );

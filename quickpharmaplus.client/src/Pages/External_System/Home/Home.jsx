@@ -1,11 +1,10 @@
 // src/Pages/External_System/HomeExternal.jsx
+import { useState } from "react";
 import HomeSlider from "./HomeSlider";
 import CategoriesRow from "./CategoriesRow";
 import "./Home.css";
 import ProductRowSection from "../Shared_Components/ProductRowSection";
-import { useState } from "react";
 import DialogModal from "../../../Components/InternalSystem/Modals/ConfirmModal";
-
 
 // Later you’ll replace these with real data from your API/DB
 const mockCategories = [
@@ -24,7 +23,7 @@ const mockBestSellers = [
         imageUrl: null,
         isFavorite: false,
         requiresPrescription: false,
-        incompatibilities: [],
+        incompatibilities: [], // no issues
         categoryName: "Vitamins",
         productType: "Tablets",
     },
@@ -35,7 +34,7 @@ const mockBestSellers = [
         imageUrl: null,
         isFavorite: true,
         requiresPrescription: false,
-        incompatibilities: [],
+        incompatibilities: [], // no issues
         categoryName: "Pain Relief",
         productType: "Tablets",
     },
@@ -46,7 +45,9 @@ const mockBestSellers = [
         imageUrl: null,
         isFavorite: false,
         requiresPrescription: true,
-        incompatibilities: ["May interact with existing BP medication"],
+        incompatibilities: [
+            "May interact with existing blood pressure medication.",
+        ],
         categoryName: "Heart & BP",
         productType: "Tablets",
     },
@@ -57,7 +58,9 @@ const mockBestSellers = [
         imageUrl: null,
         isFavorite: false,
         requiresPrescription: true,
-        incompatibilities: ["May interact with existing BP medication"],
+        incompatibilities: [
+            "May interact with existing blood pressure medication.",
+        ],
         categoryName: "Heart & BP",
         productType: "Tablets",
     },
@@ -68,7 +71,9 @@ const mockBestSellers = [
         imageUrl: null,
         isFavorite: false,
         requiresPrescription: true,
-        incompatibilities: ["May interact with existing BP medication"],
+        incompatibilities: [
+            "May interact with existing blood pressure medication.",
+        ],
         categoryName: "Heart & BP",
         productType: "Tablets",
     },
@@ -79,7 +84,9 @@ const mockBestSellers = [
         imageUrl: null,
         isFavorite: false,
         requiresPrescription: true,
-        incompatibilities: ["May interact with existing BP medication"],
+        incompatibilities: [
+            "May interact with existing blood pressure medication.",
+        ],
         categoryName: "Heart & BP",
         productType: "Tablets",
     },
@@ -104,7 +111,9 @@ const mockNewProducts = [
         imageUrl: null,
         isFavorite: false,
         requiresPrescription: true,
-        incompatibilities: ["Not recommended with current antihistamine"],
+        incompatibilities: [
+            "Not recommended with your recorded allergies / antihistamines.",
+        ],
         categoryName: "Allergy",
         productType: "Spray",
     },
@@ -155,29 +164,10 @@ const mockNewProducts = [
 ];
 
 export default function HomeExternal() {
-    const [cartItems, setCartItems] = useState([]);
+    const [_cartItems, setCartItems] = useState([]);
     const [pendingProduct, setPendingProduct] = useState(null);
     const [interactionMessages, setInteractionMessages] = useState([]);
     const [showInteractionDialog, setShowInteractionDialog] = useState(false);
-
-    // fake "backend" interaction check
-    const mockCheckInteractions = (currentCart, productToAdd) => {
-        const messages = [];
-
-        // For now: use incompatibilities field on the product itself
-        if (productToAdd.incompatibilities?.length) {
-            messages.push(
-                ...productToAdd.incompatibilities.map(
-                    (msg) => `• ${msg}`
-                )
-            );
-        }
-
-        // You can also compare with existing cart items later
-        // currentCart.forEach(item => { ... })
-
-        return messages;
-    };
 
     const actuallyAddToCart = (product) => {
         setCartItems((prev) => [...prev, product]);
@@ -186,17 +176,19 @@ export default function HomeExternal() {
 
     // Called from ProductRowSection / ProductCard
     const handleAddToCartRequest = (product) => {
-        const interactions = mockCheckInteractions(cartItems, product);
+        const inc = product.incompatibilities || [];
+        const hasIncompatibility =
+            Array.isArray(inc) && inc.length > 0;
 
-        if (interactions.length === 0) {
-            // No problems -> just add
+        if (!hasIncompatibility) {
+            // no incompatibility -> just add directly
             actuallyAddToCart(product);
             return;
         }
 
-        // There are interactions -> show dialog
+        // there are incompatibilities -> show dialog
         setPendingProduct(product);
-        setInteractionMessages(interactions);
+        setInteractionMessages(inc);
         setShowInteractionDialog(true);
     };
 
@@ -208,6 +200,12 @@ export default function HomeExternal() {
 
     const handleConfirmAdd = () => {
         if (pendingProduct) {
+            // here you could choose a special message based on type:
+            // - for now, mock strings already mention meds/allergies
+            console.log(
+                "Proceeding to add despite incompatibility:",
+                pendingProduct.name
+            );
             actuallyAddToCart(pendingProduct);
         }
         handleCancelAdd();
@@ -215,6 +213,7 @@ export default function HomeExternal() {
 
     const handleToggleFavorite = (product) => {
         console.log("toggle favorite for", product.id);
+        // later: update API / global favorite store
     };
 
     return (
@@ -245,20 +244,31 @@ export default function HomeExternal() {
             {/* Interaction warning dialog */}
             <DialogModal
                 show={showInteractionDialog}
-                title="Medication Interaction Warning"
+                title="Possible Incompatibility"
                 body={
                     <div>
                         <p>
-                            We found possible interactions when adding{" "}
-                            <strong>{pendingProduct?.name}</strong>:
+                            <strong>
+                                {pendingProduct?.name}
+                            </strong>{" "}
+                            may be incompatible with your health
+                            profile (medications, allergies, or
+                            illnesses).
                         </p>
-                        <ul>
-                            {interactionMessages.map((msg, idx) => (
-                                <li key={idx}>{msg}</li>
-                            ))}
-                        </ul>
+
+                        {interactionMessages.length > 0 && (
+                            <ul>
+                                {interactionMessages.map(
+                                    (msg, idx) => (
+                                        <li key={idx}>{msg}</li>
+                                    )
+                                )}
+                            </ul>
+                        )}
+
                         <p>
-                            Do you still want to add this product to your cart?
+                            Do you still want to add this product to
+                            your cart?
                         </p>
                     </div>
                 }

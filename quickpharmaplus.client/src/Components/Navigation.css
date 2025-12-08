@@ -71,3 +71,36 @@ body, .navbar, .nav-link, .dropdown-menu, .dropdown-item {
     border-radius: 12px;
     font-weight: 600;
 }
+
+
+.nav-icon-link {
+    color: #000;
+    text-decoration: none;
+    position: relative;
+}
+
+.nav-icon {
+    cursor: pointer;
+    transition: 0.2s ease-in-out;
+}
+
+    .nav-icon:hover {
+        transform: scale(1.1);
+    }
+
+.nav-badge {
+    position: absolute;
+    top: -6px;
+    right: -8px;
+    background: #e10000;
+    color: white;
+    font-size: 0.65rem;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+}
+
