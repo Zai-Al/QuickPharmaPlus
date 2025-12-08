@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+﻿import { useState, useEffect } from "react";
 import "./CategoryList.css";
 
 // Shared components
@@ -12,7 +12,6 @@ import FilterRight from "../../../../Components/InternalSystem/GeneralComponents
 import SearchTextField from "../../../../Components/InternalSystem/GeneralComponents/FilterTextField";
 import ViewButton from "../../../../Components/InternalSystem/Buttons/ViewButton";
 
-
 import Pagination from "../../../../Components/InternalSystem/GeneralComponents/Pagination";
 import DeleteModal from "../../../../Components/InternalSystem/Modals/DeleteModal";
 
@@ -20,10 +19,11 @@ export default function CategoryList() {
     const [showModal, setShowModal] = useState(false);
     const [deleteId, setDeleteId] = useState(null);
 
-    // Fake sample category data (structure must match screenshot)
-    const categories = [
-        { id: 1, name: "Analgesic", productCount: 14 },
-    ];
+    // fetched categories
+    const [categories, setCategories] = useState([]);
+    const [totalCount, setTotalCount] = useState(0);
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 10;
 
     // Table columns
     const columns = [
@@ -34,14 +34,41 @@ export default function CategoryList() {
         { key: "delete", label: "Delete" }
     ];
 
+    useEffect(() => {
+        fetchCategories();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentPage]);
+
+    async function fetchCategories(search = "") {
+        try {
+            const url = `/api/category?pageNumber=${currentPage}&pageSize=${pageSize}` + (search ? `&search=${encodeURIComponent(search)}` : "");
+            const res = await fetch(url);
+            if (!res.ok) {
+                console.error("Failed to fetch categories", res.statusText);
+                return;
+            }
+            const data = await res.json();
+
+            // Map API shape to table shape (DataTable expects { id, name, productCount })
+            const mapped = (data.items || []).map(c => ({
+                id: c.categoryId,
+                name: c.categoryName,
+                productCount: c.productCount ?? 0
+            }));
+
+            setCategories(mapped);
+            setTotalCount(data.totalCount ?? mapped.length);
+        } catch (err) {
+            console.error(err);
+        }
+    }
 
     // Button renderers
     const renderMap = {
-        //view: (row) => (
-        //    <ViewButton to={`/categories/edit/${row.id}`} text="View Types" />
-
-        //),
-        view: () => <ViewButton to="/category/type" text="View Types" />,
+        view: (row) => (
+            // pass the category id in the route so the types page can fetch types for this category
+            <ViewButton to={`/categories/types/${row.id}`} text="View Types" />
+        ),
         edit: (row) => (
             <EditButton to={`/categories/edit/${row.id}`} />
         ),
@@ -53,7 +80,6 @@ export default function CategoryList() {
                 }}
             />
         )
-
     };
 
     return (
@@ -86,7 +112,12 @@ export default function CategoryList() {
             />
 
             {/* PAGINATION */}
-            <Pagination />
+            <Pagination
+                totalItems={totalCount}
+                itemsPerPage={pageSize}
+                currentPage={currentPage}
+                onPageChange={(page) => setCurrentPage(page)}
+            />
 
             {/* DELETE CONFIRMATION MODAL */}
             <DeleteModal

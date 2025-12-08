@@ -17,9 +17,12 @@ public partial class Category
     [StringLength(200)]
     public string? CategoryName { get; set; }
 
-    [Column("Category_image", TypeName = "image")]
+    [Column("Category_image")]
     public byte[]? CategoryImage { get; set; }
 
     [InverseProperty("Category")]
     public virtual ICollection<ProductType> ProductTypes { get; set; } = new List<ProductType>();
+
+    [InverseProperty("Category")]
+    public virtual ICollection<Product> Products { get; set; } = new List<Product>();
 }

@@ -31,14 +31,21 @@ public partial class Product
     [Column("Supplier_id")]
     public int? SupplierId { get; set; }
 
-    [Column("Product_image", TypeName = "image")]
+    [Column("Product_image")]
     public byte[]? ProductImage { get; set; }
 
     [Column("Product_Type_id")]
     public int? ProductTypeId { get; set; }
 
+    [Column("Category_id")]
+    public int CategoryId { get; set; }
+
     [InverseProperty("Product")]
     public virtual ICollection<Cart> Carts { get; set; } = new List<Cart>();
+
+    [ForeignKey("CategoryId")]
+    [InverseProperty("Products")]
+    public virtual Category Category { get; set; } = null!;
 
     [InverseProperty("Product")]
     public virtual ICollection<IngredientProduct> IngredientProducts { get; set; } = new List<IngredientProduct>();

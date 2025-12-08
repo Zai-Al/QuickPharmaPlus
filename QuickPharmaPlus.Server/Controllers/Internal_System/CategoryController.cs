@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using QuickPharmaPlus.Server.Models;
-using QuickPharmaPlus.Server.ModelsDTO.Category;       // <-- You will create this folder/file
+using QuickPharmaPlus.Server.ModelsDTO.Category;
 using Microsoft.AspNetCore.Http;
 using QuickPharmaPlus.Server.Repositories.Implementation;
 
@@ -15,6 +15,20 @@ namespace QuickPharmaPlus.Server.Controllers
         public CategoryController(CategoryRepository categoryRepository)
         {
             _categoryRepository = categoryRepository;
+        }
+
+        // GET: api/category
+        // Supports paging via query string: ?pageNumber=1&pageSize=10&search=term
+        [HttpGet]
+        public async Task<IActionResult> GetAllCategories([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null)
+        {
+            var (items, totalCategories) = await _categoryRepository.GetAllCategoriesAsync(pageNumber, pageSize, search);
+
+            return Ok(new
+            {
+                items,
+                totalCount = totalCategories
+            });
         }
 
         // -------------------------------------------------------
@@ -56,16 +70,6 @@ namespace QuickPharmaPlus.Server.Controllers
                 message = "Category created successfully.",
                 category = createdCategory
             });
-        }
-
-        // -------------------------------------------------------
-        // GET: api/category
-        // -------------------------------------------------------
-        [HttpGet]
-        public async Task<IActionResult> GetAllCategories()
-        {
-            var categories = await _categoryRepository.GetAllCategoriesAsync();
-            return Ok(categories);
         }
 
         // -------------------------------------------------------

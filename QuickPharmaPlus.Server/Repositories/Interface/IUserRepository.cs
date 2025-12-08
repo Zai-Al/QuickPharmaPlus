@@ -1,11 +1,12 @@
-﻿using QuickPharmaPlus.Server.Models;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using QuickPharmaPlus.Server.Models;
+using QuickPharmaPlus.Server.ModelsDTO;
 
 namespace QuickPharmaPlus.Server.Repositories.Interface
 {
     public interface IUserRepository
     {
-        Task<IEnumerable<User>> GetAllEmployeesAsync();
+        Task<PagedResult<User>> GetAllEmployeesAsync(int pageNumber, int pageSize);
         Task<User?> GetEmployeeByIdAsync(int id);
         Task<User?> GetUserByEmailAsync(string email);
         Task<User> AddEmployeeAsync(User user);

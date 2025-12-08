@@ -64,11 +64,11 @@
 }
 
 /* -------------------------------------------------- */
-/*            REUSEABLE PAGINATION COMPONENT          */
+/*            REUSABLE PAGINATION COMPONENT           */
 /* -------------------------------------------------- */
 
 .pagination-container {
-    margin-top: 20px;
+    margin-top: 2em;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -76,14 +76,7 @@
     font-weight: 500;
 }
 
-.pagination-placeholder {
-    margin-top: 20px;
-    text-align: center;
-    font-weight: 500;
-    color: #1D2D44; /* Dark blue */
-    font-size: 15px;
-}
-
+/* ▸ TEXT BUTTONS (Previous / Next) */
 .pagination-btn {
     background: none;
     border: none;
@@ -91,39 +84,78 @@
     cursor: pointer;
     font-size: 15px;
     font-weight: 600;
+    transition: color 0.25s ease, transform 0.2s ease;
 }
 
-    .pagination-btn:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
-    }
+.pagination-btn:hover:not(:disabled) {
+    color: #598199;
+    transform: translateY(-2px);
+}
 
+.pagination-btn:active:not(:disabled) {
+    transform: scale(0.92);
+}
+
+.pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ▸ PAGE NUMBER WRAPPER */
 .pagination-pages {
     display: flex;
-    gap: 8px;
+    gap: 0.8em;
 }
 
+/* ▸ PAGE BOX BUTTONS */
 .pagination-page-btn {
     background: white;
-    border: 1px solid #1D2D44;
-    color: #1D2D44;
+    border: 1px solid #598199;
+    color: #598199;
     padding: 4px 10px;
     border-radius: 6px;
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
-    transition: 0.2s;
+
+    /* Smooth hover + click animation */
+    transition: background 0.25s ease,
+                color 0.25s ease,
+                transform 0.2s ease,
+                box-shadow 0.2s ease;
+
+    width: 40px;
+    height: 40px;
 }
 
-    .pagination-page-btn:hover {
-        background: #1D2D44;
-        color: white;
-    }
+/* Hover lift with shadow */
+.pagination-page-btn:hover {
+    background: #598199;
+    color: white;
+    transform: translateY(-3px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+}
 
-    .pagination-page-btn.active {
-        background: #1D2D44;
-        color: white;
-    }
+/* Click compression */
+.pagination-page-btn:active {
+    transform: scale(0.88);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+}
+
+/* Active (current page) */
+.pagination-page-btn.active {
+    background: #598199;
+    color: white;
+    transform: scale(1.08);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.18);
+}
+
+/* Optional dashed border if you want a navigation box */
+.pagination-navigation {
+    border: 1px solid #598199;
+    color: #598199;
+}
+
 
 /* -------------------------------------------------- */
 /*              REUSABLE DATE PICKER FILTER           */

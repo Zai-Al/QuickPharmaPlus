@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using QuickPharmaPlus.Server.Identity;
 using QuickPharmaPlus.Server.Models;
+using QuickPharmaPlus.Server.ModelsDTO;
 using QuickPharmaPlus.Server.Repositories.Interface;
 
 namespace QuickPharmaPlus.Server.Repositories.Implementation
@@ -18,15 +19,31 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
         }
 
         // FETCH ALL EMPLOYEES
-        public async Task<IEnumerable<User>> GetAllEmployeesAsync()
+        public async Task<PagedResult<User>> GetAllEmployeesAsync(int pageNumber, int pageSize)
         {
-            return await _context.Users
+            var query = _context.Users
                 .Include(u => u.Branch)
                 .Include(u => u.Role)
                 .Include(u => u.Address)
                     .ThenInclude(a => a.City)
+                .Where(u => u.RoleId == 1 || u.RoleId == 2 || u.RoleId == 3 || u.RoleId == 4);
+
+            var totalCount = await query.CountAsync();
+
+            var data = await query
+                .OrderBy(u => u.UserId)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
+
+            return new PagedResult<User>
+            {
+                Items = data,
+                TotalCount = totalCount
+            };
         }
+
+
 
         // FETCH SINGLE EMPLOYEE RECORD
         public async Task<User?> GetEmployeeByIdAsync(int id)

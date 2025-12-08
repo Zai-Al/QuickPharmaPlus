@@ -1,5 +1,6 @@
 ﻿using QuickPharmaPlus.Server.Models;
 using Microsoft.EntityFrameworkCore;
+using QuickPharmaPlus.Server.ModelsDTO.Category;
 
 namespace QuickPharmaPlus.Server.Repositories.Implementation
 {
@@ -12,15 +13,50 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             _context = context;
         }
 
-        // 1. GET ALL CATEGORIES
-        public async Task<List<Category>> GetAllCategoriesAsync()
+        // 1. GET ALL CATEGORIES (PAGED)
+        // Returns a tuple: (Items, TotalCategories)
+        public async Task<(List<CategoryListDto> Items, int TotalCategories)> GetAllCategoriesAsync(int pageNumber = 1, int pageSize = 10, string? search = null)
         {
-            return await _context.Categories
-                .Select(c => new Category
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 10;
+
+            var query = _context.Categories.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(c => EF.Functions.Like(c.CategoryName, $"%{search}%"));
+            }
+
+            // total number of categories (used for paging)
+            var totalCategories = await query.CountAsync();
+
+            var items = await query
+                .OrderBy(c => c.CategoryId)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .Select(c => new CategoryListDto
                 {
                     CategoryId = c.CategoryId,
                     CategoryName = c.CategoryName,
-                    CategoryImage = c.CategoryImage
+                    CategoryImage = c.CategoryImage,
+                    // correlated subquery to compute how many products belong to this category
+                    ProductCount = _context.Products.Count(p => p.CategoryId == c.CategoryId)
+                })
+                .ToListAsync();
+
+            return (items, totalCategories);
+        }
+
+        //GET ALL TYPES BY CATEGORY ID
+        public async Task<List<ProductType>> GetAllTypesByCategoryIdAsync(int categoryId)
+        {
+            return await _context.ProductTypes
+                .Where(pt => pt.CategoryId == categoryId)
+                .Select(pt => new ProductType
+                {
+                    ProductTypeId = pt.ProductTypeId,
+                    ProductTypeName = pt.ProductTypeName,
+                    CategoryId = pt.CategoryId
                 })
                 .ToListAsync();
         }
