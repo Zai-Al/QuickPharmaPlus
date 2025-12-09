@@ -120,6 +120,8 @@ namespace QuickPharmaPlus.Server
             builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<IRoleRepository, RoleRepository>();
             builder.Services.AddScoped<ICityRepository, CityRepository>();
+            //builder.Services.AddScoped<IAddressRepository, AddressRepository>();
+            builder.Services.AddScoped<ISupplierRepository, SupplierRepository>();
 
 
 

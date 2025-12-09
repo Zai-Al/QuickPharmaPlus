@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
 using QuickPharmaPlus.Server.Identity;
 using QuickPharmaPlus.Server.ModelsDTO.Auth;
+using QuickPharmaPlus.Server.ModelsDTO.Address;
 using QuickPharmaPlus.Server.Models;
 using Microsoft.EntityFrameworkCore;
 using QuickPharmaPlus.Server.Repositories.Interface;
@@ -85,8 +86,14 @@ namespace QuickPharmaPlus.Server.Controllers.User_Management
                     Street = appUser.Address.Street,
                     Block = appUser.Address.Block,
                     BuildingNumber = appUser.Address.BuildingNumber,
-                    City = appUser.Address.City?.CityName
+
+                    City = appUser.Address.City != null ? new CityDto
+                    {
+                        CityId = appUser.Address.City.CityId,
+                        CityName = appUser.Address.City.CityName
+                    } : null
                 } : null
+
             };
 
             return Ok(response);

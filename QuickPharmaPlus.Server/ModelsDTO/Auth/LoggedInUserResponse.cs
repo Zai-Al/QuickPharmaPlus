@@ -1,4 +1,6 @@
-﻿namespace QuickPharmaPlus.Server.ModelsDTO.Auth
+﻿using QuickPharmaPlus.Server.ModelsDTO.Address;
+
+namespace QuickPharmaPlus.Server.ModelsDTO.Auth
 {
     public class LoggedInUserResponse
     {

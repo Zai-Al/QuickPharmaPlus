@@ -27,37 +27,46 @@ export default function Profile_Internal() {
         user?.ContactNumber ??
         "";
 
-    // Address may come as a string or an object with fields.
-    const addrObj = user?.address ?? user?.Address;
+    // Extract address object (supports backend naming variations)
+    const addr = user?.address ?? user?.Address ?? null;
 
-    const street = addrObj?.street ?? addrObj?.Street ?? "";
-    const block = addrObj?.block ?? addrObj?.Block ?? "";
-    const building = addrObj?.buildingNumber ?? addrObj?.BuildingNumber ?? addrObj?.buildingFloor ?? "";
-
-    // city can be a string or nested object (e.g., { cityName })
+    // Get city safely (nested or flat)
     const city =
-        addrObj?.city?.cityName ??
-        addrObj?.city?.CityName ??
-        addrObj?.city ??
-        user?.city ??
-        user?.City?.cityName ??
-        user?.City?.CityName ??
+        addr?.city?.cityName ??
+        addr?.city?.CityName ??
+        addr?.city ??
         "";
 
-    // Format address exactly as requested:
-    // City name, Block No. "block", Street No. "street", Building No. "building"
+    // Get other address fields (supports different casing patterns)
+    const block =
+        addr?.block ??
+        addr?.Block ??
+        "";
+
+    const street =
+        addr?.street ??
+        addr?.Street ??
+        "";
+
+    const building =
+        addr?.buildingNumber ??
+        addr?.BuildingNumber ??
+        "";
+
+    // Build supplier-style formatted address:
+    // City / Block No. X / Road No. Y / Building No. Z
     const formattedParts = [];
 
     if (city) formattedParts.push(city);
     if (block) formattedParts.push(`Block No. ${block}`);
-    if (street) formattedParts.push(`Street No. ${street}`);
+    if (street) formattedParts.push(`Road No. ${street}`);
     if (building) formattedParts.push(`Building No. ${building}`);
 
     const addressDisplay =
         formattedParts.length > 0
-            ? formattedParts.join(", ")
-            : typeof addrObj === "string"
-                ? addrObj
+            ? formattedParts.join(" / ")
+            : typeof addr === "string"
+                ? addr
                 : user?.address ?? "";
 
     // Logout handler: call server logout, clear client state and sessionStorage then redirect
