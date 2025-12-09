@@ -1,10 +1,12 @@
-﻿using QuickPharmaPlus.Server.Models;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using QuickPharmaPlus.Server.Models;
+using QuickPharmaPlus.Server.ModelsDTO;
 using QuickPharmaPlus.Server.ModelsDTO.Category;
+using QuickPharmaPlus.Server.Repositories.Interface;
 
 namespace QuickPharmaPlus.Server.Repositories.Implementation
 {
-    public class CategoryRepository
+    public class CategoryRepository : ICategoryRepository
     {
         private readonly QuickPharmaPlusDbContext _context;
 
@@ -13,9 +15,13 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             _context = context;
         }
 
-        // 1. GET ALL CATEGORIES (PAGED)
-        // Returns a tuple: (Items, TotalCategories)
-        public async Task<(List<CategoryListDto> Items, int TotalCategories)> GetAllCategoriesAsync(int pageNumber = 1, int pageSize = 10, string? search = null)
+        // ============================================
+        // PAGED CATEGORIES LIST
+        // ============================================
+        public async Task<PagedResult<CategoryListDto>> GetAllCategoriesAsync(
+            int pageNumber,
+            int pageSize,
+            string? search = null)
         {
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 1) pageSize = 10;
@@ -24,11 +30,11 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
 
             if (!string.IsNullOrWhiteSpace(search))
             {
-                query = query.Where(c => EF.Functions.Like(c.CategoryName, $"%{search}%"));
+                query = query.Where(c =>
+                    EF.Functions.Like(c.CategoryName, $"%{search}%"));
             }
 
-            // total number of categories (used for paging)
-            var totalCategories = await query.CountAsync();
+            var totalCount = await query.CountAsync();
 
             var items = await query
                 .OrderBy(c => c.CategoryId)
@@ -39,67 +45,56 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     CategoryId = c.CategoryId,
                     CategoryName = c.CategoryName,
                     CategoryImage = c.CategoryImage,
-                    // correlated subquery to compute how many products belong to this category
                     ProductCount = _context.Products.Count(p => p.CategoryId == c.CategoryId)
                 })
                 .ToListAsync();
 
-            return (items, totalCategories);
+            return new PagedResult<CategoryListDto>
+            {
+                Items = items,
+                TotalCount = totalCount
+            };
         }
 
-        //GET ALL TYPES BY CATEGORY ID
-        public async Task<List<ProductType>> GetAllTypesByCategoryIdAsync(int categoryId)
-        {
-            return await _context.ProductTypes
-                .Where(pt => pt.CategoryId == categoryId)
-                .Select(pt => new ProductType
-                {
-                    ProductTypeId = pt.ProductTypeId,
-                    ProductTypeName = pt.ProductTypeName,
-                    CategoryId = pt.CategoryId
-                })
-                .ToListAsync();
-        }
-
-        // 2. GET CATEGORY BY ID
+        // ============================================
+        // GET CATEGORY DETAILS
+        // ============================================
         public async Task<Category?> GetCategoryByIdAsync(int id)
         {
-            return await _context.Categories
-                .Where(c => c.CategoryId == id)
-                .Select(c => new Category
-                {
-                    CategoryId = c.CategoryId,
-                    CategoryName = c.CategoryName,
-                    CategoryImage = c.CategoryImage
-                })
-                .FirstOrDefaultAsync();
+            return await _context.Categories.FirstOrDefaultAsync(c => c.CategoryId == id);
         }
 
-        // 3. CREATE CATEGORY
-        public async Task<Category> CreateCategoryAsync(Category category)
+        // ============================================
+        // CREATE CATEGORY
+        // ============================================
+        public async Task<Category> AddCategoryAsync(Category category)
         {
             _context.Categories.Add(category);
             await _context.SaveChangesAsync();
             return category;
         }
 
-        // 4. UPDATE CATEGORY
-        public async Task<Category?> UpdateCategoryAsync(int id, Category updatedCategory)
+        // ============================================
+        // UPDATE CATEGORY
+        // ============================================
+        public async Task<Category?> UpdateCategoryAsync(Category category)
         {
-            var category = await _context.Categories
-                .FirstOrDefaultAsync(c => c.CategoryId == id);
+            var existing = await _context.Categories
+                .FirstOrDefaultAsync(c => c.CategoryId == category.CategoryId);
 
-            if (category == null)
+            if (existing == null)
                 return null;
 
-            category.CategoryName = updatedCategory.CategoryName;
-            category.CategoryImage = updatedCategory.CategoryImage;
+            existing.CategoryName = category.CategoryName;
+            existing.CategoryImage = category.CategoryImage;
 
             await _context.SaveChangesAsync();
-            return category;
+            return existing;
         }
 
-        // 5. DELETE CATEGORY
+        // ============================================
+        // DELETE CATEGORY (SAFE CASCADE)
+        // ============================================
         public async Task<bool> DeleteCategoryAsync(int id)
         {
             var category = await _context.Categories
@@ -108,7 +103,69 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             if (category == null)
                 return false;
 
+            var relatedTypes = _context.ProductTypes.Where(pt => pt.CategoryId == id);
+            _context.ProductTypes.RemoveRange(relatedTypes);
+
+            var relatedProducts = _context.Products.Where(p => p.CategoryId == id);
+            _context.Products.RemoveRange(relatedProducts);
+
             _context.Categories.Remove(category);
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        // ============================================
+        // PAGED TYPES LIST
+        // ============================================
+        public async Task<PagedResult<ProductType>> GetTypesPagedAsync(
+            int categoryId,
+            int pageNumber,
+            int pageSize)
+        {
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 5;
+
+            var query = _context.ProductTypes.Where(pt => pt.CategoryId == categoryId);
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .OrderBy(pt => pt.ProductTypeId)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<ProductType>
+            {
+                Items = items,
+                TotalCount = totalCount
+            };
+        }
+
+
+        // ============================================
+        // CREATE TYPE
+        // ============================================
+        public async Task<ProductType> AddCategoryTypeAsync(ProductType type)
+        {
+            _context.ProductTypes.Add(type);
+            await _context.SaveChangesAsync();
+            return type;
+        }
+
+        // ============================================
+        // DELETE TYPE
+        // ============================================
+        public async Task<bool> DeleteCategoryTypeAsync(int typeId)
+        {
+            var type = await _context.ProductTypes
+                .FirstOrDefaultAsync(pt => pt.ProductTypeId == typeId);
+
+            if (type == null)
+                return false;
+
+            _context.ProductTypes.Remove(type);
             await _context.SaveChangesAsync();
             return true;
         }

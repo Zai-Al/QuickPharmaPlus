@@ -305,13 +305,14 @@ export default function AppRoutes() {
                             />
 
                             <Route
-                                path="/category/type"
+                                path="/categories/types/:categoryId"
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin"]}>
                                         <CategoryType />
                                     </ProtectedRoute>
                                 }
                             />
+
 
                             <Route
                                 path="/inventory/add"

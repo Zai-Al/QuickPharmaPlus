@@ -11,67 +11,114 @@ import FilterLeft from "../../../../Components/InternalSystem/GeneralComponents/
 import FilterRight from "../../../../Components/InternalSystem/GeneralComponents/FilterRight";
 import SearchTextField from "../../../../Components/InternalSystem/GeneralComponents/FilterTextField";
 import ViewButton from "../../../../Components/InternalSystem/Buttons/ViewButton";
-
 import Pagination from "../../../../Components/InternalSystem/GeneralComponents/Pagination";
 import DeleteModal from "../../../../Components/InternalSystem/Modals/DeleteModal";
 
 export default function CategoryList() {
-    const [showModal, setShowModal] = useState(false);
-    const [deleteId, setDeleteId] = useState(null);
 
-    // fetched categories
+    const baseURL = import.meta.env.VITE_API_BASE_URL;
+
+    // === STATE ===
     const [categories, setCategories] = useState([]);
-    const [totalCount, setTotalCount] = useState(0);
-    const [currentPage, setCurrentPage] = useState(1);
-    const pageSize = 10;
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
 
-    // Table columns
+    // === DELETE MODAL STATE ===
+    const [deleteId, setDeleteId] = useState(null);
+    const [showModal, setShowModal] = useState(false);
+
+    // === PAGING ===
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize] = useState(10);
+    const [totalPages, setTotalPages] = useState(1);
+
+    // === FETCH WHEN PAGE CHANGES ===
+    useEffect(() => {
+        fetchCategories();
+    }, [currentPage]);
+
+    // === FETCH CATEGORIES USING FETCH() ===
+    async function fetchCategories(search = "") {
+        setLoading(true);
+        setError("");
+
+        try {
+            const res = await fetch(
+                `${baseURL}/api/category?pageNumber=${currentPage}&pageSize=${pageSize}` +
+                (search ? `&search=${encodeURIComponent(search)}` : ""),
+                {
+                    method: "GET",
+                    credentials: "include",
+                }
+            );
+
+            if (!res.ok) {
+                throw new Error(`Failed to load categories (${res.status})`);
+            }
+
+            const data = await res.json();
+
+            const mapped = (data.items || []).map((c) => ({
+                id: c.categoryId,
+                name: c.categoryName,
+                productCount: c.productCount ?? 0,
+            }));
+
+            setCategories(mapped);
+
+            setTotalPages(Math.ceil((data.totalCount ?? mapped.length) / pageSize));
+        } catch (err) {
+            console.error("Fetch categories error:", err);
+            setError("Unable to load categories.");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    // === DELETE CATEGORY USING FETCH() ===
+    async function handleDeleteConfirm() {
+        if (!deleteId) {
+            setShowModal(false);
+            return;
+        }
+
+        try {
+            const res = await fetch(`${baseURL}/api/category/${deleteId}`, {
+                method: "DELETE",
+                credentials: "include",
+            });
+
+            if (!res.ok) throw new Error("Deletion failed");
+
+            // Option 1: remove from UI locally
+            setCategories((prev) => prev.filter((c) => c.id !== deleteId));
+
+            // Option 2: refresh data
+            // await fetchCategories();
+
+        } catch (err) {
+            console.error("Delete category error:", err);
+        } finally {
+            setDeleteId(null);
+            setShowModal(false);
+        }
+    }
+
+    // === COLUMNS ===
     const columns = [
         { key: "name", label: "Category Name" },
         { key: "productCount", label: "Number of Products" },
         { key: "view", label: "View Types" },
         { key: "edit", label: "Edit" },
-        { key: "delete", label: "Delete" }
+        { key: "delete", label: "Delete" },
     ];
 
-    useEffect(() => {
-        fetchCategories();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentPage]);
-
-    async function fetchCategories(search = "") {
-        try {
-            const url = `/api/category?pageNumber=${currentPage}&pageSize=${pageSize}` + (search ? `&search=${encodeURIComponent(search)}` : "");
-            const res = await fetch(url);
-            if (!res.ok) {
-                console.error("Failed to fetch categories", res.statusText);
-                return;
-            }
-            const data = await res.json();
-
-            // Map API shape to table shape (DataTable expects { id, name, productCount })
-            const mapped = (data.items || []).map(c => ({
-                id: c.categoryId,
-                name: c.categoryName,
-                productCount: c.productCount ?? 0
-            }));
-
-            setCategories(mapped);
-            setTotalCount(data.totalCount ?? mapped.length);
-        } catch (err) {
-            console.error(err);
-        }
-    }
-
-    // Button renderers
+    // === RENDER ACTION BUTTONS ===
     const renderMap = {
         view: (row) => (
-            // pass the category id in the route so the types page can fetch types for this category
             <ViewButton to={`/categories/types/${row.id}`} text="View Types" />
         ),
-        edit: (row) => (
-            <EditButton to={`/categories/edit/${row.id}`} />
-        ),
+        edit: (row) => <EditButton to={`/categories/edit/${row.id}`} />,
         delete: (row) => (
             <DeleteButton
                 onClick={() => {
@@ -79,57 +126,42 @@ export default function CategoryList() {
                     setShowModal(true);
                 }}
             />
-        )
+        ),
     };
 
     return (
         <div className="categories-page">
+            <h2 className="text-center fw-bold categories-title">Categories</h2>
 
-            {/* PAGE TITLE */}
-            <h2 className="text-center fw-bold categories-title">
-                Categories
-            </h2>
-
-            {/* FILTER SECTION (NO SEARCH BUTTON) */}
+            {/* FILTER SECTION */}
             <FilterSection>
-                {/* LEFT FILTERS */}
                 <FilterLeft>
                     <SearchTextField placeholder="Search Category by Name" />
                     <SearchTextField placeholder="Search Category by ID" />
                 </FilterLeft>
 
-                {/* RIGHT FILTER (Add Button) */}
                 <FilterRight>
                     <PageAddButton to="/categories/add" text="Add New Category" />
                 </FilterRight>
             </FilterSection>
 
+            {/* STATUS */}
+            {loading && <div className="text-center text-muted my-3">Loading categories...</div>}
+            {error && <div className="alert alert-danger">{error}</div>}
+
             {/* TABLE */}
-            <DataTable
-                columns={columns}
-                data={categories}
-                renderMap={renderMap}
-            />
+            <DataTable columns={columns} data={categories} renderMap={renderMap} />
 
             {/* PAGINATION */}
-            <Pagination
-                totalItems={totalCount}
-                itemsPerPage={pageSize}
-                currentPage={currentPage}
-                onPageChange={(page) => setCurrentPage(page)}
-            />
+            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
 
-            {/* DELETE CONFIRMATION MODAL */}
+            {/* DELETE MODAL */}
             <DeleteModal
                 show={showModal}
                 onClose={() => setShowModal(false)}
-                onConfirm={() => {
-                    console.log("Deleting category:", deleteId);
-                    setShowModal(false);
-                }}
+                onConfirm={handleDeleteConfirm}
                 message="Are you sure you want to delete this category?"
             />
-
         </div>
     );
 }

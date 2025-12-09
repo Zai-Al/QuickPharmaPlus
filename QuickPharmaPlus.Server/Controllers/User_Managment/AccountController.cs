@@ -6,6 +6,7 @@ using QuickPharmaPlus.Server.Identity;
 using QuickPharmaPlus.Server.ModelsDTO.Auth;
 using QuickPharmaPlus.Server.Services;
 using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.AspNetCore.Http.Features;
 
 
 namespace QuickPharmaPlus.Server.Controllers
@@ -217,8 +218,12 @@ namespace QuickPharmaPlus.Server.Controllers
             // Sign out Identity (clears cookie)
             await _signInManager.SignOutAsync();
 
-            // Optionally clear any server-side session state here:
-            HttpContext.Session.Clear();
+            // Guarded server-side session clear: will not throw if session middleware is not configured.
+            var sessionFeature = HttpContext.Features.Get<ISessionFeature>();
+            if (sessionFeature?.Session is { } session && session.IsAvailable)
+            {
+                session.Clear();
+            }
 
             return Ok(new { success = true });
         }
