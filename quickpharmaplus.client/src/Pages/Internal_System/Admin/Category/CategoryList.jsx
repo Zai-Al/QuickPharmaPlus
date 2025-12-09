@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import "./CategoryList.css";
 
 // Shared components
@@ -23,6 +23,11 @@ export default function CategoryList() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
+    // === SEARCH STATE ===
+    const [nameSearch, setNameSearch] = useState("");
+    const [idSearch, setIdSearch] = useState("");
+    const searchDebounceRef = useRef(null);
+
     // === DELETE MODAL STATE ===
     const [deleteId, setDeleteId] = useState(null);
     const [showModal, setShowModal] = useState(false);
@@ -32,20 +37,40 @@ export default function CategoryList() {
     const [pageSize] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
 
-    // === FETCH WHEN PAGE CHANGES ===
+    // === FETCH WHEN PAGE OR SEARCH CHANGES ===
     useEffect(() => {
-        fetchCategories();
-    }, [currentPage]);
+        if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
 
-    // === FETCH CATEGORIES USING FETCH() ===
-    async function fetchCategories(search = "") {
+        searchDebounceRef.current = setTimeout(() => {
+            fetchCategories();
+        }, 300);
+
+        return () => {
+            if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentPage, nameSearch, idSearch]);
+
+    // === FETCH CATEGORIES (connected to backend filtering) ===
+    async function fetchCategories() {
         setLoading(true);
         setError("");
 
         try {
+            let searchParam = "";
+
+            // If user typed ID, backend detects numeric → exact filter applies
+            if (idSearch.trim()) {
+                searchParam = idSearch.trim();
+            }
+            // Otherwise if name entered, send it (backend does StartsWith)
+            else if (nameSearch.trim()) {
+                searchParam = nameSearch.trim();
+            }
+
             const res = await fetch(
                 `${baseURL}/api/category?pageNumber=${currentPage}&pageSize=${pageSize}` +
-                (search ? `&search=${encodeURIComponent(search)}` : ""),
+                (searchParam ? `&search=${encodeURIComponent(searchParam)}` : ""),
                 {
                     method: "GET",
                     credentials: "include",
@@ -65,8 +90,8 @@ export default function CategoryList() {
             }));
 
             setCategories(mapped);
-
             setTotalPages(Math.ceil((data.totalCount ?? mapped.length) / pageSize));
+
         } catch (err) {
             console.error("Fetch categories error:", err);
             setError("Unable to load categories.");
@@ -90,11 +115,8 @@ export default function CategoryList() {
 
             if (!res.ok) throw new Error("Deletion failed");
 
-            // Option 1: remove from UI locally
-            setCategories((prev) => prev.filter((c) => c.id !== deleteId));
-
-            // Option 2: refresh data
-            // await fetchCategories();
+            // Refresh after delete
+            fetchCategories();
 
         } catch (err) {
             console.error("Delete category error:", err);
@@ -113,7 +135,6 @@ export default function CategoryList() {
         { key: "delete", label: "Delete" },
     ];
 
-    // === RENDER ACTION BUTTONS ===
     const renderMap = {
         view: (row) => (
             <ViewButton to={`/categories/types/${row.id}`} text="View Types" />
@@ -136,8 +157,29 @@ export default function CategoryList() {
             {/* FILTER SECTION */}
             <FilterSection>
                 <FilterLeft>
-                    <SearchTextField placeholder="Search Category by Name" />
-                    <SearchTextField placeholder="Search Category by ID" />
+                    <div className="mb-2">
+                        <div className="filter-label fst-italic small">Enter category name for automatic search</div>
+                        <SearchTextField
+                            placeholder="Search Category by Name"
+                            value={nameSearch}
+                            onChange={(e) => {
+                                setNameSearch(e.target.value);
+                                setCurrentPage(1); // reset on filter
+                            }}
+                        />
+                    </div>
+
+                    <div className="mb-2">
+                        <div className="filter-label fst-italic small">Enter category ID for automatic search</div>
+                        <SearchTextField
+                            placeholder="Search Category by ID"
+                            value={idSearch}
+                            onChange={(e) => {
+                                setIdSearch(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                        />
+                    </div>
                 </FilterLeft>
 
                 <FilterRight>

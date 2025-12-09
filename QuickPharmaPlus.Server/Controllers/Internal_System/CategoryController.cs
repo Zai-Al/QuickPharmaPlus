@@ -19,7 +19,8 @@ namespace QuickPharmaPlus.Server.Controllers
         }
 
         // =====================================================
-        // GET CATEGORIES (PAGED LIST)
+        // FETCH PAGED + FILTERED CATEGORY LIST
+        // Supports search by ID (exact) or name (starts with)
         // =====================================================
         [Authorize]
         [HttpGet]
@@ -33,7 +34,9 @@ namespace QuickPharmaPlus.Server.Controllers
             return Ok(new
             {
                 items = result.Items,
-                totalCount = result.TotalCount
+                totalCount = result.TotalCount,
+                pageNumber,
+                pageSize
             });
         }
 
@@ -136,8 +139,7 @@ namespace QuickPharmaPlus.Server.Controllers
         }
 
         // =====================================================
-        // GET TYPES OF CATEGORY (NEW ROUTE FORMAT)
-        // /api/category/types/{categoryId}?pageNumber=1&pageSize=10
+        // GET PAGED PRODUCT TYPES FOR CATEGORY
         // =====================================================
         [HttpGet("types/{categoryId}")]
         public async Task<IActionResult> GetTypes(
@@ -150,13 +152,14 @@ namespace QuickPharmaPlus.Server.Controllers
             return Ok(new
             {
                 items = result.Items,
-                totalCount = result.TotalCount
+                totalCount = result.TotalCount,
+                pageNumber,
+                pageSize
             });
         }
 
         // =====================================================
-        // CREATE TYPE (NEW ROUTE FORMAT)
-        // /api/category/types/{categoryId}/add
+        // CREATE CATEGORY PRODUCT TYPE
         // =====================================================
         [Authorize(Roles = "Admin")]
         [HttpPost("types/{categoryId}/add")]
@@ -181,7 +184,7 @@ namespace QuickPharmaPlus.Server.Controllers
         }
 
         // =====================================================
-        // /api/category/type/{typeId}
+        // DELETE CATEGORY PRODUCT TYPE
         // =====================================================
         [Authorize(Roles = "Admin")]
         [HttpDelete("type/{typeId}")]

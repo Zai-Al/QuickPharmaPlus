@@ -45,6 +45,7 @@
 
   <ItemGroup>
     <Folder Include="Controllers\External_System\" />
+    <Folder Include="ModelsDTO\Inventory\" />
   </ItemGroup>
 
 </Project>

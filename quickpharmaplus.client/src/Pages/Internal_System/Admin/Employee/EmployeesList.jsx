@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState, useRef } from "react";
 import "./EmployeesList.css";
 
 // Components
@@ -7,6 +7,8 @@ import EditButton from "../../../../Components/InternalSystem/Buttons/EditButton
 import DeleteButton from "../../../../Components/InternalSystem/Buttons/DeleteButton";
 import PageAddButton from "../../../../Components/InternalSystem/Buttons/PageAddButton";
 import SearchTextField from "../../../../Components/InternalSystem/GeneralComponents/FilterTextField";
+import FilterDropDown from "../../../../Components/InternalSystem/GeneralComponents/FilterDropDown";
+
 import FilterLeft from "../../../../Components/InternalSystem/GeneralComponents/FilterLeft";
 import FilterRight from "../../../../Components/InternalSystem/GeneralComponents/FilterRight";
 import FilterSection from "../../../../Components/InternalSystem/GeneralComponents/FilterSection";
@@ -17,52 +19,87 @@ export default function EmployeesList() {
 
     // === DATA & UI STATE ===
     const [employees, setEmployees] = useState([]);
+    const [allEmployees, setAllEmployees] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+
+    // === SEARCH STATE ===
+    const [nameSearch, setNameSearch] = useState("");
+    const [idSearch, setIdSearch] = useState("");
+    const [roleOptions, setRoleOptions] = useState([]);
+    const [selectedRole, setSelectedRole] = useState("");
+    const searchDebounceRef = useRef(null);
 
     // === DELETE MODAL STATE ===
     const [deleteId, setDeleteId] = useState(null);
     const [showModal, setShowModal] = useState(false);
 
     // === PAGING STATE ===
-    const [currentPage, setCurrentPage] = useState(1);   // page number
-    const [pageSize, setPageSize] = useState(10);         // records per page
-    const [totalPages, setTotalPages] = useState(1);     // computed from backend
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [totalPages, setTotalPages] = useState(1);
 
     const baseURL = import.meta.env.VITE_API_BASE_URL;
+
+    // === INITIAL: fetch roles once ===
+    useEffect(() => { fetchRoles(); }, []);
+
+    async function fetchRoles() {
+        try {
+            const res = await fetch(`${baseURL}/api/roles`, { credentials: "include" });
+            if (!res.ok) return;
+            const data = await res.json();
+            const opts = (data || []).map((r) => ({ value: r.name ?? r.id, label: r.name ?? r.id }));
+            setRoleOptions(opts);
+        } catch (err) {
+            console.error("Fetch roles error:", err);
+        }
+    }
 
     // === WHEN PAGE NUMBER OR PAGE SIZE CHANGES, FETCH DATA ===
     useEffect(() => {
         fetchEmployees();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentPage, pageSize]);
 
-    // === FETCH EMPLOYEES FROM API WITH PAGING ===
+    // === FILTERS: Debounced Backend Call ===
+    useEffect(() => {
+        if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+
+        searchDebounceRef.current = setTimeout(() => {
+            setCurrentPage(1);          // reset paging
+            fetchEmployees();           // refetch from backend with filters
+        }, 300);
+
+        return () => clearTimeout(searchDebounceRef.current);
+    }, [nameSearch, idSearch, selectedRole]);
+
+    // === FETCH EMPLOYEES FROM API USING FILTERS ===
     async function fetchEmployees() {
         setLoading(true);
         setError("");
 
         try {
-            const res = await fetch(
-                `${baseURL}/api/Employees/employees?pageNumber=${currentPage}&pageSize=${pageSize}`,
-                {
-                    method: "GET",
-                    credentials: "include"
-                }
-            );
+            let url = `${baseURL}/api/Employees/employees?pageNumber=${currentPage}&pageSize=${pageSize}`;
 
-            if (!res.ok) {
-                throw new Error(`Failed to load employees (${res.status})`);
-            }
+            if (nameSearch?.trim()) url += `&nameSearch=${encodeURIComponent(nameSearch)}`;
+            if (idSearch?.trim()) url += `&idSearch=${encodeURIComponent(idSearch)}`;
+            if (selectedRole?.trim()) url += `&role=${encodeURIComponent(selectedRole)}`;
+
+            const res = await fetch(url, {
+                method: "GET",
+                credentials: "include"
+            });
+
+            if (!res.ok) throw new Error(`Failed to load employees (${res.status})`);
 
             const data = await res.json();
 
-            // PAGED RESPONSE: data.items + data.totalCount
+            // Mapping from backend data to UI-friendly format
             const mapped = (data.items || []).map((u) => {
                 const address = u.address ?? null;
                 return {
                     id: u.userId ?? u.user_id ?? null,
-                    name: `${u.firstName ?? ""}${u.firstName && u.lastName ? " " : ""}${u.lastName ?? ""}`.trim() || u.emailAddress || "�",
+                    name: `${u.firstName ?? ""}${u.firstName && u.lastName ? " " : ""}${u.lastName ?? ""}`.trim() || u.emailAddress || "—",
                     email: u.emailAddress ?? u.email ?? "",
                     phone: u.contactNumber ?? "",
                     role: (u.role && (u.role.roleName ?? u.role.role_name)) || u.roleName || "",
@@ -70,10 +107,12 @@ export default function EmployeesList() {
                 };
             });
 
+            // store raw result for UI use
+            setAllEmployees(mapped);
             setEmployees(mapped);
 
-            // Compute number of pages
-            setTotalPages(Math.ceil(data.totalCount / pageSize));
+            // Backend now returns correct filtered count
+            setTotalPages(Math.max(1, Math.ceil((data.totalCount ?? mapped.length) / pageSize)));
 
         } catch (err) {
             console.error("Fetch employees error:", err);
@@ -84,7 +123,7 @@ export default function EmployeesList() {
     }
 
     function formatAddress(addr) {
-        if (!addr) return "";
+        if (!addr || typeof addr !== "object") return "";
         const cityName = addr.city?.cityName ?? addr.cityName ?? addr.city?.CityName ?? "";
         const parts = [];
         if (cityName) parts.push(cityName);
@@ -106,11 +145,11 @@ export default function EmployeesList() {
                 credentials: "include"
             });
 
-            if (!res.ok) {
-                throw new Error(`Delete failed (${res.status})`);
-            }
+            if (!res.ok) throw new Error(`Delete failed (${res.status})`);
 
+            setAllEmployees((prev) => prev.filter((e) => e.id !== deleteId));
             setEmployees((prev) => prev.filter((e) => e.id !== deleteId));
+
         } catch (err) {
             console.error("Delete employee error:", err);
         } finally {
@@ -144,19 +183,47 @@ export default function EmployeesList() {
 
     return (
         <div className="employees-page">
-            {/* TITLE */}
             <h2 className="text-center fw-bold employees-title">Employees</h2>
 
             {/* FILTERS */}
             <FilterSection>
                 <FilterLeft>
-                    <SearchTextField placeholder="Search Employee by Name" />
-                    <SearchTextField placeholder="Search Employee by ID" />
+                    <div className="mb-2">
+                        <div className="filter-label fst-italic small">Enter employee name for automatic search</div>
+                        <SearchTextField
+                            placeholder="Search Employee by Name"
+                            value={nameSearch}
+                            onChange={(e) => setNameSearch(e.target.value)}
+                        />
+                    </div>
+
+                    <div className="mb-2">
+                        <div className="filter-label fst-italic small">Enter employee ID for automatic search</div>
+                        <SearchTextField
+                            placeholder="Search Employee by ID"
+                            value={idSearch}
+                            onChange={(e) => setIdSearch(e.target.value)}
+                        />
+                    </div>
                 </FilterLeft>
 
                 <FilterRight>
                     <PageAddButton to="/employees/add" text="Add New Employee" />
                 </FilterRight>
+            </FilterSection>
+
+            <FilterSection>
+                <FilterLeft>
+                    <div className="mb-2">
+                        <div className="filter-label fst-italic small">Select role for automatic filter</div>
+                        <FilterDropDown
+                            placeholder="All roles"
+                            options={roleOptions}
+                            value={selectedRole}
+                            onChange={(e) => setSelectedRole(e.target.value)}
+                        />
+                    </div>
+                </FilterLeft>
             </FilterSection>
 
             {/* TABLE */}
