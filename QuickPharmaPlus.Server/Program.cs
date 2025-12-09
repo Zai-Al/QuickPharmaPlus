@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
 using QuickPharmaPlus.Server.Identity;
 using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.Repositories.Implementation;
@@ -39,26 +40,15 @@ namespace QuickPharmaPlus.Server
             });
 
 
-            // 4) COOKIES FOR REACT FRONTEND
-            // FIX — Prevent Identity from sending HTML redirect pages to API clients
-            builder.Services.ConfigureApplicationCookie(options =>
+
+
+            // Add to service registration
+            builder.Services.AddDistributedMemoryCache();
+            builder.Services.AddSession(options =>
             {
+                options.IdleTimeout = TimeSpan.FromMinutes(20);
                 options.Cookie.HttpOnly = true;
-                options.Cookie.SameSite = SameSiteMode.None;
-                options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-
-                // disable redirect response — return 401 instead
-                options.Events.OnRedirectToLogin = context =>
-                {
-                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                    return Task.CompletedTask;
-                };
-
-                options.Events.OnRedirectToAccessDenied = context =>
-                {
-                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                    return Task.CompletedTask;
-                };
+                options.Cookie.IsEssential = true;
             });
 
 
@@ -72,9 +62,31 @@ namespace QuickPharmaPlus.Server
                     opts.JsonSerializerOptions.MaxDepth = 64;
                 });
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            builder.Services.AddSwaggerGen(c =>
+            {
+                c.AddSecurityDefinition("cookieAuth", new OpenApiSecurityScheme
+                {
+                    Name = ".AspNetCore.Identity.Application",
+                    Type = SecuritySchemeType.ApiKey,
+                    In = ParameterLocation.Cookie,
+                    Description = "Auth cookie for Swagger"
+                });
 
-            // 5) CORS FOR REACT
+                c.AddSecurityRequirement(new OpenApiSecurityRequirement {
+        {
+            new OpenApiSecurityScheme {
+                Reference = new OpenApiReference {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "cookieAuth"
+                }
+            },
+            new string[] {}
+        }
+    });
+            });
+
+
+            // 4) CORS FOR REACT
             // Read allowed origin from configuration (appsettings or env). Example: "https://localhost:5173"
             var reactOrigin = builder.Configuration["ReactDevOrigin"] ?? "https://localhost:5173";
             builder.Services.AddCors(options =>
@@ -87,9 +99,12 @@ namespace QuickPharmaPlus.Server
                 );
             });
 
+
+            // 5) COOKIES FOR REACT FRONTEND
             //adding application cookies
             builder.Services.ConfigureApplicationCookie(options =>
             {
+                options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.None;
                 options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
                 // return 401 instead of redirect
@@ -97,15 +112,12 @@ namespace QuickPharmaPlus.Server
             });
 
 
+
+
             // register email sender: use DevEmailSender in Development, SmtpEmailSender in Production
             builder.Services.AddTransient<IEmailSender, SendGridEmailSender>();
-
-
-
-
-
             //adding the repostries 
-            builder.Services.AddScoped<CategoryRepository>();
+            builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
             builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<ICityRepository, CityRepository>();
 
@@ -113,37 +125,6 @@ namespace QuickPharmaPlus.Server
 
 
             var app = builder.Build();
-
-            // --- TEMPORARY SMTP TEST ---
-            // This block runs once at startup to confirm email sending works.
-            // Remove it after you verify.
-            try
-            {
-                var smtpConfig = builder.Configuration.GetSection("EmailSettings:Smtp");
-                var host = smtpConfig["Host"];
-                var port = int.Parse(smtpConfig["Port"]);
-                var user = smtpConfig["User"];
-                var pass = smtpConfig["Pass"];
-                var from = smtpConfig["From"];
-
-                using var smtp = new SmtpClient(host, port)
-                {
-                    EnableSsl = true,
-                    UseDefaultCredentials = false,
-                    Credentials = new NetworkCredential(user, pass)
-                };
-
-                var testRecipient = "yourpersonalemail@gmail.com"; // change to your own inbox
-                var mail = new MailMessage(from, testRecipient, "SMTP Test", "Hello from QuickPharma+ backend!");
-                await smtp.SendMailAsync(mail);
-
-                Console.WriteLine("Test email sent successfully.");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($" SMTP test failed: {ex.Message}");
-            }
-            // --- END TEMPORARY SMTP TEST ---
 
             // continue with middleware pipeline
             app.UseDefaultFiles();
@@ -166,6 +147,8 @@ namespace QuickPharmaPlus.Server
 
             // Apply CORS before authentication/authorization
             app.UseCors("AllowReactApp");
+            app.UseRouting();
+            app.UseSession();
             app.UseAuthentication();
             app.UseAuthorization();
 
