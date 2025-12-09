@@ -167,4 +167,10 @@ form-group{
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
+.filter-label {
+    width: 340px;
+    text-align: left;
+    margin-bottom: 7px;
+    font-weight: 500;
+}
 

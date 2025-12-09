@@ -3,8 +3,6 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using QuickPharmaPlus.Server.Models;
-using QuickPharmaPlus.Server.ModelsDTO.Category;
-using QuickPharmaPlus.Server.Repositories.Implementation;
 using QuickPharmaPlus.Server.Repositories.Interface;
 
 namespace QuickPharmaPlus.Server.Controllers.Internal_System
@@ -20,12 +18,22 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
             _repo = repo;
         }
 
+        // UPDATED: backend-side paging + filtering support
         [HttpGet("employees")]
         public async Task<IActionResult> GetAll(
-    [FromQuery] int pageNumber = 1,
-    [FromQuery] int pageSize = 10)
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? nameSearch = null,
+            [FromQuery] string? idSearch = null,
+            [FromQuery] string? role = null)
         {
-            var result = await _repo.GetAllEmployeesAsync(pageNumber, pageSize);
+            var result = await _repo.GetAllEmployeesAsync(
+                pageNumber,
+                pageSize,
+                nameSearch,
+                idSearch,
+                role
+            );
 
             return Ok(new
             {
@@ -35,7 +43,6 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                 pageSize
             });
         }
-
 
         [HttpGet("employee/{id:int}")]
         public async Task<IActionResult> Get(int id)
@@ -68,12 +75,10 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
             }
             catch (InvalidOperationException ex)
             {
-                // domain validation (e.g. duplicate email)
                 return BadRequest(new { error = ex.Message });
             }
             catch (Exception)
             {
-                // log if you have a logger; return generic error to client
                 return StatusCode(StatusCodes.Status500InternalServerError, new { error = "An unexpected error occurred." });
             }
         }

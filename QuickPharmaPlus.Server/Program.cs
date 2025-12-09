@@ -111,15 +111,16 @@ namespace QuickPharmaPlus.Server
                 options.Events.OnRedirectToLogin = ctx => { ctx.Response.StatusCode = 401; return Task.CompletedTask; };
             });
 
-
-
-
             // register email sender: use DevEmailSender in Development, SmtpEmailSender in Production
             builder.Services.AddTransient<IEmailSender, SendGridEmailSender>();
+
+
             //adding the repostries 
             builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
             builder.Services.AddScoped<IUserRepository, UserRepository>();
+            builder.Services.AddScoped<IRoleRepository, RoleRepository>();
             builder.Services.AddScoped<ICityRepository, CityRepository>();
+
 
 
 

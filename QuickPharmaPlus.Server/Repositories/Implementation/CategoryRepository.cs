@@ -15,9 +15,9 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             _context = context;
         }
 
-        // ============================================
-        // PAGED CATEGORIES LIST
-        // ============================================
+        // =============================================================
+        // PAGED + FILTERED CATEGORY LIST (supports ID and name filtering)
+        // =============================================================
         public async Task<PagedResult<CategoryListDto>> GetAllCategoriesAsync(
             int pageNumber,
             int pageSize,
@@ -26,16 +26,34 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 1) pageSize = 10;
 
+            // Base query
             var query = _context.Categories.AsQueryable();
 
+            // 🔍 Apply filtering
             if (!string.IsNullOrWhiteSpace(search))
             {
-                query = query.Where(c =>
-                    EF.Functions.Like(c.CategoryName, $"%{search}%"));
+                var term = search.Trim().ToLower();
+
+                // ID exact match check
+                bool isNumericId = int.TryParse(term, out int idValue);
+
+                if (isNumericId)
+                {
+                    query = query.Where(c => c.CategoryId == idValue);
+                }
+                else
+                {
+                    // Name starts-with match rather than ANY contains
+                    query = query.Where(c =>
+                        c.CategoryName.ToLower().StartsWith(term)
+                    );
+                }
             }
 
-            var totalCount = await query.CountAsync();
+            // Count AFTER filtering
+            var filteredCount = await query.CountAsync();
 
+            // Apply paging + map projection
             var items = await query
                 .OrderBy(c => c.CategoryId)
                 .Skip((pageNumber - 1) * pageSize)
@@ -52,21 +70,21 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             return new PagedResult<CategoryListDto>
             {
                 Items = items,
-                TotalCount = totalCount
+                TotalCount = filteredCount
             };
         }
 
-        // ============================================
-        // GET CATEGORY DETAILS
-        // ============================================
+        // =============================================================
+        // GET CATEGORY DETAILS BY ID
+        // =============================================================
         public async Task<Category?> GetCategoryByIdAsync(int id)
         {
             return await _context.Categories.FirstOrDefaultAsync(c => c.CategoryId == id);
         }
 
-        // ============================================
-        // CREATE CATEGORY
-        // ============================================
+        // =============================================================
+        // CREATE NEW CATEGORY
+        // =============================================================
         public async Task<Category> AddCategoryAsync(Category category)
         {
             _context.Categories.Add(category);
@@ -74,9 +92,9 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             return category;
         }
 
-        // ============================================
-        // UPDATE CATEGORY
-        // ============================================
+        // =============================================================
+        // UPDATE EXISTING CATEGORY
+        // =============================================================
         public async Task<Category?> UpdateCategoryAsync(Category category)
         {
             var existing = await _context.Categories
@@ -92,9 +110,9 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             return existing;
         }
 
-        // ============================================
-        // DELETE CATEGORY (SAFE CASCADE)
-        // ============================================
+        // =============================================================
+        // DELETE CATEGORY + RELATED PRODUCTS AND TYPES
+        // =============================================================
         public async Task<bool> DeleteCategoryAsync(int id)
         {
             var category = await _context.Categories
@@ -115,9 +133,9 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             return true;
         }
 
-        // ============================================
-        // PAGED TYPES LIST
-        // ============================================
+        // =============================================================
+        // PAGED LIST OF PRODUCT TYPES FOR A CATEGORY
+        // =============================================================
         public async Task<PagedResult<ProductType>> GetTypesPagedAsync(
             int categoryId,
             int pageNumber,
@@ -143,10 +161,9 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             };
         }
 
-
-        // ============================================
-        // CREATE TYPE
-        // ============================================
+        // =============================================================
+        // ADD PRODUCT TYPE TO CATEGORY
+        // =============================================================
         public async Task<ProductType> AddCategoryTypeAsync(ProductType type)
         {
             _context.ProductTypes.Add(type);
@@ -154,9 +171,9 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             return type;
         }
 
-        // ============================================
-        // DELETE TYPE
-        // ============================================
+        // =============================================================
+        // DELETE PRODUCT TYPE
+        // =============================================================
         public async Task<bool> DeleteCategoryTypeAsync(int typeId)
         {
             var type = await _context.ProductTypes
