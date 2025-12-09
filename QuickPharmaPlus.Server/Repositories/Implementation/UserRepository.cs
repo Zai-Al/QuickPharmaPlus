@@ -85,11 +85,22 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
 
         // Retrieves an employee record by its unique ID
         public async Task<User?> GetEmployeeByIdAsync(int id) =>
-            await _context.Users.FirstOrDefaultAsync(u => u.UserId == id);
+    await _context.Users
+        .Include(u => u.Address).ThenInclude(a => a.City)
+        .Include(u => u.Role)
+        .Include(u => u.Branch)
+        .FirstOrDefaultAsync(u => u.UserId == id);
+
 
         // Retrieves a user record based on email address value
         public async Task<User?> GetUserByEmailAsync(string email) =>
-            await _context.Users.FirstOrDefaultAsync(u => u.EmailAddress == email);
+     await _context.Users
+         .Include(u => u.Branch)
+         .Include(u => u.Role)
+         .Include(u => u.Address)
+             .ThenInclude(a => a.City)
+         .FirstOrDefaultAsync(u => u.EmailAddress == email);
+
 
         // Inserts a new employee record into the database
         public async Task<User> AddEmployeeAsync(User user) =>
