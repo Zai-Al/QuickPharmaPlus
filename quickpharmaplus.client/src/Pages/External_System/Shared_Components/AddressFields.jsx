@@ -1,96 +1,103 @@
-import DropDown from "./DropDown";
+// src/Pages/External_System/Shared_Components/AddressFields.jsx
+// Adjust the path if your structure is slightly different
 
 export default function AddressFields({
-    title = "Registered Address",
+    title = "Address",
     formData = {},
     errors = {},
     handleChange,
-    disabled = false,      // NEW
+    disabled = false,
+    cities = [] // ?? NEW: optional list of cities
 }) {
-    return (
-        <div className="mt-4 text-start">
-            <h5 className="fw-bold mb-3">{title}</h5>
+    const showCityDropdown = Array.isArray(cities) && cities.length > 0;
 
-            {/* City + Block */}
-            <div className="row">
-                <div className="col-md-6 small-label">
-                    <DropDown
-                        label="City:"
-                        name="city"
-                        value={formData.city || ""}
-                        onChange={handleChange}
-                        placeholder="Select City"
-                        options={[
-                            "Manama",
-                            "Muharraq",
-                            "Isa Town",
-                            "Riffa",
-                            "Hamad Town",
-                            "Sitra",
-                            "Budaiya",
-                            "Juffair",
-                            "A'ali",
-                        ]}
-                        error={errors.city}
-                        className="w-100"
-                        disabled={disabled}   // NEW
-                    />
+    return (
+        <div className="address-fields">
+            {title && <h5 className="fw-bold mb-3">{title}</h5>}
+
+            <div className="row mb-3">
+                <div className="col-md-6">
+                    <label className="form-label fw-bold">City</label>
+
+                    {showCityDropdown ? (
+                        <select
+                            name="city"
+                            className="form-select"
+                            value={formData.city || ""}
+                            onChange={handleChange}
+                            disabled={disabled}
+                        >
+                            <option value="">Select city</option>
+                            {cities.map((c) => (
+                                <option key={c.cityId} value={c.cityName}>
+                                    {c.cityName}
+                                </option>
+                            ))}
+                        </select>
+                    ) : (
+                        <input
+                            type="text"
+                            className="form-control"
+                            placeholder="Enter city"
+                            name="city"
+                            value={formData.city || ""}
+                            onChange={handleChange}
+                            disabled={disabled}
+                        />
+                    )}
+
+                    {errors.city && (
+                        <div className="text-danger small mt-1">{errors.city}</div>
+                    )}
                 </div>
 
                 <div className="col-md-6">
-                    <label className="form-label fw-bold">Block:</label>
+                    <label className="form-label fw-bold">Block</label>
                     <input
                         type="text"
+                        className="form-control"
+                        placeholder="Enter block"
                         name="block"
-                        className={`form-control ${errors.block ? "is-invalid" : ""}`}
                         value={formData.block || ""}
                         onChange={handleChange}
-                        disabled={disabled}    // NEW
+                        disabled={disabled}
                     />
                     {errors.block && (
-                        <div className="invalid-feedback d-block text-start">
-                            {errors.block}
-                        </div>
+                        <div className="text-danger small mt-1">{errors.block}</div>
                     )}
                 </div>
             </div>
 
-            {/* Road + Building/Floor */}
-            <div className="row mt-3">
+            <div className="row mb-3">
                 <div className="col-md-6">
-                    <label className="form-label fw-bold">Road:</label>
+                    <label className="form-label fw-bold">Road / Street</label>
                     <input
                         type="text"
+                        className="form-control"
+                        placeholder="Enter road / street"
                         name="road"
-                        className={`form-control ${errors.road ? "is-invalid" : ""}`}
                         value={formData.road || ""}
                         onChange={handleChange}
-                        disabled={disabled}    // NEW
+                        disabled={disabled}
                     />
                     {errors.road && (
-                        <div className="invalid-feedback d-block text-start">
-                            {errors.road}
-                        </div>
+                        <div className="text-danger small mt-1">{errors.road}</div>
                     )}
                 </div>
 
                 <div className="col-md-6">
-                    <label className="form-label fw-bold">
-                        Building Number / Floor Number:
-                    </label>
+                    <label className="form-label fw-bold">Building / Floor</label>
                     <input
                         type="text"
+                        className="form-control"
+                        placeholder="Enter building / floor"
                         name="buildingFloor"
-                        className={`form-control ${errors.buildingFloor ? "is-invalid" : ""
-                            }`}
                         value={formData.buildingFloor || ""}
                         onChange={handleChange}
-                        disabled={disabled}    // NEW
+                        disabled={disabled}
                     />
                     {errors.buildingFloor && (
-                        <div className="invalid-feedback d-block text-start">
-                            {errors.buildingFloor}
-                        </div>
+                        <div className="text-danger small mt-1">{errors.buildingFloor}</div>
                     )}
                 </div>
             </div>
