@@ -34,6 +34,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="SendGrid" Version="9.29.3" />
+    <PackageReference Include="Stripe.net" Version="50.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
@@ -44,7 +45,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Controllers\External_System\" />
     <Folder Include="ModelsDTO\Inventory\" />
   </ItemGroup>
 

@@ -268,7 +268,13 @@ export default function Navbar({ user: propUser, cartCount = 0,
 
                     {/* Profile / Login button */}
                     <Link
-                        to="/profileInternal"
+                        to={
+                            !user
+                                ? "/login"
+                                : isCustomer
+                                    ? "/externalProfile"
+                                    : "/profileInternal"
+                        }
                         className="btn d-flex align-items-center gap-2 px-3 py-2"
                         style={{
                             border: "1px solid #000",
@@ -279,6 +285,9 @@ export default function Navbar({ user: propUser, cartCount = 0,
                         <i className="bi bi-person-circle fs-5"></i>
                         {user ? fullName : "Login"}
                     </Link>
+
+
+
                 </div>
             </div>
         </nav>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import PageHeader from "../Shared_Components/PageHeader";
 import TableFormat from "../Shared_Components/TableFormat";
 import formatCurrency from "../Shared_Components/formatCurrency";
@@ -109,6 +110,7 @@ const buildIncompatibilityLines = (inc = {}) => {
 
 export default function Cart() {
     const [items, setItems] = useState(INITIAL_CART_ITEMS);
+    const navigate = useNavigate();
 
     // per-item quantity errors (e.g., exceeding stock)
     const [quantityErrors, setQuantityErrors] = useState({}); // { [id]: string }
@@ -206,8 +208,7 @@ export default function Cart() {
         if (hasAnyIncompatibility) {
             setShowProceedWarning(true);
         } else {
-            console.log("Proceed to checkout with items:", items);
-            // later: navigate("/checkout");
+            navigate("/checkout", { state: { items } });
         }
     };
 
@@ -454,8 +455,7 @@ export default function Cart() {
                 onCancel={() => setShowProceedWarning(false)}
                 onConfirm={() => {
                     setShowProceedWarning(false);
-                    console.log("Proceeding to checkout with risk acknowledgment");
-                    // later: navigate("/checkout");
+                    navigate("/checkout", { state: { items } });
                 }}
             />
 
