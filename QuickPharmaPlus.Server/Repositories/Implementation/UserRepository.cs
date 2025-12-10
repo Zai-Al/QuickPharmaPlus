@@ -59,17 +59,15 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 query = query.Where(u => u.UserId.ToString() == term);
             }
 
-            // Filters employees by role match
+            // Filters employees by role name
             if (!string.IsNullOrWhiteSpace(role))
             {
                 var term = role.Trim().ToLower();
                 query = query.Where(u => (u.Role.RoleName ?? "").ToLower() == term);
             }
 
-            // Counts filtered results
             var filteredTotal = await query.CountAsync();
 
-            // Retrieves filtered and paginated employee list
             var result = await query
                 .OrderBy(u => u.UserId)
                 .Skip((pageNumber - 1) * pageSize)
@@ -85,26 +83,49 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
 
         // Retrieves an employee record by its unique ID
         public async Task<User?> GetEmployeeByIdAsync(int id) =>
-    await _context.Users
-        .Include(u => u.Address).ThenInclude(a => a.City)
-        .Include(u => u.Role)
-        .Include(u => u.Branch)
-        .FirstOrDefaultAsync(u => u.UserId == id);
-
+            await _context.Users
+                .Include(u => u.Address).ThenInclude(a => a.City)
+                .Include(u => u.Role)
+                .Include(u => u.Branch)
+                .FirstOrDefaultAsync(u => u.UserId == id);
 
         // Retrieves a user record based on email address value
         public async Task<User?> GetUserByEmailAsync(string email) =>
-     await _context.Users
-         .Include(u => u.Branch)
-         .Include(u => u.Role)
-         .Include(u => u.Address)
-             .ThenInclude(a => a.City)
-         .FirstOrDefaultAsync(u => u.EmailAddress == email);
-
+            await _context.Users
+                .Include(u => u.Branch)
+                .Include(u => u.Role)
+                .Include(u => u.Address)
+                    .ThenInclude(a => a.City)
+                .FirstOrDefaultAsync(u => u.EmailAddress == email);
 
         // Inserts a new employee record into the database
         public async Task<User> AddEmployeeAsync(User user) =>
             (await _context.Users.AddAsync(user)).Entity;
+
+        // Inserts a new customer record into the database
+        public async Task<User> AddCustomerAsync(User user)
+        {
+            // If RoleId not set, resolve "Customer" from Role table
+            if (user.RoleId == 0)
+            {
+                var customerRole = await _context.Roles
+                    .FirstOrDefaultAsync(r => r.RoleName == "Customer");
+
+                if (customerRole != null)
+                {
+                    user.RoleId = customerRole.RoleId;
+                }
+                else
+                {
+                    // Fallback to 5 if lookup fails
+                    user.RoleId = 5;
+                }
+            }
+
+            var entry = await _context.Users.AddAsync(user);
+            await _context.SaveChangesAsync();   // commit so User_id (IDENTITY) is generated
+            return entry.Entity;
+        }
 
         // Updates an existing employee record
         public async Task<User?> UpdateEmployeeAsync(User user)
