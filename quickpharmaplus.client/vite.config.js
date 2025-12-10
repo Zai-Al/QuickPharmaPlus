@@ -62,6 +62,10 @@ export default defineConfig(({ mode }) => {
                 '@': fileURLToPath(new URL('./src', import.meta.url)),
             },
         },
+
+        optimizeDeps: {
+            exclude: ["@stripe/stripe-js"]
+        },
         server: {
             open: false,
             port: parseInt(env.DEV_SERVER_PORT || '5173'),

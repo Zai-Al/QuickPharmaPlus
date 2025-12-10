@@ -1,5 +1,10 @@
 
-export default function NavigationTab({ tabs, activeTab, onTabChange }) {
+export default function NavigationTab({
+    tabs,
+    activeTab,
+    onTabChange,
+    locked = false, 
+}) {
     return (
         <ul className="nav nav-tabs mb-0">
             {tabs.map((tab) => (
@@ -12,10 +17,11 @@ export default function NavigationTab({ tabs, activeTab, onTabChange }) {
                             (tab.disabled ? " disabled" : "")
                         }
                         onClick={() => {
-                            if (!tab.disabled) {
+                            if (!locked && !tab.disabled && onTabChange) {
                                 onTabChange(tab.key);
                             }
                         }}
+                        
                         disabled={tab.disabled}
                     >
                         {tab.label}

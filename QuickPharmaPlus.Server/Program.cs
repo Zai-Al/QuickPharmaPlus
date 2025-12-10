@@ -10,6 +10,7 @@ using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.Repositories.Implementation;
 using QuickPharmaPlus.Server.Repositories.Interface;
 using QuickPharmaPlus.Server.Services;
+using Stripe;
 
 namespace QuickPharmaPlus.Server
 {
@@ -123,6 +124,9 @@ namespace QuickPharmaPlus.Server
             //builder.Services.AddScoped<IAddressRepository, AddressRepository>();
             builder.Services.AddScoped<ISupplierRepository, SupplierRepository>();
 
+            // 6) Stripe configuration (test secret key from appsettings.json)
+            var stripeSection = builder.Configuration.GetSection("Stripe");
+            StripeConfiguration.ApiKey = stripeSection["SecretKey"];
 
 
 

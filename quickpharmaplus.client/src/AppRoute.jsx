@@ -16,6 +16,7 @@ import Register from "./Pages/User_Managment/Register.jsx";
 import ResetPassword from "./Pages/User_Managment/Reset_Password.jsx";
 import ForgotPassword from "./Pages/User_Managment/Forgot_Password.jsx";
 import PublicResetPassword from "./Pages/User_Managment/Reset_Password_Public.jsx";
+import ExternalProfile from "./Pages/User_Managment/ExternalProfile.jsx";
 
 // Dashboards
 import AdminDashboard from "./Pages/Internal_System/Dashboards/AdminDashboard.jsx";
@@ -66,8 +67,9 @@ import Cart from "./Pages/External_System/Cart_And_Wish_List/Cart.jsx";
 import Home from "./Pages/External_System/Home/Home.jsx";
 import Product from "./Pages/External_System/Products/Product.jsx";
 import ProductDetails from "./Pages/External_System/Products/ProductDetails.jsx";
-import WishList from "./Pages/External_System/Cart_And_Wish_List/WishList.jsx"; 
-
+import WishList from "./Pages/External_System/Cart_And_Wish_List/WishList.jsx";
+import Checkout from "./Pages/External_System/Checkout/Checkout.jsx";
+ 
 
 
 export default function AppRoutes() {
@@ -447,6 +449,17 @@ export default function AppRoutes() {
                             }
                             />
 
+                            <Route path="/checkout" element={<ProtectedRoute allowedRoles={["Customer"]}>
+                                <Checkout />
+                            </ProtectedRoute>
+                            }
+                            />
+
+                            <Route path="/externalProfile" element={<ProtectedRoute allowedRoles={["Customer"]}>
+                                <ExternalProfile />
+                            </ProtectedRoute>
+                            }
+                            />
                             
 
                         </Routes>

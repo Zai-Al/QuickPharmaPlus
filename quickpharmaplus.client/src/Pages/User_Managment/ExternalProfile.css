@@ -1,0 +1,8 @@
+.profile-input {
+    width: 100%;
+    max-width: 600px; 
+}
+
+.profile-row .profile-input {
+    flex: 1;
+}

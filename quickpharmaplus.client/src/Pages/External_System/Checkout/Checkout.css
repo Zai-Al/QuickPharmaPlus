@@ -1,0 +1,45 @@
+/* ============ Prescription Tab Cleanup ============ */
+
+.prescription-container {
+    text-align: left; /* align all content left */
+    max-width: 80%; /* reduce overwhelming width */
+    margin-left: 2rem; /* spacing from left */
+}
+
+    .prescription-container h4 {
+        font-size: 1.2rem;
+        font-weight: 700;
+    }
+
+.prescription-option {
+    margin-left: 1rem;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.prescription-address {
+    margin-left: 2.2rem;
+    margin-top: 2rem;
+}
+
+.prescription-subsection {
+    margin-left: 2.2rem; /* indent interior fields */
+    margin-top: 1rem;
+}
+
+    .prescription-subsection input[type="file"] {
+        max-width: 700px; /* keeps file inputs smaller */
+    }
+
+    .prescription-subsection .form-control,
+    .prescription-subsection .form-select {
+        max-width: 400px; /* controls field width */
+    }
+
+.prescription-divider {
+    border-top: 1px solid #ddd;
+    margin: 3.5rem 0;
+}
