@@ -110,7 +110,7 @@ export default function AppRoutes() {
                             <Route
                                 path="/resetPassword"
                                 element={
-                                    <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist", "Driver"]}>
+                                    <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist", "Driver", "Customer"]}>
                                         <ResetPassword />
                                     </ProtectedRoute>
                                 }

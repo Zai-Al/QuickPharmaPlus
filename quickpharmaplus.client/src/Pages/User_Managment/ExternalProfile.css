@@ -1,8 +1,25 @@
-.profile-input {
-    width: 100%;
-    max-width: 600px; 
+/* Center the card and control its width */
+.profile-card {
+    max-width: 100%;
+    margin: 0 auto;
 }
 
-.profile-row .profile-input {
-    flex: 1;
+/* Row that holds two columns */
+.profile-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem 0; /* vertical spacing between rows */
 }
+
+    /* Make each column take half the card (side by side) */
+    .profile-row > .col-md-6 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+
+    /* Inputs fill the full width of their column */
+    .profile-input,
+    .profile-row .form-control {
+        width: 100%;
+        max-width: 100%;
+    }
