@@ -36,6 +36,13 @@ const MOCK_PRODUCT = {
     },
 };
 
+const MOCK_BRANCH_AVAILABILITY = [
+    { branchId: 1, branchName: "Manama Main Branch", stock: 12 },
+    { branchId: 2, branchName: "Riffa Branch", stock: 7 },
+    { branchId: 3, branchName: "Muharraq Branch", stock: 0 },
+    { branchId: 4, branchName: "Isa Town Branch", stock: 3 },
+];
+
 // reuse your ProductCard-style shape for the carousels
 const MOCK_SIMILAR_PRODUCTS = [
     {
@@ -178,6 +185,7 @@ export default function ProductDetails() {
     const [pendingItem, setPendingItem] = useState(null); // {product, quantity}
     const [interactionMessages, setInteractionMessages] = useState([]);
     const [showInteractionDialog, setShowInteractionDialog] = useState(false);
+    const [showAvailabilityDialog, setShowAvailabilityDialog] = useState(false);
 
     const handleQtyChange = (delta) => {
         setQuantity((prev) => {
@@ -226,6 +234,11 @@ export default function ProductDetails() {
         setInteractionMessages(messages);
         setShowInteractionDialog(true);
     };
+
+    const handleAvailability = () => {
+        setShowAvailabilityDialog(true);
+    };
+
 
     const handleCarouselToggleFavorite = (p) => {
         console.log("Toggle favorite from carousel", p.id);
@@ -316,6 +329,7 @@ export default function ProductDetails() {
                             <button
                                 type="button"
                                 className="btn btn-link p-0 product-branches-link"
+                                onClick={handleAvailability}
                             >
                                 Available at {product.branchesCount} branches
                             </button>
@@ -393,6 +407,54 @@ export default function ProductDetails() {
                     />
                 </div>
             </div>
+
+            {/* Branch availability dialog */}
+            <DialogModal
+                show={showAvailabilityDialog}
+                title="Branch Availability"
+                body={
+                    <div>
+                        <p className="mb-3">
+                            Stock availability for{" "}
+                            <strong>{product.name}</strong> by branch:
+                        </p>
+
+                        <div className="table-responsive">
+                            <table className="table align-middle text-center mb-0">
+                                <thead className="table-light">
+                                    <tr>
+                                        <th>Branch</th>
+                                        <th>Stock Available</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {MOCK_BRANCH_AVAILABILITY.map((b) => (
+                                        <tr key={b.branchId}>
+                                            <td>{b.branchName}</td>
+                                            <td>
+                                                {b.stock > 0 ? (
+                                                    <span className="fw-semibold">
+                                                        {b.stock} units
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-danger fw-semibold">
+                                                        Out of stock
+                                                    </span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+                confirmLabel="Close"
+                cancelLabel="Cancel"
+                onConfirm={() => setShowAvailabilityDialog(false)}
+                onCancel={() => setShowAvailabilityDialog(false)}
+            />
+
 
             {/* Interaction warning dialog – same pattern as Home / WishList */}
             <DialogModal
