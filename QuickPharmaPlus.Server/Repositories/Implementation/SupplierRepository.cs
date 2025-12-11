@@ -4,29 +4,59 @@ using QuickPharmaPlus.Server.ModelsDTO;
 using QuickPharmaPlus.Server.ModelsDTO.Supplier;
 using QuickPharmaPlus.Server.Repositories.Interface;
 using QuickPharmaPlus.Server.ModelsDTO.Address;
+using System.Text.RegularExpressions;
+
 namespace QuickPharmaPlus.Server.Repositories.Implementation
 {
     public class SupplierRepository : ISupplierRepository
     {
         private readonly QuickPharmaPlusDbContext _context;
 
+        // Same validation rules as controller + frontend
+        private static readonly Regex ValidNamePattern = new(@"^[A-Za-z\s-]+$");
+        private static readonly Regex ValidIdPattern = new(@"^[0-9]+$");
+
         public SupplierRepository(QuickPharmaPlusDbContext context)
         {
             _context = context;
         }
 
-        // GET ALL SUPPLIERS (paged, searchable by id or name)
+        // ============================================================
+        // GET ALL SUPPLIERS (paged + filtered) — with VALIDATION ADDED
+        // ============================================================
         public async Task<PagedResult<SupplierListDto>> GetAllSuppliersAsync(int pageNumber, int pageSize, string? search = null)
         {
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 1) pageSize = 10;
 
-            var query = _context.Suppliers.AsQueryable();
-
-            // Apply search: numeric -> match ID, otherwise name starts-with
+            // ---------------------------
+            // VALIDATION (same as controller)
+            // ---------------------------
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var term = search.Trim();
+
+                if (int.TryParse(term, out _))
+                {
+                    // Numeric → must be digits only
+                    if (!ValidIdPattern.IsMatch(term))
+                        throw new ArgumentException("Supplier ID must contain numbers only.");
+                }
+                else
+                {
+                    // Text search → only letters, spaces, dashes
+                    if (!ValidNamePattern.IsMatch(term))
+                        throw new ArgumentException("Supplier name may only contain letters, spaces, and dashes.");
+                }
+            }
+
+            var query = _context.Suppliers.AsQueryable();
+
+            // Existing search logic preserved
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim();
+
                 if (int.TryParse(term, out int idVal))
                 {
                     query = query.Where(s => s.SupplierId == idVal);
@@ -54,14 +84,12 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     Contact = s.SupplierContact,
                     Email = s.SupplierEmail,
 
-                    // FULL OBJECT MAPPING — NOT STRING ANYMORE
                     Address = s.Address != null ? new AddressDto
                     {
                         AddressId = s.Address.AddressId,
                         Block = s.Address.Block,
                         Street = s.Address.Street,
                         BuildingNumber = s.Address.BuildingNumber,
-
                         City = s.Address.City != null ? new CityDto
                         {
                             CityId = s.Address.City.CityId,
@@ -80,7 +108,9 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             };
         }
 
-        // GET SUPPLIER DETAILS BY ID (includes address + city)
+        // ============================================================
+        // GET BY ID
+        // ============================================================
         public async Task<Supplier?> GetSupplierByIdAsync(int id)
         {
             return await _context.Suppliers
@@ -89,20 +119,55 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 .FirstOrDefaultAsync(s => s.SupplierId == id);
         }
 
-        // CREATE NEW SUPPLIER
+        // ============================================================
+        // CREATE SUPPLIER — VALIDATION ADDED
+        // ============================================================
         public async Task<Supplier> AddSupplierAsync(Supplier supplier)
         {
+            // ---------------------------
+            // VALIDATION
+            // ---------------------------
+            if (string.IsNullOrWhiteSpace(supplier.SupplierName) ||
+                !ValidNamePattern.IsMatch(supplier.SupplierName.Trim()))
+            {
+                throw new ArgumentException("Supplier name may only contain letters, spaces, and dashes.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(supplier.SupplierRepresentative) &&
+                !ValidNamePattern.IsMatch(supplier.SupplierRepresentative.Trim()))
+            {
+                throw new ArgumentException("Representative name may only contain letters, spaces, and dashes.");
+            }
+
             _context.Suppliers.Add(supplier);
             await _context.SaveChangesAsync();
             return supplier;
         }
 
-        // UPDATE EXISTING SUPPLIER
+        // ============================================================
+        // UPDATE SUPPLIER — VALIDATION ADDED
+        // ============================================================
         public async Task<Supplier?> UpdateSupplierAsync(Supplier supplier)
         {
             var existing = await _context.Suppliers.FirstOrDefaultAsync(s => s.SupplierId == supplier.SupplierId);
             if (existing == null) return null;
 
+            // ---------------------------
+            // VALIDATION
+            // ---------------------------
+            if (!string.IsNullOrWhiteSpace(supplier.SupplierName) &&
+                !ValidNamePattern.IsMatch(supplier.SupplierName.Trim()))
+            {
+                throw new ArgumentException("Supplier name may only contain letters, spaces, and dashes.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(supplier.SupplierRepresentative) &&
+                !ValidNamePattern.IsMatch(supplier.SupplierRepresentative.Trim()))
+            {
+                throw new ArgumentException("Representative name may only contain letters, spaces, and dashes.");
+            }
+
+            // Existing logic
             existing.SupplierName = supplier.SupplierName;
             existing.SupplierContact = supplier.SupplierContact;
             existing.SupplierEmail = supplier.SupplierEmail;
@@ -113,7 +178,9 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             return existing;
         }
 
-        // DELETE SUPPLIER: remove orders/reorders and detach products, then remove supplier
+        // ============================================================
+        // DELETE SUPPLIER
+        // ============================================================
         public async Task<bool> DeleteSupplierAsync(int id)
         {
             var supplier = await _context.Suppliers.FirstOrDefaultAsync(s => s.SupplierId == id);
@@ -126,7 +193,6 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             var relatedReorders = _context.Reorders.Where(r => r.SupplierId == id);
             _context.Reorders.RemoveRange(relatedReorders);
 
-            // Detach supplier from products (set SupplierId = null) to preserve products
             var products = _context.Products.Where(p => p.SupplierId == id);
             await products.ForEachAsync(p => p.SupplierId = null);
 

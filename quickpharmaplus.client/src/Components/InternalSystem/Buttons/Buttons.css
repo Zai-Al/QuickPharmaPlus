@@ -184,3 +184,24 @@
 
 .file-input {
     display: none;
+}
+
+/* ========================================================= */
+/*                       CLEAR BUTTON                       */
+/* ========================================================= */
+
+.clear-btn {
+    background-color: #7ac9c5;
+    color: white;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: 0.2s ease;
+    height:50px;
+}
+
+    .clear-btn:hover {
+        opacity: 0.85;
+    }

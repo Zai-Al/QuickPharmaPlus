@@ -125,7 +125,7 @@ export default function Profile_Internal() {
                         <label className="profile-label">Name</label>
                         <input
                             type="text"
-                            className="form-control profile-input"
+                            className="form-control profile-input w-100"
                             value={fullName}
                             disabled
                         />
@@ -158,7 +158,7 @@ export default function Profile_Internal() {
                             pathname: "/editProfileInternal",
                             state: { user }
                         }}
-                        className="btn w-100 edit-btn mb-3 text-center"
+                        className="btn w-80 edit-btn mb-3 text-center"
                     >
                         Edit
                     </Link>

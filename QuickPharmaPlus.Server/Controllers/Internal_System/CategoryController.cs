@@ -4,6 +4,7 @@ using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.ModelsDTO;
 using QuickPharmaPlus.Server.ModelsDTO.Category;
 using QuickPharmaPlus.Server.Repositories.Interface;
+using System.Text.RegularExpressions;
 
 namespace QuickPharmaPlus.Server.Controllers
 {
@@ -18,9 +19,14 @@ namespace QuickPharmaPlus.Server.Controllers
             _categoryRepository = categoryRepository;
         }
 
+        // ================================
+        // VALIDATION PATTERNS (same as UI)
+        // ================================
+        private static readonly Regex ValidNamePattern = new(@"^[A-Za-z\s-]*$");
+        private static readonly Regex ValidIdPattern = new(@"^[0-9]*$");
+
         // =====================================================
         // FETCH PAGED + FILTERED CATEGORY LIST
-        // Supports search by ID (exact) or name (starts with)
         // =====================================================
         [Authorize]
         [HttpGet]
@@ -29,6 +35,28 @@ namespace QuickPharmaPlus.Server.Controllers
             [FromQuery] int pageSize = 10,
             [FromQuery] string? search = null)
         {
+            // -------------------------
+            // APPLY VALIDATION
+            // -------------------------
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var trimmed = search.Trim();
+
+                // If numeric → must match ID pattern
+                if (int.TryParse(trimmed, out _))
+                {
+                    if (!ValidIdPattern.IsMatch(trimmed))
+                        return BadRequest("Category ID must contain only numbers.");
+                }
+                else
+                {
+                    // Otherwise validate as name
+                    if (!ValidNamePattern.IsMatch(trimmed))
+                        return BadRequest("Category name may only contain letters, spaces, and dashes.");
+                }
+            }
+
             var result = await _categoryRepository.GetAllCategoriesAsync(pageNumber, pageSize, search);
 
             return Ok(new
@@ -47,6 +75,10 @@ namespace QuickPharmaPlus.Server.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetCategoryById(int id)
         {
+            // Validate ID
+            if (id <= 0)
+                return BadRequest("Invalid category ID.");
+
             var category = await _categoryRepository.GetCategoryByIdAsync(id);
 
             if (category == null)
@@ -62,8 +94,12 @@ namespace QuickPharmaPlus.Server.Controllers
         [HttpPost("add")]
         public async Task<IActionResult> AddCategory([FromForm] CategoryCreateDto model)
         {
+            // Validate name
             if (string.IsNullOrWhiteSpace(model.CategoryName))
                 return BadRequest("Category name is required.");
+
+            if (!ValidNamePattern.IsMatch(model.CategoryName.Trim()))
+                return BadRequest("Category name may contain only letters, spaces, and dashes.");
 
             byte[]? imageBytes = null;
 
@@ -76,7 +112,7 @@ namespace QuickPharmaPlus.Server.Controllers
 
             var category = new Category
             {
-                CategoryName = model.CategoryName,
+                CategoryName = model.CategoryName.Trim(),
                 CategoryImage = imageBytes
             };
 
@@ -96,8 +132,16 @@ namespace QuickPharmaPlus.Server.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateCategory(int id, [FromForm] CategoryCreateDto model)
         {
+            // Validate ID
+            if (id <= 0)
+                return BadRequest("Invalid category ID.");
+
+            // Validate name
             if (string.IsNullOrWhiteSpace(model.CategoryName))
                 return BadRequest("Category name is required.");
+
+            if (!ValidNamePattern.IsMatch(model.CategoryName.Trim()))
+                return BadRequest("Category name may contain only letters, spaces, and dashes.");
 
             byte[]? imageBytes = null;
 
@@ -111,7 +155,7 @@ namespace QuickPharmaPlus.Server.Controllers
             var updated = new Category
             {
                 CategoryId = id,
-                CategoryName = model.CategoryName,
+                CategoryName = model.CategoryName.Trim(),
                 CategoryImage = imageBytes
             };
 
@@ -130,6 +174,9 @@ namespace QuickPharmaPlus.Server.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCategory(int id)
         {
+            if (id <= 0)
+                return BadRequest("Invalid category ID.");
+
             var deleted = await _categoryRepository.DeleteCategoryAsync(id);
 
             if (!deleted)
@@ -147,6 +194,9 @@ namespace QuickPharmaPlus.Server.Controllers
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 5)
         {
+            if (categoryId <= 0)
+                return BadRequest("Invalid category ID.");
+
             var result = await _categoryRepository.GetTypesPagedAsync(categoryId, pageNumber, pageSize);
 
             return Ok(new
@@ -165,13 +215,20 @@ namespace QuickPharmaPlus.Server.Controllers
         [HttpPost("types/{categoryId}/add")]
         public async Task<IActionResult> AddCategoryType(int categoryId, [FromBody] string typeName)
         {
+            if (categoryId <= 0)
+                return BadRequest("Invalid category ID.");
+
             if (string.IsNullOrWhiteSpace(typeName))
-                return BadRequest("Type name is required");
+                return BadRequest("Type name is required.");
+
+            // Validate type name same rule as category name
+            if (!ValidNamePattern.IsMatch(typeName.Trim()))
+                return BadRequest("Type name may contain only letters, spaces, and dashes.");
 
             var type = new ProductType
             {
                 CategoryId = categoryId,
-                ProductTypeName = typeName
+                ProductTypeName = typeName.Trim()
             };
 
             var created = await _categoryRepository.AddCategoryTypeAsync(type);
@@ -190,6 +247,9 @@ namespace QuickPharmaPlus.Server.Controllers
         [HttpDelete("type/{typeId}")]
         public async Task<IActionResult> DeleteCategoryType(int typeId)
         {
+            if (typeId <= 0)
+                return BadRequest("Invalid type ID.");
+
             var deleted = await _categoryRepository.DeleteCategoryTypeAsync(typeId);
 
             if (!deleted)
