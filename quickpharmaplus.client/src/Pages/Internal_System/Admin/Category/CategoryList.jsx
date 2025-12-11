@@ -5,6 +5,7 @@ import "./CategoryList.css";
 import DataTable from "../../../../Components/InternalSystem/Table/DataTable";
 import EditButton from "../../../../Components/InternalSystem/Buttons/EditButton";
 import DeleteButton from "../../../../Components/InternalSystem/Buttons/DeleteButton";
+import ClearButton from "../../../../Components/InternalSystem/Buttons/ClearButton";
 import PageAddButton from "../../../../Components/InternalSystem/Buttons/PageAddButton";
 import FilterSection from "../../../../Components/InternalSystem/GeneralComponents/FilterSection";
 import FilterLeft from "../../../../Components/InternalSystem/GeneralComponents/FilterLeft";
@@ -26,6 +27,15 @@ export default function CategoryList() {
     // === SEARCH STATE ===
     const [nameSearch, setNameSearch] = useState("");
     const [idSearch, setIdSearch] = useState("");
+
+    // === VALIDATION STATE ===
+    const [nameError, setNameError] = useState("");
+    const [idError, setIdError] = useState("");
+
+    // Patterns
+    const validNamePattern = /^[A-Za-z\s-]*$/;
+    const validIdPattern = /^[0-9]*$/;
+
     const searchDebounceRef = useRef(null);
 
     // === DELETE MODAL STATE ===
@@ -51,7 +61,7 @@ export default function CategoryList() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentPage, nameSearch, idSearch]);
 
-    // === FETCH CATEGORIES (connected to backend filtering) ===
+    // === FETCH CATEGORIES ===
     async function fetchCategories() {
         setLoading(true);
         setError("");
@@ -59,27 +69,16 @@ export default function CategoryList() {
         try {
             let searchParam = "";
 
-            // If user typed ID, backend detects numeric → exact filter applies
-            if (idSearch.trim()) {
-                searchParam = idSearch.trim();
-            }
-            // Otherwise if name entered, send it (backend does StartsWith)
-            else if (nameSearch.trim()) {
-                searchParam = nameSearch.trim();
-            }
+            if (idSearch.trim()) searchParam = idSearch.trim();
+            else if (nameSearch.trim()) searchParam = nameSearch.trim();
 
             const res = await fetch(
                 `${baseURL}/api/category?pageNumber=${currentPage}&pageSize=${pageSize}` +
                 (searchParam ? `&search=${encodeURIComponent(searchParam)}` : ""),
-                {
-                    method: "GET",
-                    credentials: "include",
-                }
+                { method: "GET", credentials: "include" }
             );
 
-            if (!res.ok) {
-                throw new Error(`Failed to load categories (${res.status})`);
-            }
+            if (!res.ok) throw new Error(`Failed to load categories (${res.status})`);
 
             const data = await res.json();
 
@@ -100,7 +99,7 @@ export default function CategoryList() {
         }
     }
 
-    // === DELETE CATEGORY USING FETCH() ===
+    // === DELETE ===
     async function handleDeleteConfirm() {
         if (!deleteId) {
             setShowModal(false);
@@ -115,7 +114,6 @@ export default function CategoryList() {
 
             if (!res.ok) throw new Error("Deletion failed");
 
-            // Refresh after delete
             fetchCategories();
 
         } catch (err) {
@@ -124,6 +122,49 @@ export default function CategoryList() {
             setDeleteId(null);
             setShowModal(false);
         }
+    }
+
+    // ============================
+    // LIVE VALIDATION HANDLERS
+    // ============================
+
+    function handleNameChange(e) {
+        const value = e.target.value;
+
+        if (!validNamePattern.test(value)) {
+            setNameError("Only letters, spaces and dashes allowed.");
+            return;
+        }
+
+        setNameError("");
+        setNameSearch(value);
+        setCurrentPage(1);
+    }
+
+    function handleIdChange(e) {
+        const value = e.target.value;
+
+        if (!validIdPattern.test(value)) {
+            setIdError("Only numbers allowed.");
+            return;
+        }
+
+        setIdError("");
+        setIdSearch(value);
+        setCurrentPage(1);
+    }
+
+    // ============================
+    // CLEAR FILTERS
+    // ============================
+    function handleClearFilters() {
+        setNameSearch("");
+        setIdSearch("");
+        setNameError("");
+        setIdError("");
+
+        if (currentPage !== 1) setCurrentPage(1);
+        else fetchCategories();
     }
 
     // === COLUMNS ===
@@ -136,9 +177,7 @@ export default function CategoryList() {
     ];
 
     const renderMap = {
-        view: (row) => (
-            <ViewButton to={`/categories/types/${row.id}`} text="View Types" />
-        ),
+        view: (row) => <ViewButton to={`/categories/types/${row.id}`} text="View Types" />,
         edit: (row) => <EditButton to={`/categories/edit/${row.id}`} />,
         delete: (row) => (
             <DeleteButton
@@ -157,32 +196,45 @@ export default function CategoryList() {
             {/* FILTER SECTION */}
             <FilterSection>
                 <FilterLeft>
+
+                    {/* CATEGORY NAME */}
                     <div className="mb-2">
                         <div className="filter-label fst-italic small">Enter category name for automatic search</div>
-                        <SearchTextField
+
+                        <input
+                            type="text"
+                            className={`form-control filter-text-input ${nameError ? "is-invalid" : ""}`}
                             placeholder="Search Category by Name"
                             value={nameSearch}
-                            onChange={(e) => {
-                                setNameSearch(e.target.value);
-                                setCurrentPage(1); // reset on filter
-                            }}
+                            onChange={handleNameChange}
                         />
+
+                        <div style={{ height: "20px" }}>
+                            {nameError && <div className="invalid-feedback d-block">{nameError}</div>}
+                        </div>
                     </div>
 
+                    {/* CATEGORY ID */}
                     <div className="mb-2">
                         <div className="filter-label fst-italic small">Enter category ID for automatic search</div>
-                        <SearchTextField
+
+                        <input
+                            type="text"
+                            className={`form-control filter-text-input ${idError ? "is-invalid" : ""}`}
                             placeholder="Search Category by ID"
                             value={idSearch}
-                            onChange={(e) => {
-                                setIdSearch(e.target.value);
-                                setCurrentPage(1);
-                            }}
+                            onChange={handleIdChange}
                         />
+
+                        <div style={{ height: "20px" }}>
+                            {idError && <div className="invalid-feedback d-block">{idError}</div>}
+                        </div>
                     </div>
+
                 </FilterLeft>
 
                 <FilterRight>
+                    <ClearButton onClear={handleClearFilters} />
                     <PageAddButton to="/categories/add" text="Add New Category" />
                 </FilterRight>
             </FilterSection>

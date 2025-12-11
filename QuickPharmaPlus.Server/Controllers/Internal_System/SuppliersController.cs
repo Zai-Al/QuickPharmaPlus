@@ -6,6 +6,7 @@ using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.ModelsDTO;
 using QuickPharmaPlus.Server.ModelsDTO.Supplier;
 using QuickPharmaPlus.Server.Repositories.Interface;
+using System.Text.RegularExpressions;
 
 namespace QuickPharmaPlus.Server.Controllers.Internal_System
 {
@@ -17,6 +18,10 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
         private readonly ISupplierRepository _repo;
         private readonly QuickPharmaPlusDbContext _context;
 
+        // Validation patterns (match frontend)
+        private static readonly Regex ValidNamePattern = new(@"^[A-Za-z\s-]+$");
+        private static readonly Regex ValidIdPattern = new(@"^[0-9]+$");
+
         public SuppliersController(ISupplierRepository repo, QuickPharmaPlusDbContext context)
         {
             _repo = repo;
@@ -25,36 +30,67 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
 
         // =============================================================
         // GET: api/Suppliers?pageNumber=1&pageSize=10&search=...
-        // Fetch paged supplier list, supports search by numeric ID or name
         // =============================================================
         [HttpGet]
         public async Task<IActionResult> GetAll(int pageNumber = 1, int pageSize = 10, string? search = null)
         {
+            // -------------------------------
+            // VALIDATION ADDED HERE
+            // -------------------------------
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var trimmed = search.Trim();
+
+                // If numeric search → must match ID pattern
+                if (int.TryParse(trimmed, out _))
+                {
+                    if (!ValidIdPattern.IsMatch(trimmed))
+                        return BadRequest("Supplier ID must contain numbers only.");
+                }
+                else
+                {
+                    // Name search validation
+                    if (!ValidNamePattern.IsMatch(trimmed))
+                        return BadRequest("Supplier name may only contain letters, spaces, and dashes.");
+                }
+            }
+
             var result = await _repo.GetAllSuppliersAsync(pageNumber, pageSize, search);
             return Ok(result);
         }
 
         // =============================================================
-        // GET: api/Suppliers/{id}
-        // Fetch single supplier (includes address + city)
+        // GET SUPPLIER BY ID
         // =============================================================
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(int id)
         {
+            // Validation
+            if (id <= 0)
+                return BadRequest("Invalid supplier ID.");
+
             var supplier = await _repo.GetSupplierByIdAsync(id);
             if (supplier == null) return NotFound();
             return Ok(supplier);
         }
 
         // =============================================================
-        // POST: api/Suppliers
-        // Create supplier along with a new address (if address fields provided).
-        // Expects supplier + address payload (see CreateSupplierRequest).
+        // CREATE SUPPLIER
         // =============================================================
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateSupplierRequest dto)
         {
             if (dto == null) return BadRequest();
+
+            // -------------------------------
+            // VALIDATION ADDED HERE
+            // -------------------------------
+            if (string.IsNullOrWhiteSpace(dto.SupplierName) || !ValidNamePattern.IsMatch(dto.SupplierName.Trim()))
+                return BadRequest("Supplier name may only contain letters, spaces, and dashes.");
+
+            if (!string.IsNullOrWhiteSpace(dto.Representative) &&
+                !ValidNamePattern.IsMatch(dto.Representative.Trim()))
+                return BadRequest("Representative name may only contain letters, spaces, and dashes.");
 
             // Create address if address fields provided
             Address? address = null;
@@ -73,16 +109,14 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                     BuildingNumber = dto.Building,
                 };
 
-                // Try resolve city by name (case-insensitive)
                 if (!string.IsNullOrWhiteSpace(dto.City))
                 {
                     var city = await _context.Cities
-                        .FirstOrDefaultAsync(c => c.CityName != null && c.CityName.ToLower() == dto.City.Trim().ToLower());
+                        .FirstOrDefaultAsync(c => c.CityName != null &&
+                        c.CityName.ToLower() == dto.City.Trim().ToLower());
 
                     if (city != null)
-                    {
                         address.CityId = city.CityId;
-                    }
                 }
 
                 _context.Addresses.Add(address);
@@ -104,25 +138,34 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
         }
 
         // =============================================================
-        // PUT: api/Suppliers/{id}
-        // Update supplier details (and update/create address if payload includes address info)
+        // UPDATE SUPPLIER
         // =============================================================
         [HttpPut("{id:int}")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateSupplierRequest dto)
         {
             if (dto == null) return BadRequest();
-            if (dto.SupplierId.HasValue && dto.SupplierId.Value != id) return BadRequest("Route id and body supplier id do not match.");
+            if (dto.SupplierId.HasValue && dto.SupplierId.Value != id)
+                return BadRequest("Route id and body supplier id do not match.");
+
+            // -------------------------------
+            // VALIDATION ADDED HERE
+            // -------------------------------
+            if (!string.IsNullOrWhiteSpace(dto.SupplierName) &&
+                !ValidNamePattern.IsMatch(dto.SupplierName.Trim()))
+                return BadRequest("Supplier name may only contain letters, spaces, and dashes.");
+
+            if (!string.IsNullOrWhiteSpace(dto.Representative) &&
+                !ValidNamePattern.IsMatch(dto.Representative.Trim()))
+                return BadRequest("Representative name may only contain letters, spaces, and dashes.");
 
             var existing = await _repo.GetSupplierByIdAsync(id);
             if (existing == null) return NotFound();
 
-            // Update supplier scalar fields
             existing.SupplierName = dto.SupplierName ?? existing.SupplierName;
             existing.SupplierRepresentative = dto.Representative ?? existing.SupplierRepresentative;
             existing.SupplierContact = dto.Contact ?? existing.SupplierContact;
             existing.SupplierEmail = dto.Email ?? existing.SupplierEmail;
 
-            // Handle address: update existing address, create new one, or leave unchanged
             bool hasAddressPayload =
                 dto.City != null || dto.Block != null || dto.Road != null || dto.Building != null;
 
@@ -140,7 +183,8 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                         if (!string.IsNullOrWhiteSpace(dto.City))
                         {
                             var city = await _context.Cities
-                                .FirstOrDefaultAsync(c => c.CityName != null && c.CityName.ToLower() == dto.City.Trim().ToLower());
+                                .FirstOrDefaultAsync(c => c.CityName != null &&
+                                c.CityName.ToLower() == dto.City.Trim().ToLower());
                             if (city != null) addr.CityId = city.CityId;
                         }
 
@@ -149,7 +193,6 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                 }
                 else
                 {
-                    // create new address and assign
                     var newAddr = new Address
                     {
                         Street = dto.Road,
@@ -160,7 +203,8 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                     if (!string.IsNullOrWhiteSpace(dto.City))
                     {
                         var city = await _context.Cities
-                            .FirstOrDefaultAsync(c => c.CityName != null && c.CityName.ToLower() == dto.City.Trim().ToLower());
+                            .FirstOrDefaultAsync(c => c.CityName != null &&
+                            c.CityName.ToLower() == dto.City.Trim().ToLower());
                         if (city != null) newAddr.CityId = city.CityId;
                     }
 
@@ -178,30 +222,29 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
         }
 
         // =============================================================
-        // DELETE: api/Suppliers/{id}
-        // Delete supplier (repository handles related cleanup)
+        // DELETE SUPPLIER
         // =============================================================
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {
+            if (id <= 0)
+                return BadRequest("Invalid supplier ID.");
+
             var success = await _repo.DeleteSupplierAsync(id);
             if (!success) return NotFound();
             return Ok(new { deleted = true });
         }
-
 
         // -------------------------
         // Local request DTOs
         // -------------------------
         public class CreateSupplierRequest
         {
-            // Supplier fields
             public string? SupplierName { get; set; }
             public string? Representative { get; set; }
             public string? Contact { get; set; }
             public string? Email { get; set; }
 
-            // Address fields (client sends city/block/road/building)
             public string? City { get; set; }
             public string? Block { get; set; }
             public string? Road { get; set; }
@@ -210,16 +253,12 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
 
         public class UpdateSupplierRequest
         {
-            // Optional: include supplier id in body
             public int? SupplierId { get; set; }
-
-            // Supplier fields (nullable to allow partial updates)
             public string? SupplierName { get; set; }
             public string? Representative { get; set; }
             public string? Contact { get; set; }
             public string? Email { get; set; }
 
-            // Address fields (nullable for partial updates)
             public string? City { get; set; }
             public string? Block { get; set; }
             public string? Road { get; set; }

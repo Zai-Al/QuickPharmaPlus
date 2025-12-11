@@ -5,8 +5,9 @@ import "./EmployeesList.css";
 import DataTable from "../../../../Components/InternalSystem/Table/DataTable";
 import EditButton from "../../../../Components/InternalSystem/Buttons/EditButton";
 import DeleteButton from "../../../../Components/InternalSystem/Buttons/DeleteButton";
+import ClearButton from "../../../../Components/InternalSystem/Buttons/ClearButton";
+
 import PageAddButton from "../../../../Components/InternalSystem/Buttons/PageAddButton";
-import SearchTextField from "../../../../Components/InternalSystem/GeneralComponents/FilterTextField";
 import FilterDropDown from "../../../../Components/InternalSystem/GeneralComponents/FilterDropDown";
 
 import FilterLeft from "../../../../Components/InternalSystem/GeneralComponents/FilterLeft";
@@ -30,6 +31,10 @@ export default function EmployeesList() {
     const [selectedRole, setSelectedRole] = useState("");
     const searchDebounceRef = useRef(null);
 
+    // === NEW VALIDATION STATES ===
+    const [nameError, setNameError] = useState("");
+    const [idError, setIdError] = useState("");
+
     // === DELETE MODAL STATE ===
     const [deleteId, setDeleteId] = useState(null);
     const [showModal, setShowModal] = useState(false);
@@ -40,6 +45,10 @@ export default function EmployeesList() {
     const [totalPages, setTotalPages] = useState(1);
 
     const baseURL = import.meta.env.VITE_API_BASE_URL;
+
+    // === VALIDATION REGEX ===
+    const validNamePattern = /^[A-Za-z .-]*$/;
+    const validIdPattern = /^[0-9]*$/;
 
     // === INITIAL: fetch roles once ===
     useEffect(() => { fetchRoles(); }, []);
@@ -56,24 +65,24 @@ export default function EmployeesList() {
         }
     }
 
-    // === WHEN PAGE NUMBER OR PAGE SIZE CHANGES, FETCH DATA ===
+    // === FETCH ON PAGE CHANGE ===
     useEffect(() => {
         fetchEmployees();
     }, [currentPage, pageSize]);
 
-    // === FILTERS: Debounced Backend Call ===
+    // === DEBOUNCED FILTER FETCH ===
     useEffect(() => {
         if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
 
         searchDebounceRef.current = setTimeout(() => {
-            setCurrentPage(1);          // reset paging
-            fetchEmployees();           // refetch from backend with filters
+            setCurrentPage(1);
+            fetchEmployees();
         }, 300);
 
         return () => clearTimeout(searchDebounceRef.current);
     }, [nameSearch, idSearch, selectedRole]);
 
-    // === FETCH EMPLOYEES FROM API USING FILTERS ===
+    // === FETCH EMPLOYEES ===
     async function fetchEmployees() {
         setLoading(true);
         setError("");
@@ -94,7 +103,6 @@ export default function EmployeesList() {
 
             const data = await res.json();
 
-            // Mapping from backend data to UI-friendly format
             const mapped = (data.items || []).map((u) => {
                 const address = u.address ?? null;
                 return {
@@ -107,11 +115,9 @@ export default function EmployeesList() {
                 };
             });
 
-            // store raw result for UI use
             setAllEmployees(mapped);
             setEmployees(mapped);
 
-            // Backend now returns correct filtered count
             setTotalPages(Math.max(1, Math.ceil((data.totalCount ?? mapped.length) / pageSize)));
 
         } catch (err) {
@@ -147,8 +153,8 @@ export default function EmployeesList() {
 
             if (!res.ok) throw new Error(`Delete failed (${res.status})`);
 
-            setAllEmployees((prev) => prev.filter((e) => e.id !== deleteId));
-            setEmployees((prev) => prev.filter((e) => e.id !== deleteId));
+            setAllEmployees(prev => prev.filter(e => e.id !== deleteId));
+            setEmployees(prev => prev.filter(e => e.id !== deleteId));
 
         } catch (err) {
             console.error("Delete employee error:", err);
@@ -158,7 +164,28 @@ export default function EmployeesList() {
         }
     }
 
-    // Table columns
+    // === VALIDATION HANDLERS ===
+    function handleNameChange(e) {
+        const value = e.target.value;
+        if (!validNamePattern.test(value)) {
+            setNameError("Only letters, spaces, dash (-), and dot (.) allowed.");
+            return;
+        }
+        setNameError("");
+        setNameSearch(value);
+    }
+
+    function handleIdChange(e) {
+        const value = e.target.value;
+        if (!validIdPattern.test(value)) {
+            setIdError("Only numbers allowed.");
+            return;
+        }
+        setIdError("");
+        setIdSearch(value);
+    }
+
+    // TABLE CONFIG
     const columns = [
         { key: "name", label: "Name" },
         { key: "email", label: "Email" },
@@ -188,30 +215,55 @@ export default function EmployeesList() {
             {/* FILTERS */}
             <FilterSection>
                 <FilterLeft>
+                    {/* NAME SEARCH */}
                     <div className="mb-2">
                         <div className="filter-label fst-italic small">Enter employee name for automatic search</div>
-                        <SearchTextField
+                        <input
+                            type="text"
+                            className={`form-control filter-text-input ${nameError ? "is-invalid" : ""}`}
                             placeholder="Search Employee by Name"
                             value={nameSearch}
-                            onChange={(e) => setNameSearch(e.target.value)}
+                            onChange={handleNameChange}
                         />
+                        {nameError && <div className="invalid-feedback">{nameError}</div>}
                     </div>
 
+                    {/* ID SEARCH */}
                     <div className="mb-2">
                         <div className="filter-label fst-italic small">Enter employee ID for automatic search</div>
-                        <SearchTextField
+                        <input
+                            type="text"
+                            className={`form-control filter-text-input ${idError ? "is-invalid" : ""}`}
                             placeholder="Search Employee by ID"
                             value={idSearch}
-                            onChange={(e) => setIdSearch(e.target.value)}
+                            onChange={handleIdChange}
                         />
+                        {idError && <div className="invalid-feedback">{idError}</div>}
                     </div>
                 </FilterLeft>
 
                 <FilterRight>
-                    <PageAddButton to="/employees/add" text="Add New Employee" />
+                    <div className="d-flex gap-2">
+                        {/* CLEAR BUTTON */}
+                        <ClearButton
+                            onClear={() => {
+                                setNameSearch("");
+                                setIdSearch("");
+                                setSelectedRole("");
+                                setNameError("");
+                                setIdError("");
+
+                                if (currentPage !== 1) setCurrentPage(1);
+                                else fetchEmployees(1);
+                            }}
+                        />
+
+                        <PageAddButton to="/employees/add" text="Add New Employee" />
+                    </div>
                 </FilterRight>
             </FilterSection>
 
+            {/* ROLE FILTER */}
             <FilterSection>
                 <FilterLeft>
                     <div className="mb-2">

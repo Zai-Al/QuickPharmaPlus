@@ -174,3 +174,12 @@ form-group{
     font-weight: 500;
 }
 
+/* ----------------------------------------- */
+/*        VALIDATION ERROR STYLING           */
+/* ----------------------------------------- */
+
+.invalid-feedback {
+    font-size: 0.85rem;
+    text-align: left;
+    margin-top: 2px;
+}

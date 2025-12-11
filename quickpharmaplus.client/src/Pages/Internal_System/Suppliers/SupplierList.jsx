@@ -5,6 +5,7 @@ import "./SupplierList.css";
 // Components
 import DataTable from "../../../Components/InternalSystem/Table/DataTable";
 import EditButton from "../../../Components/InternalSystem/Buttons/EditButton";
+import ClearButton from "../../../Components/InternalSystem/Buttons/ClearButton";
 import PageAddButton from "../../../Components/InternalSystem/Buttons/PageAddButton";
 import DeleteButton from "../../../Components/InternalSystem/Buttons/DeleteButton";
 import DeleteModal from "../../../Components/InternalSystem/Modals/DeleteModal";
@@ -15,6 +16,7 @@ import FilterSection from "../../../Components/InternalSystem/GeneralComponents/
 import Pagination from "../../../Components/InternalSystem/GeneralComponents/Pagination";
 
 export default function SupplierList() {
+
     // === DATA & UI STATE ===
     const [suppliers, setSuppliers] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -23,18 +25,65 @@ export default function SupplierList() {
     // === FILTER STATE ===
     const [nameSearch, setNameSearch] = useState("");
     const [idSearch, setIdSearch] = useState("");
+
+    // === VALIDATION STATE ===
+    const [nameError, setNameError] = useState("");
+    const [idError, setIdError] = useState("");
+
+    const validNamePattern = /^[A-Za-z\s-]*$/;
+    const validIdPattern = /^[0-9]*$/;
+
     const searchDebounceRef = useRef(null);
 
     // === DELETE MODAL STATE ===
     const [deleteId, setDeleteId] = useState(null);
     const [showModal, setShowModal] = useState(false);
 
-    // === PAGING STATE (display 10 records per page) ===
+    // === PAGING ===
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 10;
     const [totalPages, setTotalPages] = useState(1);
 
     const baseURL = import.meta.env.VITE_API_BASE_URL || "";
+
+    // =========================================================
+    // HANDLE VALIDATION FOR NAME
+    // =========================================================
+    function handleNameChange(e) {
+        const value = e.target.value;
+        if (!validNamePattern.test(value)) {
+            setNameError("Only letters, spaces and dashes allowed.");
+            return;
+        }
+        setNameError("");
+        setNameSearch(value);
+    }
+
+    // =========================================================
+    // HANDLE VALIDATION FOR ID
+    // =========================================================
+    function handleIdChange(e) {
+        const value = e.target.value;
+        if (!validIdPattern.test(value)) {
+            setIdError("Only numbers allowed.");
+            return;
+        }
+        setIdError("");
+        setIdSearch(value);
+    }
+
+    // =========================================================
+    // CLEAR FILTERS
+    // =========================================================
+    function handleClearFilters() {
+        setNameSearch("");
+        setIdSearch("");
+        setNameError("");
+        setIdError("");
+
+        if (currentPage !== 1) setCurrentPage(1);
+        else fetchSuppliers();
+    }
 
     // ------------------------------
     // Fetch suppliers when page changes
@@ -51,7 +100,7 @@ export default function SupplierList() {
         if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
 
         searchDebounceRef.current = setTimeout(() => {
-            setCurrentPage(1); // reset to first page when filters change
+            setCurrentPage(1);
             fetchSuppliers();
         }, 300);
 
@@ -60,8 +109,7 @@ export default function SupplierList() {
     }, [nameSearch, idSearch]);
 
     // =============================================================
-    // FETCH SUPPLIERS FROM API (uses single 'search' query param).
-    // If nameSearch present it will be used; otherwise idSearch is used.
+    // FETCH SUPPLIERS
     // =============================================================
     async function fetchSuppliers() {
         setLoading(true);
@@ -70,7 +118,6 @@ export default function SupplierList() {
         try {
             let url = `${baseURL.replace(/\/$/, "")}/api/Suppliers?pageNumber=${currentPage}&pageSize=${pageSize}`;
 
-            // Build single 'search' param similar to server expectations:
             const search = nameSearch?.trim() || idSearch?.trim() || "";
             if (search) url += `&search=${encodeURIComponent(search)}`;
 
@@ -78,31 +125,30 @@ export default function SupplierList() {
             if (!res.ok) throw new Error(`Failed to load suppliers (${res.status})`);
 
             const data = await res.json();
-
-            // Support both shapes: { items, totalCount } or { Items, TotalCount } or PagedResult
             const items = data.items ?? data.Items ?? [];
             const totalCount = data.totalCount ?? data.TotalCount ?? (items.length || 0);
 
-            // Map backend items to UI rows
             const mapped = (items || []).map((s) => {
                 const rawAddress = s.address ?? s.Address ?? null;
-                const addressString = typeof rawAddress === "object" && rawAddress !== null
-                    ? formatAddressObj(rawAddress)
-                    : (rawAddress ?? "");
+                const addressString =
+                    typeof rawAddress === "object" && rawAddress !== null
+                        ? formatAddressObj(rawAddress)
+                        : (rawAddress ?? "");
 
                 return {
                     id: s.supplierId ?? s.SupplierId ?? s.supplier_id ?? null,
                     name: s.supplierName ?? s.SupplierName ?? "—",
-                    representative: s.representative ?? s.SupplierRepresentative ?? s.supplierRepresentative ?? "",
-                    contact: s.contact ?? s.SupplierContact ?? s.supplierContact ?? "",
-                    email: s.email ?? s.SupplierEmail ?? s.supplierEmail ?? "",
+                    representative: s.representative ?? s.SupplierRepresentative ?? "",
+                    contact: s.contact ?? s.SupplierContact ?? "",
+                    email: s.email ?? s.SupplierEmail ?? "",
                     address: addressString,
-                    products: (s.productCount ?? s.ProductCount ?? 0).toString()
+                    products: (s.productCount ?? 0).toString(),
                 };
             });
 
             setSuppliers(mapped);
             setTotalPages(Math.max(1, Math.ceil((totalCount ?? mapped.length) / pageSize)));
+
         } catch (err) {
             console.error("Fetch suppliers error:", err);
             setError("Unable to load suppliers.");
@@ -113,9 +159,23 @@ export default function SupplierList() {
         }
     }
 
-    // =============================================================
-    // DELETE CONFIRM — calls backend and removes deleted row locally
-    // =============================================================
+    // ------------------------------
+    // Helper: format address
+    // ------------------------------
+    function formatAddressObj(addr) {
+        if (!addr || typeof addr !== "object") return String(addr ?? "");
+        const cityName = addr.city?.cityName ?? addr.cityName ?? "";
+        const parts = [];
+        if (cityName) parts.push(cityName);
+        if (addr.block) parts.push(`Block No. ${addr.block}`);
+        if (addr.street) parts.push(`Road No. ${addr.street}`);
+        if (addr.buildingNumber) parts.push(`Building No. ${addr.buildingNumber}`);
+        return parts.join(" / ");
+    }
+
+    // ------------------------------
+    // DELETE SUPPLIER
+    // ------------------------------
     async function handleDeleteConfirm() {
         if (!deleteId) {
             setShowModal(false);
@@ -131,11 +191,10 @@ export default function SupplierList() {
             if (!res.ok) throw new Error(`Delete failed (${res.status})`);
 
             setSuppliers((prev) => prev.filter((s) => s.id !== deleteId));
-            // If the page is now empty and we're not on page 1, go back one page and refetch
+
             if (suppliers.length === 1 && currentPage > 1) {
                 setCurrentPage((p) => Math.max(1, p - 1));
             } else {
-                // refresh counts by re-fetching
                 fetchSuppliers();
             }
         } catch (err) {
@@ -147,22 +206,7 @@ export default function SupplierList() {
     }
 
     // ------------------------------
-    // Helper: format address to match employee list style:
-    // "CityName / Block No. X / Road No. Y / Building No. Z"
-    // ------------------------------
-    function formatAddressObj(addr) {
-        if (!addr || typeof addr !== "object") return String(addr ?? "");
-        const cityName = addr.city?.cityName ?? addr.cityName ?? addr.CityName ?? "";
-        const parts = [];
-        if (cityName) parts.push(cityName);
-        if (addr.block) parts.push(`Block No. ${addr.block}`);
-        if (addr.street) parts.push(`Road No. ${addr.street}`);
-        if (addr.buildingNumber) parts.push(`Building No. ${addr.buildingNumber}`);
-        return parts.join(" / ");
-    }
-
-    // ------------------------------
-    // TABLE COLUMNS + RENDER MAP
+    // TABLE COLUMNS
     // ------------------------------
     const columns = [
         { key: "name", label: "Name" },
@@ -194,26 +238,45 @@ export default function SupplierList() {
             {/* FILTERS */}
             <FilterSection>
                 <FilterLeft>
+
+                    {/* NAME FILTER */}
                     <div className="mb-2">
                         <div className="filter-label fst-italic small">Enter supplier name for automatic search</div>
-                        <SearchTextField
+
+                        <input
+                            type="text"
+                            className={`form-control filter-text-input ${nameError ? "is-invalid" : ""}`}
                             placeholder="Search Supplier by Name"
                             value={nameSearch}
-                            onChange={(e) => setNameSearch(e.target.value)}
+                            onChange={handleNameChange}
                         />
+
+                        <div style={{ height: "20px" }}>
+                            {nameError && <div className="invalid-feedback d-block">{nameError}</div>}
+                        </div>
                     </div>
 
+                    {/* ID FILTER */}
                     <div className="mb-2">
                         <div className="filter-label fst-italic small">Enter supplier ID for automatic search</div>
-                        <SearchTextField
+
+                        <input
+                            type="text"
+                            className={`form-control filter-text-input ${idError ? "is-invalid" : ""}`}
                             placeholder="Search Supplier by ID"
                             value={idSearch}
-                            onChange={(e) => setIdSearch(e.target.value)}
+                            onChange={handleIdChange}
                         />
+
+                        <div style={{ height: "20px" }}>
+                            {idError && <div className="invalid-feedback d-block">{idError}</div>}
+                        </div>
                     </div>
+
                 </FilterLeft>
 
                 <FilterRight>
+                    <ClearButton onClear={handleClearFilters} />
                     <PageAddButton to="/suppliers/add" text="Add New Supplier" />
                 </FilterRight>
             </FilterSection>
@@ -222,13 +285,9 @@ export default function SupplierList() {
             {loading && <div className="text-center text-muted my-3">Loading suppliers...</div>}
             {error && <div className="alert alert-danger">{error}</div>}
 
-            <DataTable
-                columns={columns}
-                data={suppliers}
-                renderMap={renderMap}
-            />
+            <DataTable columns={columns} data={suppliers} renderMap={renderMap} />
 
-            {/* PAGINATION (10 records per page) */}
+            {/* PAGINATION */}
             <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}

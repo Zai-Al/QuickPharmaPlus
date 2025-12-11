@@ -454,7 +454,7 @@ export default function EditProfile_Internal() {
                     </button>
 
                     {/* RESET PASSWORD */}
-                    <p className="text-center">
+                    <p className="text-center mb-3">
                         <span className="reset-disabled">Reset Password</span>
                     </p>
 

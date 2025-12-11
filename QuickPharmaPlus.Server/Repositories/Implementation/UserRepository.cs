@@ -33,6 +33,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             string? role
         )
         {
+            // Base query - unchanged
             var query = _context.Users
                 .Include(u => u.Branch)
                 .Include(u => u.Role)
@@ -40,36 +41,48 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 .Where(u => u.RoleId == 1 || u.RoleId == 2 || u.RoleId == 3 || u.RoleId == 4)
                 .AsQueryable();
 
-            // Filters employees by name using starts-with matching
+            // ---------- VALIDATION MATCHING FRONT-END RULES ----------
+
+            // Validate name allowed characters (letters, space, dot ., dash -)
             if (!string.IsNullOrWhiteSpace(nameSearch))
             {
-                var term = nameSearch.Trim().ToLower();
+                nameSearch = nameSearch.Trim();
 
-                query = query.Where(u =>
-                    (u.FirstName ?? "").ToLower().StartsWith(term) ||
-                    (u.LastName ?? "").ToLower().StartsWith(term) ||
-                    (u.EmailAddress ?? "").ToLower().StartsWith(term)
-                );
+                // If invalid format, ignore filter instead of breaking query
+                if (System.Text.RegularExpressions.Regex.IsMatch(nameSearch, @"^[A-Za-z .-]+$"))
+                {
+                    var term = nameSearch.ToLower();
+
+                    query = query.Where(u =>
+                        (u.FirstName ?? "").ToLower().StartsWith(term) ||
+                        (u.LastName ?? "").ToLower().StartsWith(term) ||
+                        (u.EmailAddress ?? "").ToLower().StartsWith(term)
+                    );
+                }
             }
 
-            // Filters employees by exact ID match
+            // Validate numeric ID filter (digits only)
             if (!string.IsNullOrWhiteSpace(idSearch))
             {
-                var term = idSearch.Trim();
-                query = query.Where(u => u.UserId.ToString() == term);
+                idSearch = idSearch.Trim();
+
+                if (System.Text.RegularExpressions.Regex.IsMatch(idSearch, @"^[0-9]+$"))
+                {
+                    query = query.Where(u => u.UserId.ToString() == idSearch);
+                }
             }
 
-            // Filters employees by role match
+            // Role match — unchanged but trimmed safely
             if (!string.IsNullOrWhiteSpace(role))
             {
                 var term = role.Trim().ToLower();
                 query = query.Where(u => (u.Role.RoleName ?? "").ToLower() == term);
             }
 
-            // Counts filtered results
+            // Count filtered results
             var filteredTotal = await query.CountAsync();
 
-            // Retrieves filtered and paginated employee list
+            // Retrieve paginated employees
             var result = await query
                 .OrderBy(u => u.UserId)
                 .Skip((pageNumber - 1) * pageSize)
@@ -82,6 +95,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 TotalCount = filteredTotal
             };
         }
+
 
         // Retrieves an employee record by its unique ID
         public async Task<User?> GetEmployeeByIdAsync(int id) =>

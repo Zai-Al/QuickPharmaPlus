@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,12 +14,16 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
     {
         private readonly IUserRepository _repo;
 
+        // BACKEND VALIDATION RULES MATCH FRONT-END RULES
+        private static readonly Regex ValidNameRegex = new(@"^[A-Za-z .-]*$");
+        private static readonly Regex ValidNumericRegex = new(@"^[0-9]*$");
+
         public EmployeesController(IUserRepository repo)
         {
             _repo = repo;
         }
 
-        // UPDATED: backend-side paging + filtering support
+        // UPDATED: backend-side paging + filtering support with validation
         [HttpGet("employees")]
         public async Task<IActionResult> GetAll(
             [FromQuery] int pageNumber = 1,
@@ -27,6 +32,32 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
             [FromQuery] string? idSearch = null,
             [FromQuery] string? role = null)
         {
+            // Sanitize name search to match front-end rules
+            if (!string.IsNullOrWhiteSpace(nameSearch))
+            {
+                nameSearch = nameSearch.Trim();
+
+                if (!ValidNameRegex.IsMatch(nameSearch))
+                {
+                    return BadRequest(new { error = "Invalid name format — allowed: letters, space, dot, dash." });
+                }
+            }
+
+            // Sanitize ID search to numeric only
+            if (!string.IsNullOrWhiteSpace(idSearch))
+            {
+                idSearch = idSearch.Trim();
+
+                if (!ValidNumericRegex.IsMatch(idSearch))
+                {
+                    return BadRequest(new { error = "Invalid ID format — only numbers allowed." });
+                }
+            }
+
+            // Prevent meaningless paging
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 10;
+
             var result = await _repo.GetAllEmployeesAsync(
                 pageNumber,
                 pageSize,

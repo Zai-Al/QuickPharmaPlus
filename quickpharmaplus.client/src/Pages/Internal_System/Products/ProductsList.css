@@ -7,9 +7,6 @@
     padding: 2rem 0;
 }
 
-.products-title {
-    margin-bottom: 2rem;
-}
 
 /* ----------------------------------------- */
 /*                  TABLE                    */
@@ -42,4 +39,55 @@
 .delete-text {
     font-size: 1.1rem;
     font-weight: 500;
+}
+
+
+
+
+/* =============================== */
+/* SEARCHABLE DROPDOWN – UNIFIED   */
+/* =============================== */
+
+/* WRAPPER — ensures dropdown matches input width */
+.product-filter-dropdown {
+    position: relative;
+    width: 340px;
+}
+
+    /* DROPDOWN SIZE */
+    .product-filter-dropdown .searchable-dropdown {
+        width: 100% !important;
+        min-width: 100% !important;
+        padding: 0;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
+
+    /* HOVER COLOR */
+    .product-filter-dropdown .list-group-item-action:hover {
+        background-color: #598199 !important;
+        border-color: #598199 !important;
+        color: white !important;
+        cursor: pointer;
+        width: 340px;
+    }
+
+    /* ACTIVE (selected or keyboard-highlighted) */
+    .product-filter-dropdown .active,
+    .product-filter-dropdown .list-group-item-action.active {
+        background-color: #598199 !important;
+        color: white !important;
+        width: 340px;
+    }
+
+
+
+/* ----------------------------------------- */
+/*        VALIDATION ERROR STYLING           */
+/* ----------------------------------------- */
+
+.invalid-feedback {
+    font-size: 0.85rem;
+    text-align: left;
+    margin-top: 2px;
 }
