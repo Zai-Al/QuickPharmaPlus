@@ -56,6 +56,8 @@ export default function Login() {
                 navigate("/managerDashboard");
             } else if (user.roles?.includes("Driver")) {
                 navigate("/driverDashboard");
+            } else if (user.roles?.includes("Customer")) {
+                navigate("/home");
             } else {
                 navigate("/");
             }
