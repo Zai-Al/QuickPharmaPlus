@@ -4,6 +4,8 @@ using QuickPharmaPlus.Server.ModelsDTO;
 using QuickPharmaPlus.Server.ModelsDTO.Product;
 using QuickPharmaPlus.Server.Repositories.Interface;
 using System.Text.RegularExpressions;
+using System.Linq;
+
 
 namespace QuickPharmaPlus.Server.Repositories.Implementation
 {
@@ -207,5 +209,131 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             await _context.SaveChangesAsync();
             return true;
         }
+
+        public async Task<PagedResult<ProductListDto>> GetExternalProductsAsync(
+    int pageNumber,
+    int pageSize,
+    string? search = null,
+    int[]? supplierIds = null,
+    int[]? categoryIds = null,
+    int[]? productTypeIds = null,
+    List<(decimal Min, decimal Max)>? priceRanges = null,
+    string? sortBy = null)
+        {
+            // --- basic guards ---
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 12;
+
+            // --- reuse your existing search validation pattern ---
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                search = search.Trim();
+                bool validName = NamePattern.IsMatch(search);
+                bool validId = IdPattern.IsMatch(search);
+
+                if (!validName && !validId)
+                {
+                    return new PagedResult<ProductListDto>
+                    {
+                        Items = new List<ProductListDto>(),
+                        TotalCount = 0
+                    };
+                }
+            }
+
+            // sanitize arrays (remove invalids, duplicates)
+            supplierIds = supplierIds?.Where(x => x > 0).Distinct().ToArray();
+            categoryIds = categoryIds?.Where(x => x > 0).Distinct().ToArray();
+            productTypeIds = productTypeIds?.Where(x => x > 0).Distinct().ToArray();
+
+
+            // --- base query ---
+            var query = _context.Products
+                .Include(p => p.Category)
+                .Include(p => p.ProductType)
+                .Include(p => p.Supplier)
+                .AsQueryable();
+
+            // --- multi filters ---
+            if (supplierIds != null && supplierIds.Length > 0)
+                query = query.Where(p => p.SupplierId.HasValue && supplierIds.Contains(p.SupplierId.Value));
+
+            if (categoryIds != null && categoryIds.Length > 0)
+                query = query.Where(p => categoryIds.Contains(p.CategoryId));
+
+            if (productTypeIds != null && productTypeIds.Length > 0)
+                query = query.Where(p => p.ProductTypeId.HasValue && productTypeIds.Contains(p.ProductTypeId.Value));
+
+            // --- price filter ---
+            if (priceRanges != null && priceRanges.Count > 0)
+            {
+                query = query.Where(p =>
+                    priceRanges.Any(r =>
+                        (p.ProductPrice ?? 0m) >= r.Min &&
+                        (p.ProductPrice ?? 0m) <= r.Max
+                    )
+                );
+            }
+
+
+            // --- search filter (same behavior as your original) ---
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim();
+
+                if (int.TryParse(term, out int idVal))
+                {
+                    query = query.Where(p => p.ProductId == idVal);
+                }
+                else
+                {
+                    var lower = term.ToLower();
+
+                    query = query.Where(p =>
+                        (p.ProductName ?? "").ToLower().StartsWith(lower) ||
+                        (p.Category != null && (p.Category.CategoryName ?? "").ToLower().StartsWith(lower)) ||
+                        (p.Supplier != null && (p.Supplier.SupplierName ?? "").ToLower().StartsWith(lower))
+                    );
+                }
+            }
+
+            // --- sorting (BEFORE paging) ---
+            sortBy = (sortBy ?? "").Trim().ToLowerInvariant();
+            query = sortBy switch
+            {
+                "price-desc" => query.OrderByDescending(p => p.ProductPrice ?? 0m),
+                "name-asc" => query.OrderBy(p => p.ProductName),
+                "name-desc" => query.OrderByDescending(p => p.ProductName),
+                _ => query.OrderBy(p => p.ProductId), // default
+            };
+
+            var total = await query.CountAsync();
+
+            var items = await query
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .Select(p => new ProductListDto
+                {
+                    ProductId = p.ProductId,
+                    ProductName = p.ProductName,
+                    ProductPrice = p.ProductPrice,
+                    IsControlled = p.IsControlled,
+                    SupplierId = p.SupplierId,
+                    SupplierName = p.Supplier != null ? p.Supplier.SupplierName : null,
+                    ProductTypeId = p.ProductTypeId,
+                    ProductTypeName = p.ProductType != null ? p.ProductType.ProductTypeName : null,
+                    CategoryId = p.CategoryId,
+                    CategoryName = p.Category != null ? p.Category.CategoryName : null,
+                    InventoryCount = _context.Inventories.Count(i => i.ProductId == p.ProductId)
+                })
+                .ToListAsync();
+
+            return new PagedResult<ProductListDto>
+            {
+                Items = items,
+                TotalCount = total
+            };
+        }
+
     }
 }

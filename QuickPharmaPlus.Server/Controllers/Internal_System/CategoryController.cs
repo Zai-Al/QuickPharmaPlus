@@ -28,7 +28,7 @@ namespace QuickPharmaPlus.Server.Controllers
         // =====================================================
         // FETCH PAGED + FILTERED CATEGORY LIST
         // =====================================================
-        [Authorize]
+        
         [HttpGet]
         public async Task<IActionResult> GetAllCategories(
             [FromQuery] int pageNumber = 1,
@@ -198,6 +198,24 @@ namespace QuickPharmaPlus.Server.Controllers
                 return BadRequest("Invalid category ID.");
 
             var result = await _categoryRepository.GetTypesPagedAsync(categoryId, pageNumber, pageSize);
+
+            return Ok(new
+            {
+                items = result.Items,
+                totalCount = result.TotalCount,
+                pageNumber,
+                pageSize
+            });
+        }
+
+        [HttpGet("types")]
+        public async Task<IActionResult> GetAllTypes(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 5)
+        {
+           
+
+            var result = await _categoryRepository.GetAllTypesPagedAsync(pageNumber, pageSize);
 
             return Ok(new
             {

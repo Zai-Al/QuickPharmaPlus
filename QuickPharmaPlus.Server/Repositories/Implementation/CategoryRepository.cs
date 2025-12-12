@@ -161,6 +161,30 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             };
         }
 
+        public async Task<PagedResult<ProductType>> GetAllTypesPagedAsync(
+            int pageNumber,
+            int pageSize)
+        {
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 5;
+
+            var query = _context.ProductTypes;
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .OrderBy(pt => pt.ProductTypeId)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<ProductType>
+            {
+                Items = items,
+                TotalCount = totalCount
+            };
+        }
+
         // =============================================================
         // ADD PRODUCT TYPE TO CATEGORY
         // =============================================================

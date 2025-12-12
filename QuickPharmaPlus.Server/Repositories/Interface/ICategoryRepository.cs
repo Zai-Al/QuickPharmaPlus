@@ -23,7 +23,7 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
 
         // PAGED TYPES LIST (optional if you need pagination)
         Task<PagedResult<ProductType>> GetTypesPagedAsync(int categoryId, int pageNumber, int pageSize);
-
+        Task<PagedResult<ProductType>> GetAllTypesPagedAsync(int pageNumber, int pageSize);
 
         // CREATE TYPE
         Task<ProductType> AddCategoryTypeAsync(ProductType type);

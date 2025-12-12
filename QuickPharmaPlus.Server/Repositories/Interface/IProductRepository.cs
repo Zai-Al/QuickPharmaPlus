@@ -16,5 +16,18 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
         Task<Product> AddProductAsync(Product product);
         Task<Product?> UpdateProductAsync(Product product);
         Task<bool> DeleteProductAsync(int id);
+
+        Task<PagedResult<ProductListDto>> GetExternalProductsAsync(
+    int pageNumber,
+    int pageSize,
+    string? search = null,
+    int[]? supplierIds = null,
+    int[]? categoryIds = null,
+    int[]? productTypeIds = null,
+    List<(decimal Min, decimal Max)>? priceRanges = null,
+    string? sortBy = null
+);
+
+
     }
 }

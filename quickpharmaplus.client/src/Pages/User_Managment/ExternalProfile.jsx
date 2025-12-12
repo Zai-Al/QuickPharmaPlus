@@ -2,6 +2,8 @@
 import { useState, useContext, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "../External_System/Shared_Components/PageHeader";
+import DialogModal from "../External_System/Shared_Components/DialogModal";
+import SuccessAlert from "../External_System/Shared_Components/SuccessAlert";
 import { AuthContext } from "../../Context/AuthContext";
 import "./ExternalProfile.css";
 
@@ -36,7 +38,108 @@ export default function ExternalProfile() {
     const [highlightIndex, setHighlightIndex] = useState(0);
     const cityRef = useRef(null);
 
-    // ?? 1) Fetch profile from backend on mount
+    // ---- FIELD-LEVEL ERRORS -----------------------------------------
+    const [errors, setErrors] = useState({});
+
+    // ---- SUCCESS ALERT ----------------------------------------------
+    const [showSuccess, setShowSuccess] = useState(false);
+    const [successMessage, setSuccessMessage] = useState("");
+
+    // Auto-hide success message after 3 seconds
+    useEffect(() => {
+        if (showSuccess) {
+            const timer = setTimeout(() => {
+                setShowSuccess(false);
+            }, 3000); // 3 seconds
+
+            return () => clearTimeout(timer);
+        }
+    }, [showSuccess]);
+
+
+    // ---- DELETE MODAL -----------------------------------------------
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+    const isEmpty = (val) => !val || val.trim() === "";
+    const nameRegex = /^[A-Za-z]{3,}$/; // at least 3 letters, only letters
+    const phoneRegex = /^[0-9]{8}$/;    // exactly 8 digits
+    const numericRegex = /^[0-9]+$/;    // numbers only
+
+    // -------- VALIDATION (similar to Register) -----------------------
+    const validateProfile = (data) => {
+        const newErrors = {};
+
+        const {
+            firstName,
+            lastName,
+            phone,
+            city,
+            block,
+            road,
+            buildingFloor,
+        } = data;
+
+        // First name
+        if (isEmpty(firstName)) {
+            newErrors.firstName = "First name is required.";
+        } else if (!nameRegex.test(firstName.trim())) {
+            newErrors.firstName =
+                "First name must be at least 3 letters and contain letters only.";
+        }
+
+        // Last name
+        if (isEmpty(lastName)) {
+            newErrors.lastName = "Last name is required.";
+        } else if (!nameRegex.test(lastName.trim())) {
+            newErrors.lastName =
+                "Last name must be at least 3 letters and contain letters only.";
+        }
+
+        // Phone
+        if (isEmpty(phone)) {
+            newErrors.phone = "Phone number is required.";
+        } else if (!phoneRegex.test(phone.trim())) {
+            newErrors.phone =
+                "Phone number must be 8 digits and contain numbers only.";
+        }
+
+        // Address: optional but all-or-nothing
+        const hasAnyAddress =
+            !isEmpty(city) ||
+            !isEmpty(block) ||
+            !isEmpty(road) ||
+            !isEmpty(buildingFloor);
+
+        if (hasAnyAddress) {
+            if (isEmpty(city)) {
+                newErrors.city = "City is required when adding an address.";
+            }
+            if (isEmpty(block)) {
+                newErrors.block = "Block is required when adding an address.";
+            }
+            if (isEmpty(road)) {
+                newErrors.road = "Road / Street is required when adding an address.";
+            }
+            if (isEmpty(buildingFloor)) {
+                newErrors.buildingFloor =
+                    "Building / floor is required when adding an address.";
+            }
+        }
+
+        // Block numeric only (if not empty)
+        if (!isEmpty(block) && !numericRegex.test(block.trim())) {
+            newErrors.block = "Block must contain numbers only.";
+        }
+
+        // Road numeric only (if not empty)
+        if (!isEmpty(road) && !numericRegex.test(road.trim())) {
+            newErrors.road = "Road / Street must contain numbers only.";
+        }
+
+        return newErrors;
+    };
+
+    // 1) Fetch profile from backend on mount
     useEffect(() => {
         const fetchProfile = async () => {
             try {
@@ -89,7 +192,7 @@ export default function ExternalProfile() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // ?? 2) Fetch cities (like in Register)
+    // 2) Fetch cities (like in Register)
     useEffect(() => {
         const fetchCities = async () => {
             try {
@@ -121,7 +224,7 @@ export default function ExternalProfile() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // ?? 3) Close dropdown when clicking outside
+    // 3) Close dropdown when clicking outside
     useEffect(() => {
         const onDocClick = (e) => {
             if (cityRef.current && !cityRef.current.contains(e.target)) {
@@ -133,13 +236,18 @@ export default function ExternalProfile() {
         return () => document.removeEventListener("mousedown", onDocClick);
     }, []);
 
-    // ?? Generic change handler
+    // Generic change handler (clear errors as user types)
     const handleChange = (e) => {
         const { name, value } = e.target;
         setProfileData((prev) => ({ ...prev, [name]: value }));
+
+        setErrors((prev) => ({
+            ...prev,
+            [name]: undefined,
+        }));
     };
 
-    // ?? City filtering (search)
+    // City filtering (search)
     const filteredCities =
         cityQuery && cityQuery.trim().length > 0
             ? (cities || []).filter((c) =>
@@ -154,6 +262,11 @@ export default function ExternalProfile() {
         setCityQuery(val);
         setProfileData((prev) => ({ ...prev, city: val }));
 
+        setErrors((prev) => ({
+            ...prev,
+            city: undefined,
+        }));
+
         if (!disabled) {
             setShowCityDropdown(true);
             setHighlightIndex(0);
@@ -166,6 +279,11 @@ export default function ExternalProfile() {
         setProfileData((prev) => ({ ...prev, city: name }));
         setShowCityDropdown(false);
         setHighlightIndex(0);
+
+        setErrors((prev) => ({
+            ...prev,
+            city: undefined,
+        }));
     };
 
     const handleCityInputFocus = () => {
@@ -193,8 +311,16 @@ export default function ExternalProfile() {
         }
     };
 
-    // ?? Save (PUT to backend)
+    // Save (PUT to backend)
     const handleSave = async () => {
+        // front-end validation first
+        const newErrors = validateProfile(profileData);
+        setErrors(newErrors);
+
+        if (Object.keys(newErrors).length > 0) {
+            return;
+        }
+
         try {
             const res = await fetch(
                 `${baseURL.replace(/\/$/, "")}/api/externalprofile`,
@@ -218,11 +344,19 @@ export default function ExternalProfile() {
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
                 console.error("UPDATE ERROR:", data);
-                // later: show a toast/alert
+                // Optional: attach any returned error to a field, e.g. phone
+                if (data && data.message) {
+                    setErrors((prev) => ({
+                        ...prev,
+                        phone: data.message,
+                    }));
+                }
                 return;
             }
 
             setMode("view");
+            setShowSuccess(true);
+            setSuccessMessage("Your profile has been updated successfully.");
         } catch (err) {
             console.error("UPDATE ERROR:", err);
         }
@@ -232,15 +366,24 @@ export default function ExternalProfile() {
         logout();
     };
 
-    const handleEdit = () => setMode("edit");
-    const handleCancel = () => setMode("view");
+    const handleEdit = () => {
+        setErrors({});
+        setMode("edit");
+        setShowSuccess(false);
+    };
 
-    const handleDelete = async () => {
-        const confirmed = window.confirm(
-            "Are you sure you want to delete your account? This action cannot be undone."
-        );
-        if (!confirmed) return;
+    const handleCancel = () => {
+        // clear errors when canceling edit
+        setErrors({});
+        setMode("view");
+    };
 
+    // Delete (open modal)
+    const handleDelete = () => {
+        setShowDeleteModal(true);
+    };
+
+    const confirmDelete = async () => {
         try {
             const res = await fetch(
                 `${baseURL.replace(/\/$/, "")}/api/ExternalProfile`,
@@ -253,22 +396,25 @@ export default function ExternalProfile() {
             if (!res.ok) {
                 const text = await res.text().catch(() => "");
                 console.error("DELETE ERROR:", text);
+                // You can show an error using SuccessAlert styled differently or another component
+                setShowDeleteModal(false);
                 alert("Failed to delete your account. Please try again.");
                 return;
             }
 
-            // Use your existing logout from AuthContext
+            setShowDeleteModal(false);
             logout();
-
-            // Optional: redirect to home or login page
             window.location.href = "/";
         } catch (err) {
             console.error("DELETE ERROR:", err);
+            setShowDeleteModal(false);
             alert("An unexpected error occurred while deleting the account.");
         }
     };
 
-
+    const cancelDelete = () => {
+        setShowDeleteModal(false);
+    };
 
     const handleResetPassword = () => {
         navigate("/resetPassword");
@@ -302,209 +448,282 @@ export default function ExternalProfile() {
                 )}
 
                 {!loading && !loadError && (
-                    <div className="card shadow-sm profile-card">
-                        <div className="card-body py-4 px-5">
-                            <h4 className="fw-bold mb-4">Profile Details</h4>
+                    <>
+                        {/* Success alert when profile updated */}
+                        <SuccessAlert
+                            show={showSuccess}
+                            message={successMessage}
+                            onClose={() => setShowSuccess(false)}
+                        />
 
-                            {/* First & Last Name Row */}
-                            <div className="row mb-3 profile-row">
-                                <div className="col-md-6">
-                                    <label className="fw-bold">First Name:</label>
-                                    <input
-                                        type="text"
-                                        name="firstName"
-                                        className="form-control profile-input"
-                                        value={profileData.firstName}
-                                        onChange={handleChange}
-                                        disabled={disabled}
-                                    />
-                                </div>
+                        <div className="card shadow-sm profile-card mt-3">
+                            <div className="card-body py-4 px-5">
+                                <h4 className="fw-bold mb-4">Profile Details</h4>
 
-                                <div className="col-md-6">
-                                    <label className="fw-bold">Last Name:</label>
-                                    <input
-                                        type="text"
-                                        name="lastName"
-                                        className="form-control profile-input"
-                                        value={profileData.lastName}
-                                        onChange={handleChange}
-                                        disabled={disabled}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Email & Phone Row */}
-                            <div className="row mb-4 profile-row">
-                                <div className="col-md-6">
-                                    <label className="fw-bold">Email:</label>
-                                    <input
-                                        type="email"
-                                        name="email"
-                                        className="form-control profile-input"
-                                        value={profileData.email}
-                                        onChange={handleChange}
-                                        disabled
-                                    />
-                                </div>
-
-                                <div className="col-md-6">
-                                    <label className="fw-bold">Phone:</label>
-                                    <input
-                                        type="tel"
-                                        name="phone"
-                                        className="form-control profile-input"
-                                        value={profileData.phone}
-                                        onChange={handleChange}
-                                        disabled={disabled}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Address section – like Sign Up */}
-                            <h5 className="fw-bold mb-3">Address</h5>
-
-                            <div className="row mb-3" ref={cityRef} style={{ position: "relative" }}>
-                                <div className="col-md-6">
-                                    <label className="form-label fw-bold">City</label>
-                                    <input
-                                        name="city"
-                                        type="text"
-                                        className="form-control"
-                                        placeholder={
-                                            cities.length === 0
-                                                ? "Loading cities..."
-                                                : "Select city or start typing"
-                                        }
-                                        value={cityQuery}
-                                        onChange={handleCityInputChange}
-                                        onFocus={handleCityInputFocus}
-                                        onKeyDown={handleCityKeyDown}
-                                        disabled={disabled || cities.length === 0}
-                                        autoComplete="off"
-                                    />
-
-                                    {showCityDropdown &&
-                                        !disabled &&
-                                        (filteredCities || []).length > 0 && (
-                                            <ul
-                                                className="list-group position-absolute w-100"
-                                                style={{
-                                                    zIndex: 1500,
-                                                    maxHeight: 200,
-                                                    overflowY: "auto",
-                                                }}
-                                            >
-                                                <li className="list-group-item disabled">
-                                                    Select city
-                                                </li>
-                                                {filteredCities.map((c, idx) => (
-                                                    <li
-                                                        key={c.cityId}
-                                                        className={`list-group-item list-group-item-action ${idx === highlightIndex ? "active" : ""
-                                                            }`}
-                                                        onMouseDown={(ev) => ev.preventDefault()}
-                                                        onClick={() => handleSelectCity(c)}
-                                                        onMouseEnter={() =>
-                                                            setHighlightIndex(idx)
-                                                        }
-                                                    >
-                                                        {c.cityName ?? c.CityName}
-                                                    </li>
-                                                ))}
-                                            </ul>
+                                {/* First & Last Name Row */}
+                                <div className="row mb-3 profile-row">
+                                    <div className="col-md-6 text-start">
+                                        <label className="fw-bold">First Name:</label>
+                                        <input
+                                            type="text"
+                                            name="firstName"
+                                            className={`form-control profile-input ${errors.firstName ? "is-invalid" : ""
+                                                }`}
+                                            value={profileData.firstName}
+                                            onChange={handleChange}
+                                            disabled={disabled}
+                                        />
+                                        {errors.firstName && (
+                                            <div className="invalid-feedback d-block">
+                                                {errors.firstName}
+                                            </div>
                                         )}
+                                    </div>
+
+                                    <div className="col-md-6 text-start">
+                                        <label className="fw-bold">Last Name:</label>
+                                        <input
+                                            type="text"
+                                            name="lastName"
+                                            className={`form-control profile-input ${errors.lastName ? "is-invalid" : ""
+                                                }`}
+                                            value={profileData.lastName}
+                                            onChange={handleChange}
+                                            disabled={disabled}
+                                        />
+                                        {errors.lastName && (
+                                            <div className="invalid-feedback d-block">
+                                                {errors.lastName}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
-                                <div className="col-md-6">
-                                    <label className="form-label fw-bold">Block</label>
-                                    <input
-                                        type="text"
-                                        className="form-control"
-                                        placeholder="Enter block"
-                                        name="block"
-                                        value={profileData.block}
-                                        onChange={handleChange}
-                                        disabled={disabled}
-                                    />
+                                {/* Email & Phone Row */}
+                                <div className="row mb-4 profile-row">
+                                    <div className="col-md-6 text-start">
+                                        <label className="fw-bold">Email:</label>
+                                        <input
+                                            type="email"
+                                            name="email"
+                                            className="form-control profile-input"
+                                            value={profileData.email}
+                                            onChange={handleChange}
+                                            disabled
+                                        />
+                                    </div>
+
+                                    <div className="col-md-6 text-start">
+                                        <label className="fw-bold">Phone:</label>
+                                        <input
+                                            type="tel"
+                                            name="phone"
+                                            className={`form-control profile-input ${errors.phone ? "is-invalid" : ""
+                                                }`}
+                                            value={profileData.phone}
+                                            onChange={handleChange}
+                                            disabled={disabled}
+                                        />
+                                        {errors.phone && (
+                                            <div className="invalid-feedback d-block">
+                                                {errors.phone}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="row mb-3">
-                                <div className="col-md-6">
-                                    <label className="form-label fw-bold">
-                                        Road / Street
-                                    </label>
-                                    <input
-                                        type="text"
-                                        className="form-control"
-                                        placeholder="Enter road / street"
-                                        name="road"
-                                        value={profileData.road}
-                                        onChange={handleChange}
-                                        disabled={disabled}
-                                    />
+                                {/* Address section – like Sign Up */}
+                                <h5 className="fw-bold mb-3">Address</h5>
+
+                                <div
+                                    className="row mb-3"
+                                    ref={cityRef}
+                                    style={{ position: "relative" }}
+                                >
+                                    <div className="col-md-6 text-start">
+                                        <label className="form-label fw-bold">City</label>
+                                        <input
+                                            name="city"
+                                            type="text"
+                                            className={`form-control ${errors.city ? "is-invalid" : ""
+                                                }`}
+                                            placeholder={
+                                                cities.length === 0
+                                                    ? "Loading cities..."
+                                                    : "Select city or start typing"
+                                            }
+                                            value={cityQuery}
+                                            onChange={handleCityInputChange}
+                                            onFocus={handleCityInputFocus}
+                                            onKeyDown={handleCityKeyDown}
+                                            disabled={disabled || cities.length === 0}
+                                            autoComplete="off"
+                                        />
+
+                                        {showCityDropdown &&
+                                            !disabled &&
+                                            (filteredCities || []).length > 0 && (
+                                                <ul
+                                                    className="list-group position-absolute w-100"
+                                                    style={{
+                                                        zIndex: 1500,
+                                                        maxHeight: 200,
+                                                        overflowY: "auto",
+                                                    }}
+                                                >
+                                                    <li className="list-group-item disabled">
+                                                        Select city
+                                                    </li>
+                                                    {filteredCities.map((c, idx) => (
+                                                        <li
+                                                            key={c.cityId}
+                                                            className={`list-group-item list-group-item-action ${idx === highlightIndex
+                                                                    ? "active"
+                                                                    : ""
+                                                                }`}
+                                                            onMouseDown={(ev) =>
+                                                                ev.preventDefault()
+                                                            }
+                                                            onClick={() =>
+                                                                handleSelectCity(c)
+                                                            }
+                                                            onMouseEnter={() =>
+                                                                setHighlightIndex(idx)
+                                                            }
+                                                        >
+                                                            {c.cityName ?? c.CityName}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+
+                                        {errors.city && (
+                                            <div className="invalid-feedback d-block">
+                                                {errors.city}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="col-md-6 text-start">
+                                        <label className="form-label fw-bold">Block</label>
+                                        <input
+                                            type="text"
+                                            className={`form-control ${errors.block ? "is-invalid" : ""
+                                                }`}
+                                            placeholder="Enter block"
+                                            name="block"
+                                            value={profileData.block}
+                                            onChange={handleChange}
+                                            disabled={disabled}
+                                        />
+                                        {errors.block && (
+                                            <div className="invalid-feedback d-block">
+                                                {errors.block}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="col-md-6">
-                                    <label className="form-label fw-bold">
-                                        Building / Floor
-                                    </label>
-                                    <input
-                                        type="text"
-                                        className="form-control"
-                                        placeholder="Enter building / floor"
-                                        name="buildingFloor"
-                                        value={profileData.buildingFloor}
-                                        onChange={handleChange}
-                                        disabled={disabled}
-                                    />
+
+                                <div className="row mb-3">
+                                    <div className="col-md-6 text-start">
+                                        <label className="form-label fw-bold">
+                                            Road / Street
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className={`form-control ${errors.road ? "is-invalid" : ""
+                                                }`}
+                                            placeholder="Enter road / street"
+                                            name="road"
+                                            value={profileData.road}
+                                            onChange={handleChange}
+                                            disabled={disabled}
+                                        />
+                                        {errors.road && (
+                                            <div className="invalid-feedback d-block">
+                                                {errors.road}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="col-md-6 text-start">
+                                        <label className="form-label fw-bold">
+                                            Building / Floor
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className={`form-control ${errors.buildingFloor ? "is-invalid" : ""
+                                                }`}
+                                            placeholder="Enter building / floor"
+                                            name="buildingFloor"
+                                            value={profileData.buildingFloor}
+                                            onChange={handleChange}
+                                            disabled={disabled}
+                                        />
+                                        {errors.buildingFloor && (
+                                            <div className="invalid-feedback d-block">
+                                                {errors.buildingFloor}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
 
-                            {/* Bottom-right buttons INSIDE card */}
-                            <div className="mt-4 d-flex justify-content-end gap-3">
-                                {mode === "view" ? (
-                                    <>
-                                        <button
-                                            className="btn btn-info text-white px-4 py-2 fs-6"
-                                            onClick={handleEdit}
-                                        >
-                                            Edit Profile
-                                        </button>
+                                {/* Bottom-right buttons INSIDE card */}
+                                <div className="mt-4 d-flex justify-content-end gap-3">
+                                    {mode === "view" ? (
+                                        <>
+                                            <button
+                                                className="btn btn-info text-white px-4 py-2 fs-6"
+                                                onClick={handleEdit}
+                                            >
+                                                Edit Profile
+                                            </button>
 
-                                        <button
-                                            className="btn btn-danger px-4 py-2 fs-6"
-                                            onClick={handleDelete}
-                                        >
-                                            Delete Profile
-                                        </button>
+                                            <button
+                                                className="btn btn-danger px-4 py-2 fs-6"
+                                                onClick={handleDelete}
+                                            >
+                                                Delete Profile
+                                            </button>
 
-                                        <button
-                                            className="btn btn-outline-secondary px-4 py-2 fs-6"
-                                            onClick={handleResetPassword}
-                                        >
-                                            Reset Password
-                                        </button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <button
-                                            className="btn btn-danger px-4 py-2 fs-6"
-                                            onClick={handleCancel}
-                                        >
-                                            Cancel
-                                        </button>
+                                            <button
+                                                className="btn btn-outline-secondary px-4 py-2 fs-6"
+                                                onClick={handleResetPassword}
+                                            >
+                                                Reset Password
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button
+                                                className="btn btn-danger px-4 py-2 fs-6"
+                                                onClick={handleCancel}
+                                            >
+                                                Cancel
+                                            </button>
 
-                                        <button
-                                            className="btn btn-info text-white px-4 py-2 fs-6"
-                                            onClick={handleSave}
-                                        >
-                                            Save Changes
-                                        </button>
-                                    </>
-                                )}
+                                            <button
+                                                className="btn btn-info text-white px-4 py-2 fs-6"
+                                                onClick={handleSave}
+                                            >
+                                                Save Changes
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
+
+                        {/* Delete confirmation modal */}
+                        <DialogModal
+                            show={showDeleteModal}
+                            title="Delete Account"
+                            body="Are you sure you want to delete your account? This action cannot be undone."
+                            confirmLabel="Delete"
+                            cancelLabel="Cancel"
+                            onConfirm={confirmDelete}
+                            onCancel={cancelDelete}
+                        />
+                    </>
                 )}
             </div>
         </>
