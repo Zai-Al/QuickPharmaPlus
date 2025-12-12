@@ -1,125 +1,12 @@
 // src/Pages/External_System/Product.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import ProductCard from "../Shared_Components/ProductCard";
-import "./ProductPage.css";
 import PageHeader from "../Shared_Components/PageHeader";
+import Pagination from "../../../Components/InternalSystem/GeneralComponents/Pagination";
+import "./ProductPage.css";
 
-// ---- TEMP DATA (replace later with API/DB) -----------------
-const MOCK_PRODUCTS = [
-    {
-        id: 1,
-        name: "Vitamin C 1000mg",
-        categoryId: 2,
-        categoryName: "Vitamins",
-        productType: "Tablets",
-        price: 3.5,
-        branch: "Sitra",
-        brand: "QuickHealth",
-        isFavorite: false,
-        requiresPrescription: false,
-        incompatibilities: [],
-        imageUrl: null,
-    },
-    {
-        id: 2,
-        name: "Paracetamol 500mg",
-        categoryId: 4,
-        categoryName: "Pain Relief",
-        productType: "Tablets",
-        price: 1.2,
-        branch: "Budaiya",
-        brand: "MediCare",
-        isFavorite: true,
-        requiresPrescription: false,
-        incompatibilities: [],
-        imageUrl: null,
-    },
-    {
-        id: 3,
-        name: "Blood Pressure Tabs",
-        categoryId: 5,
-        categoryName: "Heart & BP",
-        productType: "Tablets",
-        price: 7.8,
-        branch: "Salmanya",
-        brand: "CardioLife",
-        isFavorite: false,
-        requiresPrescription: true,
-        incompatibilities: ["May interact with existing BP medication"],
-        imageUrl: null,
-    },
-    {
-        id: 4,
-        name: "Blood Pressure Tabs",
-        categoryId: 5,
-        categoryName: "Heart & BP",
-        productType: "Tablets",
-        price: 7.8,
-        branch: "Salmanya",
-        brand: "CardioLife",
-        isFavorite: false,
-        requiresPrescription: true,
-        incompatibilities: ["May interact with existing BP medication"],
-        imageUrl: null,
-    },
-    {
-        id: 5,
-        name: "Blood Pressure Tabs",
-        categoryId: 5,
-        categoryName: "Heart & BP",
-        productType: "Tablets",
-        price: 7.8,
-        branch: "Salmanya",
-        brand: "CardioLife",
-        isFavorite: false,
-        requiresPrescription: true,
-        incompatibilities: ["May interact with existing BP medication"],
-        imageUrl: null,
-    },
-    {
-        id: 6,
-        name: "Blood Pressure Tabs",
-        categoryId: 5,
-        categoryName: "Heart & BP",
-        productType: "Tablets",
-        price: 7.8,
-        branch: "Salmanya",
-        brand: "CardioLife",
-        isFavorite: false,
-        requiresPrescription: true,
-        incompatibilities: ["May interact with existing BP medication"],
-        imageUrl: null,
-    },
-    {
-        id: 7,
-        name: "Blood Pressure Tabs",
-        categoryId: 5,
-        categoryName: "Heart & BP",
-        productType: "Tablets",
-        price: 7.8,
-        branch: "Salmanya",
-        brand: "CardioLife",
-        isFavorite: false,
-        requiresPrescription: true,
-        incompatibilities: ["May interact with existing BP medication"],
-        imageUrl: null,
-    },
-    // add more mock rows if you want more cards
-];
-
-const BRANCHES = ["Sitra", "Budaiya", "Bilad", "Salmanya"];
-
-const CATEGORY_OPTIONS = [
-    { id: 1, name: "Cold & Flu", iconUrl: null },
-    { id: 2, name: "Vitamins", iconUrl: null },
-    { id: 3, name: "Skin Care", iconUrl: null },
-    { id: 4, name: "Pain Relief", iconUrl: null },
-    { id: 5, name: "Baby Care", iconUrl: null },
-];
-
-const TYPES = ["Tablets", "Capsules", "Syrup"];
-const BRANDS = ["QuickHealth", "MediCare", "CardioLife", "VitaBoost", "PureMed"];
+// The only static thing: price ranges
 const PRICE_RANGES = [
     "1BHD - 5BHD",
     "6BHD - 10BHD",
@@ -129,17 +16,19 @@ const PRICE_RANGES = [
     "26BHD - 30BHD",
 ];
 
+// Branch filters will stay static for now (until we wire real branch data)
+const BRANCHES = ["Sitra", "Budaiya", "Bilad", "Salmanya"];
+
 export default function Product() {
     const location = useLocation();
 
     // ---- filters / search state ----------------------
     const [searchText, setSearchText] = useState("");
-    // selectedCategories now holds numeric categoryIds
-    const [selectedCategories, setSelectedCategories] = useState([]);
-    const [selectedTypes, setSelectedTypes] = useState([]);
-    const [selectedBranches, setSelectedBranches] = useState([]);
-    const [selectedBrands, setSelectedBrands] = useState([]);
-    const [selectedPrices, setSelectedPrices] = useState([]);
+    const [selectedCategories, setSelectedCategories] = useState([]); // category IDs
+    const [selectedTypes, setSelectedTypes] = useState([]); // productType IDs
+    const [selectedBranches, setSelectedBranches] = useState([]); // strings (not sent to backend yet)
+    const [selectedBrands, setSelectedBrands] = useState([]); // supplier IDs
+    const [selectedPrices, setSelectedPrices] = useState([]); // strings (like "1BHD - 5BHD")
     const [sortBy, setSortBy] = useState("price-asc");
 
     const [isCategoryOpen, setIsCategoryOpen] = useState(true);
@@ -149,15 +38,121 @@ export default function Product() {
     const [isPriceOpen, setIsPriceOpen] = useState(false);
     const [isSortOpen, setIsSortOpen] = useState(false);
 
+    // ---- pagination + data from backend -------------
+    const [products, setProducts] = useState([]);
+    const [pageNumber, setPageNumber] = useState(1);
+    const pageSize = 12;
+    const [totalPages, setTotalPages] = useState(1);
+    const [isLoading, setIsLoading] = useState(false);
+
+    // ---- filter metadata (all options from DB) ------
+    const [filterMeta, setFilterMeta] = useState({
+        categories: [],
+        brands: [],
+        types: [],
+    });
+
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+
+    // ---- load filter options ONCE (categories/brands/types) ----
+    useEffect(() => {
+        const controller = new AbortController();
+
+        async function fetchCategoriesForFilter() {
+            try {
+                const res = await fetch(
+                    `${API_BASE}/api/Category?pageNumber=1&pageSize=200`,
+                    {
+                        signal: controller.signal,
+                        // credentials: "include", // enable if your API needs cookies
+                    }
+                );
+                if (!res.ok) return;
+
+                const data = await res.json();
+                const items = data.items ?? [];
+
+                setFilterMeta((prev) => ({
+                    ...prev,
+                    categories: items.map((c) => ({
+                        id: c.categoryId ?? c.CategoryId ?? null,
+                        name: c.categoryName ?? c.CategoryName ?? "—",
+                    })),
+                }));
+            } catch (e) {
+                if (e.name !== "AbortError") console.error("Failed to load categories:", e);
+            }
+        }
+
+        // ? This matches your controller: [HttpGet("types")]
+        async function fetchTypesForFilter() {
+            try {
+                const res = await fetch(
+                    `${API_BASE}/api/Category/types?pageNumber=1&pageSize=200`,
+                    {
+                        signal: controller.signal,
+                        // credentials: "include",
+                    }
+                );
+                if (!res.ok) return;
+
+                const data = await res.json();
+                const items = data.items ?? [];
+
+                setFilterMeta((prev) => ({
+                    ...prev,
+                    types: items.map((t) => ({
+                        // most likely camelCase from ASP.NET:
+                        id: t.productTypeId ?? t.ProductTypeId ?? t.typeId ?? t.TypeId ?? null,
+                        name: t.productTypeName ?? t.ProductTypeName ?? t.typeName ?? t.TypeName ?? "—",
+                        categoryId: t.categoryId ?? t.CategoryId ?? null, // optional (handy later)
+                    })),
+                }));
+            } catch (e) {
+                if (e.name !== "AbortError") console.error("Failed to load types:", e);
+            }
+        }
+
+        async function fetchBrandsForFilter() {
+            try {
+                const res = await fetch(
+                    `${API_BASE}/api/Suppliers?pageNumber=1&pageSize=200`,
+                    {
+                        signal: controller.signal,
+                        // credentials: "include",
+                    }
+                );
+                if (!res.ok) return;
+
+                const data = await res.json();
+                const items = data.items ?? [];
+
+                setFilterMeta((prev) => ({
+                    ...prev,
+                    brands: items.map((s) => ({
+                        id: s.supplierId ?? s.SupplierId ?? null,
+                        name: s.supplierName ?? s.SupplierName ?? "—",
+                    })),
+                }));
+            } catch (e) {
+                if (e.name !== "AbortError") console.error("Failed to load brands:", e);
+            }
+        }
+
+        fetchCategoriesForFilter();
+        fetchTypesForFilter();
+        fetchBrandsForFilter();
+
+        return () => controller.abort();
+    }, [API_BASE]);
+
     // ---- read from URL whenever it changes ----
     useEffect(() => {
         const params = new URLSearchParams(location.search);
 
-        // ?search=
         const urlSearch = params.get("search") || "";
         setSearchText(urlSearch);
 
-        // ?categoryId= (from Home page categories)
         const categoryIdParam = params.get("categoryId");
         if (categoryIdParam) {
             const idNum = Number(categoryIdParam);
@@ -167,114 +162,9 @@ export default function Product() {
         }
     }, [location.search]);
 
-    const handleBranchToggle = (branch) => {
-        setSelectedBranches((prev) =>
-            prev.includes(branch)
-                ? prev.filter((b) => b !== branch)
-                : [...prev, branch]
-        );
-    };
-
-    // now working with numeric categoryIds
-    const handleCategoryToggle = (catId) => {
-        setSelectedCategories((prev) =>
-            prev.includes(catId)
-                ? prev.filter((c) => c !== catId) // unselect
-                : [...prev, catId] // select
-        );
-    };
-
-    const handleTypesToggle = (t) => {
-        setSelectedTypes((prev) =>
-            prev.includes(t)
-                ? prev.filter((ty) => ty !== t)
-                : [...prev, t]
-        );
-    };
-
-    const handleBrandToggle = (br) => {
-        setSelectedBrands((prev) =>
-            prev.includes(br)
-                ? prev.filter((b) => b !== br)
-                : [...prev, br]
-        );
-    };
-
-    const handlePriceToggle = (range) => {
-        setSelectedPrices((prev) =>
-            prev.includes(range)
-                ? prev.filter((r) => r !== range)
-                : [...prev, range]
-        );
-    };
-
-    // ---- main filtering + sorting logic ----------------
-    const filteredProducts = useMemo(() => {
-        let list = [...MOCK_PRODUCTS];
-
-        const q = searchText.trim().toLowerCase();
-        if (q) {
-            list = list.filter((p) => {
-                const name = p.name.toLowerCase();
-                const cat = p.categoryName?.toLowerCase() || "";
-                const brand = p.brand?.toLowerCase() || "";
-                return (
-                    name.includes(q) ||
-                    cat.includes(q) ||
-                    brand.includes(q)
-                );
-            });
-        }
-
-        // filter by selectedCategories (IDs) if any
-        if (selectedCategories.length > 0) {
-            list = list.filter((p) =>
-                selectedCategories.includes(p.categoryId)
-            );
-        }
-
-        if (selectedTypes.length > 0) {
-            list = list.filter((p) =>
-                selectedTypes.includes(p.productType)
-            );
-        }
-
-        if (selectedBranches.length > 0) {
-            list = list.filter((p) => selectedBranches.includes(p.branch));
-        }
-
-        if (selectedBrands.length > 0) {
-            list = list.filter((p) => selectedBrands.includes(p.brand));
-        }
-
-        if (selectedPrices.length > 0) {
-            list = list.filter((p) => {
-                const price = p.price;
-
-                return selectedPrices.some((rg) => {
-                    // Extract ONLY numbers ignoring 'BHD' & spaces
-                    const [min, max] = rg
-                        .replace(/BHD/g, "") // remove BHD
-                        .split("-") // split by dash
-                        .map((v) => Number(v.trim())); // convert to numbers
-
-                    return price >= min && price <= max;
-                });
-            });
-        }
-
-        // Sorting
-        if (sortBy === "price-asc") {
-            list.sort((a, b) => a.price - b.price);
-        } else if (sortBy === "price-desc") {
-            list.sort((a, b) => b.price - a.price);
-        } else if (sortBy === "name-asc") {
-            list.sort((a, b) => a.name.localeCompare(b.name));
-        } else if (sortBy === "name-desc") {
-            list.sort((a, b) => b.name.localeCompare(a.name));
-        }
-
-        return list;
+    // ---- reset to first page when any filter changes ----
+    useEffect(() => {
+        setPageNumber(1);
     }, [
         searchText,
         selectedCategories,
@@ -285,14 +175,135 @@ export default function Product() {
         sortBy,
     ]);
 
+    // ---- BACKEND FETCH: load products from API with pagination + filters ----
+    useEffect(() => {
+        const controller = new AbortController();
+
+        const loadProducts = async () => {
+            try {
+                setIsLoading(true);
+
+                const params = new URLSearchParams();
+                params.set("pageNumber", String(pageNumber));
+                params.set("pageSize", String(pageSize));
+
+                if (searchText.trim()) params.set("search", searchText.trim());
+
+                selectedCategories.forEach((id) => params.append("categoryIds", String(id)));
+                selectedBrands.forEach((id) => params.append("supplierIds", String(id)));
+                selectedTypes.forEach((id) => params.append("productTypeIds", String(id)));
+
+                selectedPrices.forEach((rg) => {
+                    const [min, max] = rg.replace(/BHD/g, "").split("-").map((v) => v.trim());
+                    params.append("priceRanges", `${min}-${max}`);
+                });
+
+                params.set("sortBy", sortBy);
+
+                const url = `${API_BASE}/api/ExternalProducts?${params.toString()}`;
+
+                const response = await fetch(url, {
+                    method: "GET",
+                    headers: { "Content-Type": "application/json" },
+                    signal: controller.signal,
+                    // credentials: "include",
+                });
+
+                if (!response.ok) {
+                    const body = await response.text();
+                    console.error("Failed to load products:", response.status, body);
+                    setProducts([]);
+                    setTotalPages(1);
+                    return;
+                }
+
+                const data = await response.json();
+
+                const mapped = (data.items || []).map((dto) => ({
+                    id: dto.id,
+                    name: dto.name,
+
+                    categoryId: dto.categoryId,
+                    categoryName: dto.categoryName,
+
+                    productTypeId: dto.productTypeId ?? null,
+                    productType: dto.productTypeName,
+
+                    price: dto.price ?? 0,
+
+                    supplierId: dto.supplierId ?? null,
+                    brand: dto.supplierName || "Unknown",
+
+                    branch: "All Branches",
+                    isFavorite: false,
+
+                    requiresPrescription: dto.requiresPrescription,
+                    incompatibilities: [],
+
+                    imageUrl: dto.id ? `${API_BASE}/api/ExternalProducts/${dto.id}/image` : null,
+                }));
+
+                setProducts(mapped);
+                setTotalPages(data.totalPages || 1);
+            } catch (err) {
+                if (err.name !== "AbortError") console.error("Error loading products:", err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        loadProducts();
+        return () => controller.abort();
+    }, [
+        API_BASE,
+        pageNumber,
+        pageSize,
+        searchText,
+        selectedCategories,
+        selectedBrands,
+        selectedTypes,
+        selectedPrices,
+        sortBy,
+    ]);
+
+    // ---- filter handlers -----------------------------
+
+    const handleBranchToggle = (branch) => {
+        setSelectedBranches((prev) =>
+            prev.includes(branch) ? prev.filter((b) => b !== branch) : [...prev, branch]
+        );
+    };
+
+    const handleCategoryToggle = (catId) => {
+        setSelectedCategories((prev) =>
+            prev.includes(catId) ? prev.filter((c) => c !== catId) : [...prev, catId]
+        );
+    };
+
+    const handleTypesToggle = (typeId) => {
+        setSelectedTypes((prev) =>
+            prev.includes(typeId) ? prev.filter((x) => x !== typeId) : [...prev, typeId]
+        );
+    };
+
+    const handleBrandToggle = (supplierId) => {
+        setSelectedBrands((prev) =>
+            prev.includes(supplierId) ? prev.filter((x) => x !== supplierId) : [...prev, supplierId]
+        );
+    };
+
+    const handlePriceToggle = (range) => {
+        setSelectedPrices((prev) =>
+            prev.includes(range) ? prev.filter((r) => r !== range) : [...prev, range]
+        );
+    };
+
     const handleToggleFavorite = (id, isFav) => {
         console.log("Toggle favorite", id, isFav);
-        // later: call API / update global state
     };
 
     const handleAddToCart = (id) => {
         console.log("Add to cart", id);
-        // later: add to cart / call API
     };
 
     return (
@@ -304,7 +315,7 @@ export default function Product() {
                 <aside className="products-filters">
                     <h3 className="filters-title">Filter By:</h3>
 
-                    {/* Category (multi-select pills) */}
+                    {/* Category */}
                     <div className="filter-group">
                         <button
                             type="button"
@@ -317,42 +328,23 @@ export default function Product() {
 
                         {isCategoryOpen && (
                             <div className="filter-group-body">
-                                {/* "All" pill clears selection */}
                                 <button
                                     type="button"
-                                    className={
-                                        "chip-btn" +
-                                        (selectedCategories.length === 0
-                                            ? " is-active"
-                                            : "")
-                                    }
+                                    className={"chip-btn" + (selectedCategories.length === 0 ? " is-active" : "")}
                                     onClick={() => setSelectedCategories([])}
                                 >
                                     All
                                 </button>
 
-                                {/* Each category can be toggled on/off */}
                                 <div className="filter-pill-row">
-                                    {CATEGORY_OPTIONS.map((cat) => {
-                                        const active =
-                                            selectedCategories.includes(
-                                                cat.id
-                                            );
+                                    {filterMeta.categories.map((cat) => {
+                                        const active = selectedCategories.includes(cat.id);
                                         return (
                                             <button
                                                 key={cat.id}
                                                 type="button"
-                                                className={
-                                                    "chip-btn" +
-                                                    (active
-                                                        ? " is-active"
-                                                        : "")
-                                                }
-                                                onClick={() =>
-                                                    handleCategoryToggle(
-                                                        cat.id
-                                                    )
-                                                }
+                                                className={"chip-btn" + (active ? " is-active" : "")}
+                                                onClick={() => handleCategoryToggle(cat.id)}
                                             >
                                                 {cat.name}
                                             </button>
@@ -368,9 +360,7 @@ export default function Product() {
                         <button
                             type="button"
                             className="filter-group-header"
-                            onClick={() =>
-                                setIsTypeOpen((open) => !open)
-                            }
+                            onClick={() => setIsTypeOpen((open) => !open)}
                         >
                             <span>Type</span>
                             <span>{isTypeOpen ? "-" : "+"}</span>
@@ -378,40 +368,25 @@ export default function Product() {
 
                         {isTypeOpen && (
                             <div className="filter-group-body">
-                                {/* "All" pill clears selection */}
                                 <button
                                     type="button"
-                                    className={
-                                        "chip-btn" +
-                                        (selectedTypes.length === 0
-                                            ? " is-active"
-                                            : "")
-                                    }
+                                    className={"chip-btn" + (selectedTypes.length === 0 ? " is-active" : "")}
                                     onClick={() => setSelectedTypes([])}
                                 >
                                     All
                                 </button>
 
-                                {/* Each type can be toggled on/off */}
                                 <div className="filter-pill-row">
-                                    {TYPES.map((t) => {
-                                        const active =
-                                            selectedTypes.includes(t);
+                                    {filterMeta.types.map((t) => {
+                                        const active = selectedTypes.includes(t.id);
                                         return (
                                             <button
-                                                key={t}
+                                                key={t.id}
                                                 type="button"
-                                                className={
-                                                    "chip-btn" +
-                                                    (active
-                                                        ? " is-active"
-                                                        : "")
-                                                }
-                                                onClick={() =>
-                                                    handleTypesToggle(t)
-                                                }
+                                                className={"chip-btn" + (active ? " is-active" : "")}
+                                                onClick={() => handleTypesToggle(t.id)}
                                             >
-                                                {t}
+                                                {t.name}
                                             </button>
                                         );
                                     })}
@@ -420,52 +395,36 @@ export default function Product() {
                         )}
                     </div>
 
-                    {/* Branch */}
+                    {/* Branch (static for now) */}
                     <div className="filter-group">
                         <button
                             type="button"
                             className="filter-group-header"
-                            onClick={() =>
-                                setIsBranchOpen((open) => !open)
-                            }
+                            onClick={() => setIsBranchOpen((open) => !open)}
                         >
                             <span>Branch</span>
                             <span>{isBranchOpen ? "-" : "+"}</span>
                         </button>
+
                         {isBranchOpen && (
                             <div className="filter-group-body">
-                                {/* "All" pill clears selection */}
                                 <button
                                     type="button"
-                                    className={
-                                        "chip-btn" +
-                                        (selectedBranches.length === 0
-                                            ? " is-active"
-                                            : "")
-                                    }
+                                    className={"chip-btn" + (selectedBranches.length === 0 ? " is-active" : "")}
                                     onClick={() => setSelectedBranches([])}
                                 >
                                     All
                                 </button>
 
-                                {/* Pill toggles */}
                                 <div className="filter-pill-row">
                                     {BRANCHES.map((branch) => {
-                                        const active =
-                                            selectedBranches.includes(branch);
+                                        const active = selectedBranches.includes(branch);
                                         return (
                                             <button
                                                 key={branch}
                                                 type="button"
-                                                className={
-                                                    "chip-btn" +
-                                                    (active
-                                                        ? " is-active"
-                                                        : "")
-                                                }
-                                                onClick={() =>
-                                                    handleBranchToggle(branch)
-                                                }
+                                                className={"chip-btn" + (active ? " is-active" : "")}
+                                                onClick={() => handleBranchToggle(branch)}
                                             >
                                                 {branch}
                                             </button>
@@ -481,48 +440,33 @@ export default function Product() {
                         <button
                             type="button"
                             className="filter-group-header"
-                            onClick={() =>
-                                setIsBrandOpen((open) => !open)
-                            }
+                            onClick={() => setIsBrandOpen((open) => !open)}
                         >
                             <span>Brand</span>
                             <span>{isBrandOpen ? "-" : "+"}</span>
                         </button>
+
                         {isBrandOpen && (
                             <div className="filter-group-body">
-                                {/* "All" pill resets */}
                                 <button
                                     type="button"
-                                    className={
-                                        "chip-btn" +
-                                        (selectedBrands.length === 0
-                                            ? " is-active"
-                                            : "")
-                                    }
+                                    className={"chip-btn" + (selectedBrands.length === 0 ? " is-active" : "")}
                                     onClick={() => setSelectedBrands([])}
                                 >
                                     All
                                 </button>
 
                                 <div className="filter-pill-row">
-                                    {BRANDS.map((br) => {
-                                        const active =
-                                            selectedBrands.includes(br);
+                                    {filterMeta.brands.map((br) => {
+                                        const active = selectedBrands.includes(br.id);
                                         return (
                                             <button
-                                                key={br}
+                                                key={br.id}
                                                 type="button"
-                                                className={
-                                                    "chip-btn" +
-                                                    (active
-                                                        ? " is-active"
-                                                        : "")
-                                                }
-                                                onClick={() =>
-                                                    handleBrandToggle(br)
-                                                }
+                                                className={"chip-btn" + (active ? " is-active" : "")}
+                                                onClick={() => handleBrandToggle(br.id)}
                                             >
-                                                {br}
+                                                {br.name}
                                             </button>
                                         );
                                     })}
@@ -536,24 +480,17 @@ export default function Product() {
                         <button
                             type="button"
                             className="filter-group-header"
-                            onClick={() =>
-                                setIsPriceOpen((open) => !open)
-                            }
+                            onClick={() => setIsPriceOpen((open) => !open)}
                         >
                             <span>Price</span>
                             <span>{isPriceOpen ? "-" : "+"}</span>
                         </button>
+
                         {isPriceOpen && (
                             <div className="filter-group-body">
-                                {/* "All" clears selection */}
                                 <button
                                     type="button"
-                                    className={
-                                        "chip-btn" +
-                                        (selectedPrices.length === 0
-                                            ? " is-active"
-                                            : "")
-                                    }
+                                    className={"chip-btn" + (selectedPrices.length === 0 ? " is-active" : "")}
                                     onClick={() => setSelectedPrices([])}
                                 >
                                     All
@@ -561,21 +498,13 @@ export default function Product() {
 
                                 <div className="filter-pill-row">
                                     {PRICE_RANGES.map((rg) => {
-                                        const active =
-                                            selectedPrices.includes(rg);
+                                        const active = selectedPrices.includes(rg);
                                         return (
                                             <button
                                                 key={rg}
                                                 type="button"
-                                                className={
-                                                    "chip-btn" +
-                                                    (active
-                                                        ? " is-active"
-                                                        : "")
-                                                }
-                                                onClick={() =>
-                                                    handlePriceToggle(rg)
-                                                }
+                                                className={"chip-btn" + (active ? " is-active" : "")}
+                                                onClick={() => handlePriceToggle(rg)}
                                             >
                                                 {rg}
                                             </button>
@@ -591,41 +520,30 @@ export default function Product() {
                         <button
                             type="button"
                             className="filter-group-header"
-                            onClick={() =>
-                                setIsSortOpen((open) => !open)
-                            }
+                            onClick={() => setIsSortOpen((open) => !open)}
                         >
                             <span>Sort By</span>
                             <span>{isSortOpen ? "-" : "+"}</span>
                         </button>
+
                         {isSortOpen && (
                             <div className="filter-group-body">
                                 <select
                                     className="sort-select"
                                     value={sortBy}
-                                    onChange={(e) =>
-                                        setSortBy(e.target.value)
-                                    }
+                                    onChange={(e) => setSortBy(e.target.value)}
                                 >
-                                    <option value="price-asc">
-                                        Price: Low to High
-                                    </option>
-                                    <option value="price-desc">
-                                        Price: High to Low
-                                    </option>
-                                    <option value="name-asc">
-                                        Name: A-Z
-                                    </option>
-                                    <option value="name-desc">
-                                        Name: Z-A
-                                    </option>
+                                    <option value="price-asc">Price: Low to High</option>
+                                    <option value="price-desc">Price: High to Low</option>
+                                    <option value="name-asc">Name: A-Z</option>
+                                    <option value="name-desc">Name: Z-A</option>
                                 </select>
                             </div>
                         )}
                     </div>
                 </aside>
 
-                {/* RIGHT: search + grid */}
+                {/* RIGHT: search + grid + pagination */}
                 <main className="products-content">
                     <div className="products-search-row">
                         <input
@@ -638,13 +556,13 @@ export default function Product() {
                         <span className="search-icon">??</span>
                     </div>
 
+                    {isLoading && <p className="loading-msg">Loading products...</p>}
+
                     <div className="products-grid">
-                        {filteredProducts.length === 0 ? (
-                            <p className="no-products-msg">
-                                No products match your filters.
-                            </p>
+                        {!isLoading && products.length === 0 ? (
+                            <p className="no-products-msg">No products match your filters.</p>
                         ) : (
-                            filteredProducts.map((p) => (
+                            products.map((p) => (
                                 <ProductCard
                                     key={p.id}
                                     id={p.id}
@@ -655,20 +573,21 @@ export default function Product() {
                                     categoryName={p.categoryName}
                                     productType={p.productType}
                                     onToggleFavorite={handleToggleFavorite}
-                                    onAddToCart={() =>
-                                        handleAddToCart(p.id)
-                                    }
+                                    onAddToCart={() => handleAddToCart(p.id)}
                                     isPrescribed={p.requiresPrescription}
-                                    hasIncompatibilities={
-                                        p.incompatibilities &&
-                                        p.incompatibilities.length > 0
-                                    }
-                                    incompatibilityLines={
-                                        p.incompatibilities
-                                    }
+                                    hasIncompatibilities={p.incompatibilities && p.incompatibilities.length > 0}
+                                    incompatibilityLines={p.incompatibilities}
                                 />
                             ))
                         )}
+                    </div>
+
+                    <div className="products-pagination mt-4">
+                        <Pagination
+                            currentPage={pageNumber}
+                            totalPages={totalPages}
+                            onPageChange={(page) => setPageNumber(page)}
+                        />
                     </div>
                 </main>
             </div>

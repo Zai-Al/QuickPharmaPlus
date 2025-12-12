@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from "react";
 
 export default function Register() {
     const navigate = useNavigate();
+    const baseURL = import.meta.env.VITE_API_BASE_URL;
 
     const [form, setForm] = useState({
         firstName: "",
@@ -19,15 +20,124 @@ export default function Register() {
         buildingFloor: "",
     });
 
-    const [errors, setErrors] = useState([]);
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
+    // field-level errors like PrescriptionTab
+    const [errors, setErrors] = useState({});
+    // server-side API errors (identity, etc.) as a list at top
+    const [serverErrors, setServerErrors] = useState([]);
 
-    // ---- CITY DROPDOWN STATE (like employee page) -----------------
+    // ---- CITY DROPDOWN STATE -----------------
     const [cities, setCities] = useState([]);
     const [cityQuery, setCityQuery] = useState("");
     const [showCityDropdown, setShowCityDropdown] = useState(false);
     const [highlightIndex, setHighlightIndex] = useState(0);
     const cityRef = useRef(null);
+
+    const isEmpty = (val) => !val || val.trim() === "";
+
+    const nameRegex = /^[A-Za-z]{3,}$/; // at least 3 letters, letters only
+    const phoneRegex = /^[0-9]{8}$/;    // exactly 8 digits
+    const numericRegex = /^[0-9]+$/;    // only digits
+    const strongPasswordRegex =
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.\-_,])[A-Za-z\d@$!%*?&.\-_,]{8,}$/;
+
+    // --------- VALIDATION -------------------------
+    const validateForm = (data) => {
+        const newErrors = {};
+
+        const {
+            firstName,
+            lastName,
+            email,
+            phoneNumber,
+            password,
+            confirmPassword,
+            city,
+            block,
+            road,
+            buildingFloor,
+        } = data;
+
+        // First name
+        if (isEmpty(firstName)) {
+            newErrors.firstName = "First name is required.";
+        } else if (!nameRegex.test(firstName.trim())) {
+            newErrors.firstName =
+                "First name must be at least 3 letters and contain letters only.";
+        }
+
+        // Last name
+        if (isEmpty(lastName)) {
+            newErrors.lastName = "Last name is required.";
+        } else if (!nameRegex.test(lastName.trim())) {
+            newErrors.lastName =
+                "Last name must be at least 3 letters and contain letters only.";
+        }
+
+        // Email
+        if (isEmpty(email)) {
+            newErrors.email = "Email is required.";
+        } else if (!email.includes("@")) {
+            newErrors.email = "Email must contain '@'.";
+        }
+
+        // Phone
+        if (isEmpty(phoneNumber)) {
+            newErrors.phoneNumber = "Phone number is required.";
+        } else if (!phoneRegex.test(phoneNumber.trim())) {
+            newErrors.phoneNumber =
+                "Phone number must be 8 digits and contain numbers only.";
+        }
+
+        // Password
+        if (isEmpty(password)) {
+            newErrors.password = "Password is required.";
+        } else if (!strongPasswordRegex.test(password)) {
+            newErrors.password =
+                "Password must be at least 8 characters and include uppercase, lowercase, number, and special character.";
+        }
+
+        // Confirm Password
+        if (isEmpty(confirmPassword)) {
+            newErrors.confirmPassword = "Confirm password is required.";
+        } else if (password !== confirmPassword) {
+            newErrors.confirmPassword = "Password and Confirm Password do not match.";
+        }
+
+        // Address: optional but all-or-nothing
+        const hasAnyAddress =
+            !isEmpty(city) ||
+            !isEmpty(block) ||
+            !isEmpty(road) ||
+            !isEmpty(buildingFloor);
+
+        if (hasAnyAddress) {
+            if (isEmpty(city)) {
+                newErrors.city = "City is required when adding an address.";
+            }
+            if (isEmpty(block)) {
+                newErrors.block = "Block is required when adding an address.";
+            }
+            if (isEmpty(road)) {
+                newErrors.road = "Road / Street is required when adding an address.";
+            }
+            if (isEmpty(buildingFloor)) {
+                newErrors.buildingFloor =
+                    "Building / floor is required when adding an address.";
+            }
+        }
+
+        // Block numeric only (if not empty)
+        if (!isEmpty(block) && !numericRegex.test(block.trim())) {
+            newErrors.block = "Block must contain numbers only.";
+        }
+
+        // Road numeric only (if not empty)
+        if (!isEmpty(road) && !numericRegex.test(road.trim())) {
+            newErrors.road = "Road / Street must contain numbers only.";
+        }
+
+        return newErrors;
+    };
 
     // Fetch cities on mount
     useEffect(() => {
@@ -48,7 +158,6 @@ export default function Register() {
                 const list = Array.isArray(data) ? data : [];
                 setCities(list);
 
-                // If form already has a city (unlikely on register), sync query
                 if (form.city) {
                     setCityQuery(form.city);
                 }
@@ -74,12 +183,19 @@ export default function Register() {
         return () => document.removeEventListener("mousedown", onDocClick);
     }, []);
 
-    // Generic change handler for normal inputs
+    // Generic change handler
     const handleChange = (e) => {
         const { name, value } = e.target;
+
         setForm((prev) => ({
             ...prev,
             [name]: value,
+        }));
+
+        // Clear field error as user types (optional but nicer)
+        setErrors((prev) => ({
+            ...prev,
+            [name]: undefined,
         }));
     };
 
@@ -100,10 +216,14 @@ export default function Register() {
         setShowCityDropdown(true);
         setHighlightIndex(0);
 
-        // Also update form.city (backend uses City NAME)
         setForm((prev) => ({
             ...prev,
             city: val,
+        }));
+
+        setErrors((prev) => ({
+            ...prev,
+            city: undefined,
         }));
     };
 
@@ -116,6 +236,11 @@ export default function Register() {
         }));
         setShowCityDropdown(false);
         setHighlightIndex(0);
+
+        setErrors((prev) => ({
+            ...prev,
+            city: undefined,
+        }));
     };
 
     const handleCityInputFocus = () => {
@@ -143,7 +268,14 @@ export default function Register() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setErrors([]);
+        setServerErrors([]);
+
+        const newErrors = validateForm(form);
+        setErrors(newErrors);
+
+        if (Object.keys(newErrors).length > 0) {
+            return;
+        }
 
         try {
             const response = await fetch(`${baseURL}/api/account/register`, {
@@ -158,7 +290,6 @@ export default function Register() {
                     firstName: form.firstName,
                     lastName: form.lastName,
                     phoneNumber: form.phoneNumber,
-                    // backend expects City as NAME string
                     city: form.city || null,
                     block: form.block || null,
                     road: form.road || null,
@@ -181,15 +312,14 @@ export default function Register() {
                     apiErrors = ["Registration failed. Please check your details."];
                 }
 
-                setErrors(apiErrors);
+                setServerErrors(apiErrors);
                 return;
             }
 
-            // success -> go to login
             navigate("/login");
         } catch (err) {
             console.error("REGISTER ERROR:", err);
-            setErrors(["Registration failed. Please try again."]);
+            setServerErrors(["Registration failed. Please try again."]);
         }
     };
 
@@ -212,10 +342,10 @@ export default function Register() {
                 </p>
 
                 <div className="login-box" style={{ width: "100%", maxWidth: "650px" }}>
-                    {errors.length > 0 && (
+                    {serverErrors.length > 0 && (
                         <div className="alert alert-danger py-2">
                             <ul className="mb-0">
-                                {errors.map((err, idx) => (
+                                {serverErrors.map((err, idx) => (
                                     <li key={idx}>{err}</li>
                                 ))}
                             </ul>
@@ -225,81 +355,134 @@ export default function Register() {
                     <form onSubmit={handleSubmit}>
                         {/* Name row */}
                         <div className="row mb-4">
-                            <div className="col-md-6">
-                                <label className="form-label fw-bold login-label">First Name</label>
+                            <div className="col-md-6 text-start">
+                                <label className="form-label fw-bold login-label">
+                                    First Name
+                                </label>
                                 <input
                                     type="text"
-                                    className="form-control"
+                                    className={`form-control ${errors.firstName ? "is-invalid" : ""
+                                        }`}
                                     placeholder="Enter your first name"
                                     name="firstName"
                                     value={form.firstName}
                                     onChange={handleChange}
                                 />
+                                {errors.firstName && (
+                                    <div className="invalid-feedback d-block">
+                                        {errors.firstName}
+                                    </div>
+                                )}
                             </div>
-                            <div className="col-md-6">
-                                <label className="form-label fw-bold login-label">Last Name</label>
+                            <div className="col-md-6 text-start">
+                                <label className="form-label fw-bold login-label">
+                                    Last Name
+                                </label>
                                 <input
                                     type="text"
-                                    className="form-control"
+                                    className={`form-control ${errors.lastName ? "is-invalid" : ""
+                                        }`}
                                     placeholder="Enter your last name"
                                     name="lastName"
                                     value={form.lastName}
                                     onChange={handleChange}
                                 />
+                                {errors.lastName && (
+                                    <div className="invalid-feedback d-block">
+                                        {errors.lastName}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
                         {/* Email & Phone */}
                         <div className="row mb-4">
-                            <div className="col-md-6">
-                                <label className="form-label fw-bold login-label">Email</label>
+                            <div className="col-md-6 text-start">
+                                <label className="form-label fw-bold login-label">
+                                    Email
+                                </label>
                                 <input
                                     type="email"
-                                    className="form-control"
+                                    className={`form-control ${errors.email ? "is-invalid" : ""
+                                        }`}
                                     placeholder="Enter your email"
                                     name="email"
                                     value={form.email}
                                     onChange={handleChange}
                                 />
+                                {errors.email && (
+                                    <div className="invalid-feedback d-block">
+                                        {errors.email}
+                                    </div>
+                                )}
                             </div>
-                            <div className="col-md-6">
-                                <label className="form-label fw-bold login-label">Phone Number</label>
+                            <div className="col-md-6 text-start">
+                                <label className="form-label fw-bold login-label">
+                                    Phone Number
+                                </label>
                                 <input
                                     type="text"
-                                    className="form-control"
+                                    className={`form-control ${errors.phoneNumber ? "is-invalid" : ""
+                                        }`}
                                     placeholder="Enter your phone number"
                                     name="phoneNumber"
                                     value={form.phoneNumber}
                                     onChange={handleChange}
                                 />
+                                {errors.phoneNumber && (
+                                    <div className="invalid-feedback d-block">
+                                        {errors.phoneNumber}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
                         {/* Password & Confirm */}
                         <div className="row mb-5">
-                            <div className="col-md-6">
-                                <label className="form-label fw-bold login-label">Password</label>
+                            <div className="col-md-6 text-start">
+                                <label className="form-label fw-bold login-label">
+                                    Password
+                                </label>
                                 <input
                                     type="password"
-                                    className="form-control"
+                                    className={`form-control ${errors.password ? "is-invalid" : ""
+                                        }`}
                                     placeholder="Enter your password"
                                     name="password"
                                     value={form.password}
                                     onChange={handleChange}
                                 />
+                                <div
+                                    className="form-text text-muted mt-1"
+                                    style={{ fontSize: "0.85rem" }}
+                                >
+                                    Must be at least 8 characters and include uppercase,
+                                    lowercase, number, and special character.
+                                </div>
+                                {errors.password && (
+                                    <div className="invalid-feedback d-block">
+                                        {errors.password}
+                                    </div>
+                                )}
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-md-6 text-start">
                                 <label className="form-label fw-bold login-label">
                                     Confirm Password
                                 </label>
                                 <input
                                     type="password"
-                                    className="form-control"
+                                    className={`form-control ${errors.confirmPassword ? "is-invalid" : ""
+                                        }`}
                                     placeholder="Confirm your password"
                                     name="confirmPassword"
                                     value={form.confirmPassword}
                                     onChange={handleChange}
                                 />
+                                {errors.confirmPassword && (
+                                    <div className="invalid-feedback d-block">
+                                        {errors.confirmPassword}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -314,14 +497,19 @@ export default function Register() {
                             </span>
                         </div>
 
-                        {/* CITY (searchable like employee) */}
+                        {/* CITY & BLOCK */}
                         <div className="row mb-3">
-                            <div className="col-md-6" ref={cityRef} style={{ position: "relative" }}>
+                            <div
+                                className="col-md-6 text-start"
+                                ref={cityRef}
+                                style={{ position: "relative" }}
+                            >
                                 <label className="form-label fw-bold">City</label>
                                 <input
                                     name="city"
                                     type="text"
-                                    className="form-control"
+                                    className={`form-control ${errors.city ? "is-invalid" : ""
+                                        }`}
                                     placeholder={
                                         cities.length === 0
                                             ? "Loading cities..."
@@ -345,7 +533,6 @@ export default function Register() {
                                                 overflowY: "auto",
                                             }}
                                         >
-                                            {/* Optional: "Select city" header item */}
                                             <li className="list-group-item disabled">
                                                 Select city
                                             </li>
@@ -364,45 +551,71 @@ export default function Register() {
                                             ))}
                                         </ul>
                                     )}
+
+                                {errors.city && (
+                                    <div className="invalid-feedback d-block">
+                                        {errors.city}
+                                    </div>
+                                )}
                             </div>
 
                             {/* BLOCK */}
-                            <div className="col-md-6">
+                            <div className="col-md-6 text-start">
                                 <label className="form-label fw-bold">Block</label>
                                 <input
                                     type="text"
-                                    className="form-control"
+                                    className={`form-control ${errors.block ? "is-invalid" : ""
+                                        }`}
                                     placeholder="Enter block"
                                     name="block"
                                     value={form.block}
                                     onChange={handleChange}
                                 />
+                                {errors.block && (
+                                    <div className="invalid-feedback d-block">
+                                        {errors.block}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
                         {/* ROAD & BUILDING */}
                         <div className="row mb-3">
-                            <div className="col-md-6">
+                            <div className="col-md-6 text-start">
                                 <label className="form-label fw-bold">Road / Street</label>
                                 <input
                                     type="text"
-                                    className="form-control"
+                                    className={`form-control ${errors.road ? "is-invalid" : ""
+                                        }`}
                                     placeholder="Enter road / street"
                                     name="road"
                                     value={form.road}
                                     onChange={handleChange}
                                 />
+                                {errors.road && (
+                                    <div className="invalid-feedback d-block">
+                                        {errors.road}
+                                    </div>
+                                )}
                             </div>
-                            <div className="col-md-6">
-                                <label className="form-label fw-bold">Building / Floor</label>
+                            <div className="col-md-6 text-start">
+                                <label className="form-label fw-bold">
+                                    Building / Floor
+                                </label>
                                 <input
                                     type="text"
-                                    className="form-control"
+                                    className={`form-control ${errors.buildingFloor ? "is-invalid" : ""
+                                        }`}
                                     placeholder="Enter building / floor"
                                     name="buildingFloor"
                                     value={form.buildingFloor}
                                     onChange={handleChange}
                                 />
+                                {errors.buildingFloor && (
+                                    <div className="invalid-feedback d-block">
+                                        {errors.buildingFloor}
+                                    </div>
+                                )}
                             </div>
                         </div>
 

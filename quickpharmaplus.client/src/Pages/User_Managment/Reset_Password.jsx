@@ -164,10 +164,17 @@ export default function ResetPasswordInternal() {
 
             <div className="reset-cancel-wrapper">
                 <button className="btn btn-warning reset-cancel-btn"
-                    onClick={() => navigate("/profileInternal")}>
+                    onClick={() => {
+                        if (user?.roles?.includes("Customer")) {
+                            navigate("/externalProfile");
+                        } else {
+                            navigate("/profileInternal");
+                        }
+                    }}>
                     <i className="bi bi-x-lg"></i> Cancel
                 </button>
             </div>
+
 
             <div className="reset-container">
                 <form className="reset-form" onSubmit={onSubmit} noValidate>
