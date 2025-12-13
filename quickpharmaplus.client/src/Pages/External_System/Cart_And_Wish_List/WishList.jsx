@@ -1,4 +1,5 @@
-import { useState } from "react";
+// src/Pages/External_System/WishList/WishList.jsx  (adjust path if different)
+import { useEffect, useMemo, useState, useContext } from "react";
 import PageHeader from "../Shared_Components/PageHeader";
 import TableFormat from "../Shared_Components/TableFormat";
 import formatCurrency from "../Shared_Components/formatCurrency";
@@ -6,10 +7,12 @@ import ProductInfoCell from "../Shared_Components/ProductInfoCell";
 import StockStatus from "../Shared_Components/StockStatus";
 import DialogModal from "../Shared_Components/DialogModal";
 import HeartFilled from "../../../assets/icons/heart-filled.svg";
-import Heart from "../../../assets/icons/heart.svg";
 import "../Shared_Components/External_Style.css";
+import { AuthContext } from "../../../Context/AuthContext";
+import { Link } from "react-router-dom";
 
-// --- Mock wish list data – replace with API later ---
+
+// --- keep mock as fallback if API fails (optional) ---
 const INITIAL_WISHLIST_ITEMS = [
     {
         id: 1,
@@ -19,54 +22,10 @@ const INITIAL_WISHLIST_ITEMS = [
         type: "type",
         price: 0,
         stockAvailable: 5,
-        stockStatus: "IN_STOCK", // IN_STOCK | LOW_STOCK | OUT_OF_STOCK
+        stockStatus: "IN_STOCK",
         prescribed: true,
         imageSrc: "",
-        incompatibilities: {
-            medications: [
-                {
-                    otherProductId: 301,
-                    otherProductName: "Other Med A",
-                    interactionType: "MAJOR",
-                },
-            ],
-            allergies: [],
-            illnesses: [],
-        },
-    },
-    {
-        id: 2,
-        productId: 202,
-        name: "Product Name B",
-        category: "Category",
-        type: "type",
-        price: 0,
-        stockAvailable: 3,
-        stockStatus: "IN_STOCK",
-        prescribed: false,
-        imageSrc: "",
-        incompatibilities: {
-            medications: [],
-            allergies: ["Penicillin"],
-            illnesses: [],
-        },
-    },
-    {
-        id: 3,
-        productId: 203,
-        name: "Product Name C",
-        category: "Category",
-        type: "type",
-        price: 0,
-        stockAvailable: 0,
-        stockStatus: "OUT_OF_STOCK",
-        prescribed: false,
-        imageSrc: "",
-        incompatibilities: {
-            medications: [],
-            allergies: [],
-            illnesses: ["Asthma"],
-        },
+        incompatibilities: { medications: [], allergies: [], illnesses: [] },
     },
 ];
 
@@ -77,9 +36,7 @@ const buildIncompatibilityLines = (inc = {}) => {
     if (inc.medications && inc.medications.length) {
         lines.push(
             "Not compatible with: " +
-            inc.medications
-                .map((m) => m.otherProductName)
-                .join(", ")
+            inc.medications.map((m) => m.otherProductName).join(", ")
         );
     }
 
@@ -94,7 +51,6 @@ const buildIncompatibilityLines = (inc = {}) => {
     return lines;
 };
 
-// build a short summary sentence for the dialog based on which types exist
 const buildIncompatibilitySummary = (inc = {}) => {
     const hasMed = inc.medications && inc.medications.length > 0;
     const hasAll = inc.allergies && inc.allergies.length > 0;
@@ -106,16 +62,22 @@ const buildIncompatibilitySummary = (inc = {}) => {
     if (hasIll) types.push("your recorded illnesses");
 
     if (types.length === 0) return null;
-    if (types.length === 1)
-        return `This product may be incompatible with ${types[0]}.`;
-    if (types.length === 2)
-        return `This product may be incompatible with ${types[0]} and ${types[1]}.`;
+    if (types.length === 1) return `This product may be incompatible with ${types[0]}.`;
+    if (types.length === 2) return `This product may be incompatible with ${types[0]} and ${types[1]}.`;
 
     return "This product may be incompatible with your medications, allergies, and illnesses.";
 };
 
 export default function WishList() {
-    const [items, setItems] = useState(INITIAL_WISHLIST_ITEMS);
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
+
+    const { user } = useContext(AuthContext);
+    const currentUserId = user?.userId ?? user?.id ?? user?.UserId ?? null;
+
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [loadError, setLoadError] = useState("");
+
     const [addDialog, setAddDialog] = useState({
         show: false,
         item: null,
@@ -125,21 +87,119 @@ export default function WishList() {
 
     const isEmpty = items.length === 0;
 
-    const handleRemoveItem = (id) => {
-        setItems((prev) => prev.filter((item) => item.id !== id));
+    // =========================
+    // Load wishlist from API
+    // GET: /api/Wishlist?userId=5
+    // =========================
+    useEffect(() => {
+        if (!currentUserId) {
+            setItems([]);
+            return;
+        }
+
+        const controller = new AbortController();
+
+        const fetchWishlist = async () => {
+            try {
+                setLoading(true);
+                setLoadError("");
+
+                const res = await fetch(`${API_BASE}/api/Wishlist?userId=${currentUserId}`, {
+                    signal: controller.signal,
+                    headers: { "Content-Type": "application/json" },
+                    // credentials: "include", // enable later if you secure with cookies
+                });
+
+                if (!res.ok) throw new Error("Failed to load wishlist.");
+
+                const data = await res.json();
+                const apiItems = Array.isArray(data?.items) ? data.items : [];
+
+                // Map API -> your UI shape
+                const mapped = apiItems.map((x, idx) => ({
+                    id: x.productId ?? idx + 1, // unique key for table row
+                    productId: x.productId,
+                    name: x.name ?? "—",
+                    category: x.categoryName ?? "—",
+                    type: x.productTypeName ?? "—",
+                    price: x.price ?? 0,
+                    stockAvailable: x.inventoryCount ?? 0,
+                    stockStatus: x.stockStatus ?? "IN_STOCK",
+                    prescribed: !!x.requiresPrescription,
+                    imageSrc: x.productId
+                        ? `${API_BASE}/api/ExternalProducts/${x.productId}/image`
+                        : "",
+                    incompatibilities: { medications: [], allergies: [], illnesses: [] }, // later
+                }));
+
+                setItems(mapped);
+            } catch (e) {
+                if (e.name !== "AbortError") {
+                    setLoadError(e?.message || "Error loading wishlist.");
+                    // optional fallback:
+                    // setItems(INITIAL_WISHLIST_ITEMS);
+                    setItems([]);
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchWishlist();
+        return () => controller.abort();
+    }, [API_BASE, currentUserId]);
+
+    // =========================
+    // Remove item (API)
+    // DELETE: /api/Wishlist/{productId}?userId=5
+    // =========================
+    const handleRemoveItem = async (productId) => {
+        if (!currentUserId || !productId) return;
+
+        try {
+            const res = await fetch(
+                `${API_BASE}/api/Wishlist/${productId}?userId=${currentUserId}`,
+                {
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
+                    // credentials: "include",
+                }
+            );
+
+            if (!res.ok) throw new Error("Failed to remove item.");
+
+            setItems((prev) => prev.filter((it) => it.productId !== productId));
+        } catch (e) {
+            console.error(e);
+        }
     };
 
-    const handleClearWishList = () => {
-        setItems([]);
+    // Clear wishlist (no clear endpoint yet -> delete one by one)
+    const handleClearWishList = async () => {
+        if (!currentUserId || items.length === 0) return;
+
+        try {
+            // delete sequentially (simple + safe)
+            for (const it of items) {
+                // eslint-disable-next-line no-await-in-loop
+                await fetch(`${API_BASE}/api/Wishlist/${it.productId}?userId=${currentUserId}`, {
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
+                    // credentials: "include",
+                });
+            }
+            setItems([]);
+        } catch (e) {
+            console.error("Failed to clear wishlist:", e);
+        }
     };
 
-    // Add to cart with incompatibility check
+    // Add to cart with incompatibility check (still mock logic)
     const handleAddToCart = (item) => {
         const inc = item.incompatibilities || {};
         const summary = buildIncompatibilitySummary(inc);
 
         if (!summary) {
-            // no incompatibilities -> add directly
             console.log("Add to cart (no incompatibility):", item);
             return;
         }
@@ -156,11 +216,7 @@ export default function WishList() {
 
     const handleConfirmAdd = () => {
         if (addDialog.item) {
-            console.log(
-                "Add to cart with incompatibility warning:",
-                addDialog.item
-            );
-            // later: actually add to cart (and optionally remove from wishlist)
+            console.log("Add to cart with incompatibility warning:", addDialog.item);
         }
         setAddDialog({
             show: false,
@@ -180,11 +236,10 @@ export default function WishList() {
 
     return (
         <div className="min-vh-100">
-            {/* top blue bar */}
             <PageHeader title="Wish List" />
 
             <div className="container list-padding py-4">
-                {/* Clear wish list link */}
+                {/* top right actions */}
                 <div className="d-flex justify-content-end mb-2">
                     {!isEmpty && (
                         <button
@@ -197,46 +252,43 @@ export default function WishList() {
                     )}
                 </div>
 
-                {/* Wish list table */}
+                {/* status messages */}
+                {loading && (
+                    <div className="mb-2">
+                        <small className="text-muted">Loading wishlist...</small>
+                    </div>
+                )}
+
+                {loadError && (
+                    <div className="alert alert-danger">{loadError}</div>
+                )}
+
+                {/* table */}
                 <TableFormat
-                    headers={[
-                        "", // heart/remove
-                        "Product",
-                        "Price",
-                        "Stock Status",
-                        "", // Add to Cart
-                    ]}
+                    headers={["", "Product", "Price", "Stock Status", ""]}
                     headerBg="#54B2B5"
                 >
                     {isEmpty ? (
                         <tr>
-                            <td
-                                colSpan={5}
-                                className="text-center py-4 text-muted"
-                            >
-                                Your wish list is empty.
+                            <td colSpan={5} className="text-center py-4 text-muted">
+                                {currentUserId
+                                    ? "Your wish list is empty."
+                                    : "Please login to view your wish list."}
                             </td>
                         </tr>
                     ) : (
                         items.map((item) => {
-                            const incLines = buildIncompatibilityLines(
-                                item.incompatibilities
-                            );
-                            const outOfStock =
-                                item.stockStatus === "OUT_OF_STOCK";
+                            const incLines = buildIncompatibilityLines(item.incompatibilities);
+                            const outOfStock = item.stockStatus === "OUT_OF_STOCK";
 
                             return (
-                                <tr key={item.id}>
-                                    {/* heart / remove column */}
+                                <tr key={item.productId}>
+                                    {/* remove */}
                                     <td className="align-middle text-center">
                                         <button
                                             type="button"
                                             className="btn p-0 border-0 bg-transparent"
-                                            onClick={() =>
-                                                handleRemoveItem(
-                                                    item.id
-                                                )
-                                            }
+                                            onClick={() => handleRemoveItem(item.productId)}
                                             aria-label="Remove from wish list"
                                             style={{ cursor: "pointer" }}
                                         >
@@ -249,53 +301,44 @@ export default function WishList() {
                                         </button>
                                     </td>
 
-                                    {/* product info cell (shared component) */}
+                                    {/* product info */}
                                     <td className="align-middle text-start ps-4">
                                         <ProductInfoCell
-                                            imageSrc={
-                                                item.imageSrc
+                                            imageSrc={item.imageSrc}
+                                            name={
+                                                <Link
+                                                    to={`/productDetails/${item.productId}`}
+                                                    className="text-decoration-none text-dark"
+                                                    style={{ cursor: "pointer" }}
+                                                >
+                                                    {item.name}
+                                                </Link>
                                             }
-                                            name={item.name}
-                                            category={
-                                                item.category
-                                            }
+                                            category={item.category}
                                             type={item.type}
-                                            incompatibilityLines={
-                                                incLines
-                                            }
-                                            prescribed={
-                                                item.prescribed
-                                            }
+                                            incompatibilityLines={incLines}
+                                            prescribed={item.prescribed}
                                         />
+
                                     </td>
 
                                     {/* price */}
                                     <td className="align-middle">
-                                        {formatCurrency(
-                                            item.price || 0
-                                        )}
+                                        {formatCurrency(item.price || 0)}
                                     </td>
 
                                     {/* stock status */}
                                     <td className="align-middle">
-                                        <StockStatus
-                                            status={
-                                                item.stockStatus
-                                            }
-                                        />
+                                        <StockStatus status={item.stockStatus} />
                                     </td>
 
-                                    {/* Add to Cart button */}
+                                    {/* add to cart */}
                                     <td className="align-middle text-end pe-4">
                                         <button
                                             type="button"
                                             className="btn qp-add-btn px-3"
                                             disabled={outOfStock}
-                                            onClick={() =>
-                                                handleAddToCart(
-                                                    item
-                                                )
-                                            }
+                                            onClick={() => handleAddToCart(item)}
                                         >
                                             Add to Cart
                                         </button>
@@ -307,30 +350,24 @@ export default function WishList() {
                 </TableFormat>
             </div>
 
-            {/* Incompatibility dialog for Add to Cart */}
+            {/* incompatibility dialog */}
             <DialogModal
                 show={addDialog.show}
                 title="Possible Incompatibility"
                 body={
                     <>
                         <p className="fw-bold">
-                            Are you sure you want to add this product to your
-                            cart?
+                            Are you sure you want to add this product to your cart?
                         </p>
                         <p>{addDialog.summary}</p>
 
-                        {addDialog.detailLines &&
-                            addDialog.detailLines.length > 0 && (
-                                <ul className="mb-0">
-                                    {addDialog.detailLines.map(
-                                        (line, idx) => (
-                                            <li key={idx}>
-                                                {line}
-                                            </li>
-                                        )
-                                    )}
-                                </ul>
-                            )}
+                        {addDialog.detailLines && addDialog.detailLines.length > 0 && (
+                            <ul className="mb-0">
+                                {addDialog.detailLines.map((line, idx) => (
+                                    <li key={idx}>{line}</li>
+                                ))}
+                            </ul>
+                        )}
                     </>
                 }
                 confirmLabel="Add to Cart"

@@ -12,7 +12,7 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin,Pharmacist,Manager")]
+    //[Authorize(Roles = "Admin,Pharmacist,Manager")]
     public class SuppliersController : ControllerBase
     {
         private readonly ISupplierRepository _repo;

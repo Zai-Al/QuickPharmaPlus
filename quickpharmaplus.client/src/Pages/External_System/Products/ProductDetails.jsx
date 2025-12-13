@@ -1,5 +1,6 @@
 // src/Pages/External_System/ProductDetails.jsx
-import { useState } from "react";
+import { useEffect, useMemo, useState, useContext } from "react";
+import { useParams } from "react-router-dom";
 import PageHeader from "../Shared_Components/PageHeader";
 import StockStatus from "../Shared_Components/StockStatus";
 import ProductRowSection from "../Shared_Components/ProductRowSection";
@@ -8,220 +9,366 @@ import DialogModal from "../Shared_Components/DialogModal";
 import Heart from "../../../assets/icons/heart.svg";
 import HeartFilled from "../../../assets/icons/heart-filled.svg";
 import "./ProductDetails.css";
-
-
-// ---- TEMP MAIN PRODUCT (replace with API later) -----------------
-const MOCK_PRODUCT = {
-    id: 101,
-    name: "Product Name A",
-    categoryName: "Category",
-    productType: "type",
-    price: 0.0,
-    description:
-        "Product Description Product Description Product Description Product Description Product Description Product Description.",
-    isPrescribed: true,
-    stockStatus: "IN_STOCK", // IN_STOCK | LOW_STOCK | OUT_OF_STOCK
-    branchesCount: 4,
-    imageUrl: null,
-    incompatibilities: {
-        medications: [
-            {
-                otherProductId: 102,
-                otherProductName: "Product Name B",
-                interactionType: "MAJOR",
-            },
-        ],
-        allergies: [],
-        illnesses: [],
-    },
-};
-
-const MOCK_BRANCH_AVAILABILITY = [
-    { branchId: 1, branchName: "Manama Main Branch", stock: 12 },
-    { branchId: 2, branchName: "Riffa Branch", stock: 7 },
-    { branchId: 3, branchName: "Muharraq Branch", stock: 0 },
-    { branchId: 4, branchName: "Isa Town Branch", stock: 3 },
-];
-
-// reuse your ProductCard-style shape for the carousels
-const MOCK_SIMILAR_PRODUCTS = [
-    {
-        id: 201,
-        name: "Product Name",
-        price: 0,
-        imageUrl: null,
-        isFavorite: false,
-        requiresPrescription: true,
-        incompatibilities: [], // or same object shape later
-        categoryName: "Category",
-        productType: "type",
-    },
-    {
-        id: 202,
-        name: "Product Name",
-        price: 0,
-        imageUrl: null,
-        isFavorite: false,
-        requiresPrescription: true,
-        incompatibilities: [],
-        categoryName: "Category",
-        productType: "type",
-    },
-    {
-        id: 203,
-        name: "Product Name",
-        price: 0,
-        imageUrl: null,
-        isFavorite: false,
-        requiresPrescription: true,
-        incompatibilities: [],
-        categoryName: "Category",
-        productType: "type",
-    },
-    {
-        id: 204,
-        name: "Product Name",
-        price: 0,
-        imageUrl: null,
-        isFavorite: false,
-        requiresPrescription: true,
-        incompatibilities: [],
-        categoryName: "Category",
-        productType: "type",
-    },
-];
-
-const MOCK_BRAND_PRODUCTS = [
-    {
-        id: 301,
-        name: "Product Name",
-        price: 0,
-        imageUrl: null,
-        isFavorite: false,
-        requiresPrescription: true,
-        incompatibilities: [],
-        categoryName: "Category",
-        productType: "type",
-    },
-    {
-        id: 302,
-        name: "Product Name",
-        price: 0,
-        imageUrl: null,
-        isFavorite: false,
-        requiresPrescription: true,
-        incompatibilities: [],
-        categoryName: "Category",
-        productType: "type",
-    },
-    {
-        id: 303,
-        name: "Product Name",
-        price: 0,
-        imageUrl: null,
-        isFavorite: false,
-        requiresPrescription: true,
-        incompatibilities: [],
-        categoryName: "Category",
-        productType: "type",
-    },
-    {
-        id: 304,
-        name: "Product Name",
-        price: 0,
-        imageUrl: null,
-        isFavorite: false,
-        requiresPrescription: true,
-        incompatibilities: [],
-        categoryName: "Category",
-        productType: "type",
-    },
-];
+import { AuthContext } from "../../../Context/AuthContext.jsx";
 
 // ---------- helper to build messages like in Home / WishList ----------
 const buildInteractionMessages = (inc) => {
-    // inc can be object {medications, allergies, illnesses}
-    // or an array of strings (like some of your mock products)
     if (!inc) return [];
-
-    if (Array.isArray(inc)) {
-        return inc; // already a list of lines
-    }
+    if (Array.isArray(inc)) return inc;
 
     const msgs = [];
     if (inc.medications && inc.medications.length > 0) {
-        msgs.push(
-            "This medication may interact with other medications you are taking."
-        );
+        msgs.push("This medication may interact with other medications you are taking.");
     }
     if (inc.allergies && inc.allergies.length > 0) {
         msgs.push("This product may not be suitable due to your allergies.");
     }
     if (inc.illnesses && inc.illnesses.length > 0) {
-        msgs.push(
-            "This product may be incompatible with your recorded illnesses."
-        );
+        msgs.push("This product may be incompatible with your recorded illnesses.");
     }
     return msgs;
 };
 
 const mockCheckInteractions = (currentCart, productToAdd) => {
-    const inc = productToAdd.incompatibilities;
-    const messages = buildInteractionMessages(inc);
-
-    // later you can also compare with items in currentCart if needed
-    return messages;
+    const inc = productToAdd?.incompatibilities;
+    return buildInteractionMessages(inc);
 };
 
-export default function ProductDetails() {
-    const [product] = useState(MOCK_PRODUCT);
-    const [quantity, setQuantity] = useState(1);
-    const [isFavorite, setIsFavorite] = useState(false);
+// map API list item -> ProductRowSection card shape
+const mapListItemToCard = (dto) => ({
+    id: dto.id,
+    name: dto.name,
+    price: dto.price ?? 0,
+    imageUrl: dto.id ? `https://localhost:7231/api/ExternalProducts/${dto.id}/image` : null,
+    isFavorite: false,
+    requiresPrescription: dto.requiresPrescription ?? false,
+    incompatibilities: dto.incompatibilities ?? [],
+    categoryName: dto.categoryName ?? "",
+    productType: dto.productTypeName ?? "",
+});
 
-    // local "cart" just for demo before real backend/context
+export default function ProductDetails() {
+    const { id } = useParams();
+
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
+
+    const { user } = useContext(AuthContext);
+    const currentUserId = user?.userId ?? user?.id ?? user?.UserId ?? null;
+
+    // ? wishlist ids (for hearts everywhere)
+    const [wishlistIds, setWishlistIds] = useState(() => new Set());
+    const [wishlistLoading, setWishlistLoading] = useState(false);
+
+    // ? limit quantity to highest stock in a single city row
+    const [maxQty, setMaxQty] = useState(0);
+
+    // product state from API
+    const [product, setProduct] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState("");
+
+    const [quantity, setQuantity] = useState(1);
+
+    // local cart mock
     const [cartItems, setCartItems] = useState([]);
 
-    // dialog state (same pattern as Home / WishList)
-    const [pendingItem, setPendingItem] = useState(null); // {product, quantity}
+    // dialogs
+    const [pendingItem, setPendingItem] = useState(null);
     const [interactionMessages, setInteractionMessages] = useState([]);
     const [showInteractionDialog, setShowInteractionDialog] = useState(false);
+
     const [showAvailabilityDialog, setShowAvailabilityDialog] = useState(false);
 
-    const handleQtyChange = (delta) => {
-        setQuantity((prev) => {
-            const next = prev + delta;
-            return next < 1 ? 1 : next;
+    // availability data
+    const [branchAvailability, setBranchAvailability] = useState([]);
+    const [loadingAvailability, setLoadingAvailability] = useState(false);
+    const [availabilityError, setAvailabilityError] = useState("");
+
+    // carousels
+    const [similarProducts, setSimilarProducts] = useState([]);
+    const [brandProducts, setBrandProducts] = useState([]);
+    const [loadingSimilar, setLoadingSimilar] = useState(false);
+    const [loadingBrand, setLoadingBrand] = useState(false);
+
+    // =========================
+    // Load wishlist IDs (for hearts)
+    // GET: /api/Wishlist/ids?userId=37
+    // =========================
+    useEffect(() => {
+        if (!currentUserId) {
+            setWishlistIds(new Set());
+            return;
+        }
+
+        const controller = new AbortController();
+
+        const fetchWishlistIds = async () => {
+            try {
+                setWishlistLoading(true);
+
+                const res = await fetch(`${API_BASE}/api/Wishlist/ids?userId=${currentUserId}`, {
+                    signal: controller.signal,
+                    headers: { "Content-Type": "application/json" },
+                });
+
+                if (!res.ok) {
+                    const body = await res.text();
+                    console.error("Failed to load wishlist ids:", res.status, body);
+                    return;
+                }
+
+                const data = await res.json();
+                const idsArr = Array.isArray(data?.ids) ? data.ids : [];
+                setWishlistIds(new Set(idsArr));
+            } catch (e) {
+                if (e.name !== "AbortError") console.error("Failed to load wishlist ids:", e);
+            } finally {
+                setWishlistLoading(false);
+            }
+        };
+
+        fetchWishlistIds();
+        return () => controller.abort();
+    }, [API_BASE, currentUserId]);
+
+    // ----------------------------
+    // helper: compute maxQty from availability items
+    // ----------------------------
+    const computeAndSetMaxQtyFromItems = (items) => {
+        const highestStock =
+            items && items.length > 0 ? Math.max(...items.map((b) => b.stock ?? 0)) : 0;
+
+        setMaxQty(highestStock);
+
+        setQuantity((q) => {
+            if (highestStock <= 0) return 1;
+            if (q < 1) return 1;
+            if (q > highestStock) return highestStock;
+            return q;
         });
     };
 
-    const handleToggleFavorite = () => {
-        setIsFavorite((prev) => !prev);
-        console.log("toggle favorite main product", product.id);
+    // preload branchesCount + maxQty
+    const preloadAvailabilityCount = async (productId) => {
+        try {
+            const res = await fetch(`${API_BASE}/api/ExternalProducts/${productId}/availability`);
+            if (!res.ok) return;
+
+            const data = await res.json();
+            const items = data.items || [];
+
+            setProduct((prev) =>
+                prev ? { ...prev, branchesCount: data.branchesCount ?? 0 } : prev
+            );
+
+            computeAndSetMaxQtyFromItems(items);
+        } catch {
+            // silent
+        }
+    };
+
+    // ==============================
+    // Load product detail
+    // GET: /api/ExternalProducts/{id}
+    // ==============================
+    useEffect(() => {
+        let cancelled = false;
+
+        const fetchProduct = async () => {
+            try {
+                setLoading(true);
+                setLoadError("");
+
+                const res = await fetch(`${API_BASE}/api/ExternalProducts/${id}`);
+                if (!res.ok) {
+                    if (res.status === 404) throw new Error("Product not found.");
+                    throw new Error("Failed to load product.");
+                }
+
+                const data = await res.json();
+
+                const imageUrl = data.productImageBase64
+                    ? `data:image/jpeg;base64,${data.productImageBase64}`
+                    : null;
+
+                if (cancelled) return;
+
+                // reset per product
+                setBranchAvailability([]);
+                setAvailabilityError("");
+                setLoadingAvailability(false);
+
+                setSimilarProducts([]);
+                setBrandProducts([]);
+                setLoadingSimilar(false);
+                setLoadingBrand(false);
+
+                setQuantity(1);
+                setMaxQty(0);
+
+                setProduct({
+                    id: data.id,
+                    name: data.name,
+                    categoryName: data.categoryName,
+                    categoryId: data.categoryId ?? null,
+
+                    productType: data.productTypeName,
+                    productTypeId: data.productTypeId ?? null,
+
+                    supplierName: data.supplierName ?? "",
+                    supplierId: data.supplierId ?? null,
+
+                    price: data.price ?? 0,
+                    description: data.description ?? "",
+                    isPrescribed: data.requiresPrescription ?? false,
+                    stockStatus: data.stockStatus ?? "OUT_OF_STOCK",
+                    branchesCount: 0,
+                    imageUrl,
+                    incompatibilities: data.incompatibilities ?? null,
+                });
+
+                preloadAvailabilityCount(data.id);
+            } catch (e) {
+                if (cancelled) return;
+                setLoadError(e?.message || "Error loading product.");
+                setProduct(null);
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+
+        if (id) fetchProduct();
+        else {
+            setLoadError("Missing product id.");
+            setLoading(false);
+        }
+
+        return () => {
+            cancelled = true;
+        };
+    }, [id, API_BASE]);
+
+    // ? is main product currently in wishlist?
+    const mainIsFavorite = !!product?.id && wishlistIds.has(product.id);
+
+    // ==============================
+    // Load Similar + Brand products (limit 10)
+    // ==============================
+    useEffect(() => {
+        if (!product?.id) return;
+
+        const fetchSimilar = async () => {
+            if (!product.productTypeId) {
+                setSimilarProducts([]);
+                return;
+            }
+
+            try {
+                setLoadingSimilar(true);
+
+                const qs = new URLSearchParams();
+                qs.set("pageNumber", "1");
+                qs.set("pageSize", "10");
+                qs.append("productTypeIds", String(product.productTypeId));
+
+                const res = await fetch(`${API_BASE}/api/ExternalProducts?${qs.toString()}`);
+                if (!res.ok) throw new Error("Failed to load similar products.");
+
+                const data = await res.json();
+                const items = (data.items || [])
+                    .filter((x) => x.id !== product.id)
+                    .slice(0, 10)
+                    .map(mapListItemToCard);
+
+                setSimilarProducts(items);
+            } catch {
+                setSimilarProducts([]);
+            } finally {
+                setLoadingSimilar(false);
+            }
+        };
+
+        const fetchBrand = async () => {
+            if (!product.supplierId) {
+                setBrandProducts([]);
+                return;
+            }
+
+            try {
+                setLoadingBrand(true);
+
+                const qs = new URLSearchParams();
+                qs.set("pageNumber", "1");
+                qs.set("pageSize", "10");
+                qs.append("supplierIds", String(product.supplierId));
+
+                const res = await fetch(`${API_BASE}/api/ExternalProducts?${qs.toString()}`);
+                if (!res.ok) throw new Error("Failed to load brand products.");
+
+                const data = await res.json();
+                const items = (data.items || [])
+                    .filter((x) => x.id !== product.id)
+                    .slice(0, 10)
+                    .map(mapListItemToCard);
+
+                setBrandProducts(items);
+            } catch {
+                setBrandProducts([]);
+            } finally {
+                setLoadingBrand(false);
+            }
+        };
+
+        fetchSimilar();
+        fetchBrand();
+    }, [product?.id, product?.productTypeId, product?.supplierId, API_BASE]);
+
+    // ? apply favorite state from wishlistIds into carousels
+    const similarWithFav = useMemo(
+        () => similarProducts.map((p) => ({ ...p, isFavorite: wishlistIds.has(p.id) })),
+        [similarProducts, wishlistIds]
+    );
+
+    const brandWithFav = useMemo(
+        () => brandProducts.map((p) => ({ ...p, isFavorite: wishlistIds.has(p.id) })),
+        [brandProducts, wishlistIds]
+    );
+
+    // ==============================
+    // Quantity logic (limit by maxQty)
+    // ==============================
+    const handleQtyChange = (delta) => {
+        setQuantity((prev) => {
+            const next = prev + delta;
+            if (maxQty <= 0) return 1;
+            if (next < 1) return 1;
+            if (next > maxQty) return maxQty;
+            return next;
+        });
     };
 
     const actuallyAddToCart = (prod, qty) => {
         setCartItems((prev) => [...prev, { ...prod, quantity: qty }]);
         console.log("Added to cart:", prod.name, "qty:", qty);
-        // later: update CartContext or call API
     };
 
-    // MAIN add to cart click (with interaction check)
     const handleAddToCartClick = () => {
+        if (!product) return;
+        if (maxQty <= 0) return;
+
+        const safeQty = Math.min(Math.max(quantity, 1), maxQty);
         const messages = mockCheckInteractions(cartItems, product);
 
         if (messages.length === 0) {
-            // no issues -> just add
-            actuallyAddToCart(product, quantity);
+            actuallyAddToCart(product, safeQty);
             return;
         }
 
-        // show dialog like before
-        setPendingItem({ product, quantity });
+        setPendingItem({ product, quantity: safeQty });
         setInteractionMessages(messages);
         setShowInteractionDialog(true);
     };
 
-    // for carousels below (also using interaction check)
     const handleCarouselAddToCart = (p) => {
         const messages = mockCheckInteractions(cartItems, p);
 
@@ -235,13 +382,86 @@ export default function ProductDetails() {
         setShowInteractionDialog(true);
     };
 
-    const handleAvailability = () => {
-        setShowAvailabilityDialog(true);
+    // ? ROBUST wishlist toggle:
+    // supports: onToggleFavorite(productObj) OR onToggleFavorite(id, isFavorite)
+    const handleToggleFavorite = async (arg1, arg2) => {
+        if (!currentUserId) {
+            console.warn("Login required to use wishlist.");
+            return;
+        }
+
+        // if ProductRowSection passes a product object:
+        const productId =
+            typeof arg1 === "object" && arg1 !== null ? (arg1.id ?? arg1.productId) : arg1;
+
+        if (!productId) return;
+
+        // if second arg missing, compute from set
+        const isFav =
+            typeof arg2 === "boolean" ? arg2 : wishlistIds.has(Number(productId));
+
+        try {
+            const url = `${API_BASE}/api/Wishlist/${productId}?userId=${currentUserId}`;
+
+            const res = await fetch(url, {
+                method: isFav ? "DELETE" : "POST",
+                headers: { "Content-Type": "application/json" },
+            });
+
+            if (!res.ok) {
+                const body = await res.text();
+                console.error("Wishlist request failed:", res.status, body);
+                return;
+            }
+
+            setWishlistIds((prev) => {
+                const next = new Set(prev);
+                if (isFav) next.delete(Number(productId));
+                else next.add(Number(productId));
+                return next;
+            });
+        } catch (e) {
+            console.error("Failed to toggle wishlist:", e);
+        }
     };
 
+    // main product heart uses same handler
+    const handleMainToggleFavorite = () => {
+        if (!product?.id) return;
+        handleToggleFavorite(product.id, mainIsFavorite);
+    };
 
-    const handleCarouselToggleFavorite = (p) => {
-        console.log("Toggle favorite from carousel", p.id);
+    // availability modal fetch
+    const handleAvailability = async () => {
+        if (!product?.id) return;
+
+        setShowAvailabilityDialog(true);
+
+        if (branchAvailability.length > 0 || loadingAvailability) return;
+
+        try {
+            setLoadingAvailability(true);
+            setAvailabilityError("");
+
+            const res = await fetch(`${API_BASE}/api/ExternalProducts/${product.id}/availability`);
+            if (!res.ok) throw new Error("Failed to load branch availability.");
+
+            const data = await res.json();
+            const items = data.items || [];
+
+            setBranchAvailability(items);
+
+            setProduct((prev) =>
+                prev ? { ...prev, branchesCount: data.branchesCount ?? 0 } : prev
+            );
+
+            computeAndSetMaxQtyFromItems(items);
+        } catch (e) {
+            setAvailabilityError(e?.message || "Error loading availability.");
+            setBranchAvailability([]);
+        } finally {
+            setLoadingAvailability(false);
+        }
     };
 
     const handleCancelAdd = () => {
@@ -259,153 +479,165 @@ export default function ProductDetails() {
 
     return (
         <div className="min-vh-100">
-            {/* Top blue bar */}
             <PageHeader title="Product Details" />
 
             <div className="container list-padding py-4 product-details-page">
-                {/* Top main layout */}
-                <div className="row g-4">
-                    {/* LEFT: big image */}
-                    <div className="col-md-5">
-                        <div className="product-main-image-box">
-                            {product.imageUrl ? (
-                                <img
-                                    src={product.imageUrl}
-                                    alt={product.name}
-                                    className="product-main-image"
-                                />
-                            ) : (
-                                <div className="product-main-image-placeholder">
-                                    <span>No image</span>
+                {wishlistLoading && currentUserId && (
+                    <small className="text-muted d-block mb-2">Loading wishlist...</small>
+                )}
+
+                {loading && (
+                    <div className="py-4">
+                        <div className="text-muted">Loading...</div>
+                    </div>
+                )}
+
+                {!loading && loadError && (
+                    <div className="py-4">
+                        <div className="alert alert-danger mb-0">{loadError}</div>
+                    </div>
+                )}
+
+                {!loading && !loadError && product && (
+                    <>
+                        <div className="row g-4">
+                            <div className="col-md-5">
+                                <div className="product-main-image-box">
+                                    {product.imageUrl ? (
+                                        <img
+                                            src={product.imageUrl}
+                                            alt={product.name}
+                                            className="product-main-image"
+                                        />
+                                    ) : (
+                                        <div className="product-main-image-placeholder">
+                                            <span>No image</span>
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* RIGHT: info */}
-                    <div className="col-md-7">
-                        <div className="d-flex justify-content-between align-items-start mb-2">
-                            {/* left: badges */}
-                            <div>
-                                {product.isPrescribed && (
-                                    <span className="product-pill product-pill-prescribed">
-                                        Prescribed
-                                    </span>
-                                )}
                             </div>
 
-                            {/* wishlist heart */}
-                            <button
-                                type="button"
-                                className="btn p-0 border-0 bg-transparent product-fav-btn"
-                                onClick={handleToggleFavorite}
-                                aria-label="Toggle wishlist"
-                            >
-                                <img
-                                    src={isFavorite ? HeartFilled : Heart}
-                                    alt="Favorite"
-                                    className="product-fav-icon"
-                                />
-                            </button>
-                        </div>
+                            <div className="col-md-7">
+                                <div className="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        {product.isPrescribed && (
+                                            <span className="product-pill product-pill-prescribed">
+                                                Prescribed
+                                            </span>
+                                        )}
+                                    </div>
 
-                        <h3 className="product-title mb-1">
-                            {product.name}
-                        </h3>
+                                    <button
+                                        type="button"
+                                        className="btn p-0 border-0 bg-transparent product-fav-btn"
+                                        onClick={handleMainToggleFavorite}
+                                        aria-label="Toggle wishlist"
+                                    >
+                                        <img
+                                            src={mainIsFavorite ? HeartFilled : Heart}
+                                            alt="Favorite"
+                                            className="product-fav-icon"
+                                        />
+                                    </button>
+                                </div>
 
-                        <p className="mb-2 text-muted">
-                            {product.categoryName}
-                            {product.productType
-                                ? `, ${product.productType}`
-                                : ""}
-                        </p>
+                                <h3 className="product-title mb-1">{product.name}</h3>
 
-                        <p className="product-price mb-3">
-                            {formatCurrency(product.price || 0, "BHD")}
-                        </p>
+                                <p className="mb-2 text-muted">
+                                    {product.categoryName}
+                                    {product.productType ? `, ${product.productType}` : ""}
+                                </p>
 
-                        <div className="mb-2">
-                            <span className="fw-bold">Availability: </span>
-                            <button
-                                type="button"
-                                className="btn btn-link p-0 product-branches-link"
-                                onClick={handleAvailability}
-                            >
-                                Available at {product.branchesCount} branches
-                            </button>
-                        </div>
+                                <p className="product-price mb-3">
+                                    {formatCurrency(product.price || 0, "BHD")}
+                                </p>
 
-                        <div className="mb-3">
-                            <StockStatus status={product.stockStatus} />
-                        </div>
+                                <div className="mb-2">
+                                    <span className="fw-bold">Availability: </span>
+                                    <button
+                                        type="button"
+                                        className="btn btn-link p-0 product-branches-link"
+                                        onClick={handleAvailability}
+                                    >
+                                        Available at {product.branchesCount} branches
+                                    </button>
+                                </div>
 
-                        {/* Quantity + Add to Cart */}
-                        <div className="d-flex align-items-center gap-3 mb-4">
-                            <div className="d-inline-flex align-items-center border rounded-pill px-2 py-1">
-                                <button
-                                    type="button"
-                                    className="btn btn-sm border-0"
-                                    style={{ boxShadow: "none", padding: "0 6px" }}
-                                    onClick={() => handleQtyChange(-1)}
-                                >
-                                    -
-                                </button>
-                                <span className="mx-2">{quantity}</span>
-                                <button
-                                    type="button"
-                                    className="btn btn-sm border-0"
-                                    style={{ boxShadow: "none", padding: "0 6px" }}
-                                    onClick={() => handleQtyChange(1)}
-                                >
-                                    +
-                                </button>
+                                <div className="mb-3">
+                                    <StockStatus status={product.stockStatus} />
+                                </div>
+
+                                {/* Quantity + Add to Cart */}
+                                <div className="d-flex align-items-center gap-3 mb-2">
+                                    <div className="d-inline-flex align-items-center border rounded-pill px-2 py-1">
+                                        <button
+                                            type="button"
+                                            className="btn btn-sm border-0"
+                                            style={{ boxShadow: "none", padding: "0 6px" }}
+                                            onClick={() => handleQtyChange(-1)}
+                                            disabled={quantity <= 1}
+                                        >
+                                            -
+                                        </button>
+
+                                        <span className="mx-2">{quantity}</span>
+
+                                        <button
+                                            type="button"
+                                            className="btn btn-sm border-0"
+                                            style={{ boxShadow: "none", padding: "0 6px" }}
+                                            onClick={() => handleQtyChange(1)}
+                                            disabled={maxQty <= 0 || quantity >= maxQty}
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        className="btn qp-add-btn px-4"
+                                        onClick={handleAddToCartClick}
+                                        disabled={maxQty <= 0}
+                                        title={maxQty <= 0 ? "Out of stock in all branches" : ""}
+                                    >
+                                        Add to Cart
+                                    </button>
+                                </div>
+
+                                <div className="text-muted small">
+                                    {maxQty <= 0 ? "Out of stock in all branches" : null}
+                                </div>
                             </div>
-
-                            <button
-                                type="button"
-                                className="btn qp-add-btn px-4"
-                                onClick={handleAddToCartClick}
-                            >
-                                Add to Cart
-                            </button>
                         </div>
 
-                       
+                        <div className="mt-3 product-description-section">
+                            <h5 className="product-section-title">Description</h5>
+                            <p className="product-description-text">{product.description}</p>
+                        </div>
 
-                    </div>
-                </div>
+                        <div className="product-recommendation-header">Product Recommendation</div>
 
-                <div className="mt-3 product-description-section">
-                    <h5 className="product-section-title">Description</h5>
-                    <p className="product-description-text">
-                        {product.description}
-                    </p>
-                </div>
+                        {/* Similar products */}
+                        <div className="mt-5">
+                            <ProductRowSection
+                                title={loadingSimilar ? "Similar Products (Loading...)" : "Similar Products"}
+                                products={similarWithFav}
+                                onAddToCart={handleCarouselAddToCart}
+                                onToggleFavorite={handleToggleFavorite} // ? fixed
+                            />
+                        </div>
 
-                {/* Product Recommendation header styled like a table header */}
-                <div className="product-recommendation-header">
-                    Product Recommendation
-                </div>
-
-                {/* Similar products carousel */}
-                <div className="mt-5">
-                    <ProductRowSection
-                        title="Similar Products"
-                        products={MOCK_SIMILAR_PRODUCTS}
-                        onAddToCart={handleCarouselAddToCart}
-                        onToggleFavorite={handleCarouselToggleFavorite}
-                    />
-                </div>
-
-                {/* Other products by brand carousel */}
-                <div className="mt-4">
-                    <ProductRowSection
-                        title="Other Products by Brand"
-                        products={MOCK_BRAND_PRODUCTS}
-                        onAddToCart={handleCarouselAddToCart}
-                        onToggleFavorite={handleCarouselToggleFavorite}
-                    />
-                </div>
+                        {/* Brand products */}
+                        <div className="mt-4">
+                            <ProductRowSection
+                                title={loadingBrand ? "Other Products by Brand (Loading...)" : "Other Products by Brand"}
+                                products={brandWithFav}
+                                onAddToCart={handleCarouselAddToCart}
+                                onToggleFavorite={handleToggleFavorite} // ? fixed
+                            />
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Branch availability dialog */}
@@ -415,35 +647,49 @@ export default function ProductDetails() {
                 body={
                     <div>
                         <p className="mb-3">
-                            Stock availability for{" "}
-                            <strong>{product.name}</strong> by branch:
+                            Stock availability for <strong>{product?.name}</strong> by branch:
                         </p>
+
+                        {availabilityError && (
+                            <div className="alert alert-danger py-2">{availabilityError}</div>
+                        )}
 
                         <div className="table-responsive">
                             <table className="table align-middle text-center mb-0">
                                 <thead className="table-light">
                                     <tr>
-                                        <th>Branch</th>
+                                        <th>City</th>
                                         <th>Stock Available</th>
                                     </tr>
                                 </thead>
+
                                 <tbody>
-                                    {MOCK_BRANCH_AVAILABILITY.map((b) => (
-                                        <tr key={b.branchId}>
-                                            <td>{b.branchName}</td>
-                                            <td>
-                                                {b.stock > 0 ? (
-                                                    <span className="fw-semibold">
-                                                        {b.stock} units
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-danger fw-semibold">
-                                                        Out of stock
-                                                    </span>
-                                                )}
+                                    {loadingAvailability ? (
+                                        <tr>
+                                            <td colSpan="2" className="text-muted py-4">
+                                                Loading...
                                             </td>
                                         </tr>
-                                    ))}
+                                    ) : branchAvailability.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="2" className="text-muted py-4">
+                                                No branches found.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        branchAvailability.map((b, idx) => (
+                                            <tr key={idx}>
+                                                <td>{b.cityName}</td>
+                                                <td>
+                                                    {b.stock > 0 ? (
+                                                        <span className="fw-semibold">{b.stock} units</span>
+                                                    ) : (
+                                                        <span className="text-danger fw-semibold">Out of stock</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -455,8 +701,7 @@ export default function ProductDetails() {
                 onCancel={() => setShowAvailabilityDialog(false)}
             />
 
-
-            {/* Interaction warning dialog – same pattern as Home / WishList */}
+            {/* Interaction warning dialog */}
             <DialogModal
                 show={showInteractionDialog}
                 title="Medication Interaction Warning"
@@ -471,9 +716,7 @@ export default function ProductDetails() {
                                 <li key={idx}>{msg}</li>
                             ))}
                         </ul>
-                        <p className="mb-0">
-                            Do you still want to add this product to your cart?
-                        </p>
+                        <p className="mb-0">Do you still want to add this product to your cart?</p>
                     </div>
                 }
                 confirmLabel="Proceed and Add"
