@@ -28,8 +28,8 @@ export default function Navbar({ user: propUser, cartCount = 0,
 
 
     return (
-        <nav className="navbar navbar-expand-lg bg-white shadow-sm py-2"
-            style={{ borderBottom: "1px solid #e5e5e5" }}
+        <nav className="navbar navbar-expand-lg bg-white shadow-sm py-2 sticky-top"
+            style={{ borderBottom: "1px solid #e5e5e5", zIndex: 1030 }}
         >
             <div className="container-fluid">
 

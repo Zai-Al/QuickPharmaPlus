@@ -2,7 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import { IncompatibilityPill, PrescribedPill } from "./MedicationPills";
 import "./ProductCard.css";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import HeartFilled from "../../../assets/icons/heart-filled.svg";
 import Heart from "../../../assets/icons/heart.svg";
 
@@ -12,33 +12,48 @@ export default function ProductCard({
     price,
     imageUrl,
     isFavorite: initialFavorite = false,
-    categoryName,      
-    productType,       
+    categoryName,
+    productType,
     onToggleFavorite = () => { },
     onAddToCart = () => { },
     isPrescribed = false,
     hasIncompatibilities = false,
     incompatibilityLines = [],
+    inventoryCount = null,
+    stockStatus = null,
 }) {
     const navigate = useNavigate();
-
     const goToDetails = () => navigate(`/productDetails/${id}`);
 
     const [isFavorite, setIsFavorite] = useState(initialFavorite);
+    const [isAdded, setIsAdded] = useState(false); // visual only
 
-    const handleFavoriteClick = () => {
-        const newState = !isFavorite;
-        setIsFavorite(newState);
+    useEffect(() => {
+        setIsFavorite(initialFavorite);
+    }, [initialFavorite]);
 
-        if (onToggleFavorite) {
-            onToggleFavorite(id, newState);
-        }
+    const inv = typeof inventoryCount === "number" ? inventoryCount : null;
+    const status = typeof stockStatus === "string" ? stockStatus : null;
+
+    const isOutOfStock =
+        (status && status.toUpperCase() === "OUT_OF_STOCK") ||
+        (inv !== null && inv <= 0);
+
+    const handleAddClick = (e) => {
+        e.stopPropagation();
+
+        if (isOutOfStock) return;
+
+        // ? REAL add-to-cart call (THIS WAS NOT REMOVED)
+        onAddToCart();
+
+        // ? visual feedback only
+        setIsAdded(true);
+        setTimeout(() => setIsAdded(false), 1200);
     };
-
 
     return (
         <div className="product-card" onClick={goToDetails}>
-            {/* Pills */}
             <div className="product-badges">
                 {isPrescribed && <PrescribedPill />}
                 {hasIncompatibilities && (
@@ -46,50 +61,45 @@ export default function ProductCard({
                 )}
             </div>
 
-            {/* Favorite */}
             <button
                 type="button"
                 className="favorite-btn"
                 onClick={(e) => {
                     e.stopPropagation();
-                    handleFavoriteClick();
+                    setIsFavorite((prev) => !prev);
+                    onToggleFavorite(id);
                 }}
             >
                 <img
                     src={isFavorite ? HeartFilled : Heart}
                     className="favorite-icon"
-                    alt="favorite icon"
+                    alt="favorite"
                 />
             </button>
 
-            {/* Image */}
             <div className="product-image-wrapper">
                 <img src={imageUrl} alt={name} className="product-image" />
             </div>
 
-            {/* Info */}
             <div className="product-info">
                 <h4 className="product-name">{name}</h4>
-
-                {/* Category + Type */}
                 <p className="product-meta">
-                    {categoryName} , {productType}
+                    {categoryName}, {productType}
                 </p>
-
-                <p className="product-price">
-                    {price?.toFixed(2)} BHD
-                </p>
+                <p className="product-price">{price?.toFixed(2)} BHD</p>
             </div>
 
             <button
                 type="button"
-                className="product-add-btn"
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onAddToCart();
-                }}
+                className={`product-add-btn ${isAdded ? "added" : ""}`}
+                disabled={isOutOfStock}
+                onClick={handleAddClick}
             >
-                Add to Cart
+                {isOutOfStock
+                    ? "Out of Stock"
+                    : isAdded
+                        ? "Added"
+                        : "Add to Cart"}
             </button>
         </div>
     );

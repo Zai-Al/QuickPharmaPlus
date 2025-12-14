@@ -219,12 +219,15 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
     int[]? productTypeIds = null,
     int[]? branchIds = null,
     decimal? minPrice = null,
-decimal? maxPrice = null,
+    decimal? maxPrice = null,
     string? sortBy = null)
         {
             // --- basic guards ---
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 1) pageSize = 12;
+
+            // NEW: expiry cutoff date (ignore expired inventory)
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
             // --- reuse your existing search validation pattern ---
             if (!string.IsNullOrWhiteSpace(search))
@@ -266,6 +269,7 @@ decimal? maxPrice = null,
             if (productTypeIds != null && productTypeIds.Length > 0)
                 query = query.Where(p => p.ProductTypeId.HasValue && productTypeIds.Contains(p.ProductTypeId.Value));
 
+            // UPDATED: branch filter ignores expired inventory too
             if (branchIds != null && branchIds.Length > 0)
             {
                 query = query.Where(p =>
@@ -273,12 +277,13 @@ decimal? maxPrice = null,
                         i.ProductId == p.ProductId &&
                         i.BranchId.HasValue &&
                         branchIds.Contains(i.BranchId.Value) &&
-                        (i.InventoryQuantity ?? 0) > 0
+                        (i.InventoryQuantity ?? 0) > 0 &&
+                        (i.InventoryExpiryDate == null || i.InventoryExpiryDate >= today)
                     )
                 );
             }
 
-            // --- price filter (SQL-translatable OR predicate) ---
+            // --- price filter (SQL-translatable) ---
             if (minPrice.HasValue)
                 query = query.Where(p => (p.ProductPrice ?? 0m) >= minPrice.Value);
 
@@ -318,24 +323,23 @@ decimal? maxPrice = null,
                         // Branch search (Inventory → Branch → Address → City)
                         || _context.Inventories.Any(i =>
                             i.ProductId == p.ProductId
+                            && (i.InventoryQuantity ?? 0) > 0
+                            && (i.InventoryExpiryDate == null || i.InventoryExpiryDate >= today)
                             && i.Branch != null
                             && i.Branch.Address != null
                             && (
-                                // City name (Sitra, Budaiya, etc.)
                                 (i.Branch.Address.City != null &&
                                  EF.Functions.Like(i.Branch.Address.City.CityName ?? "", like))
-
-                                // Address fields
                                 || EF.Functions.Like(i.Branch.Address.Block ?? "", like)
                                 || EF.Functions.Like(i.Branch.Address.Street ?? "", like)
                                 || EF.Functions.Like(i.Branch.Address.BuildingNumber ?? "", like)
                             )
                         )
+
+         
                     );
                 }
             }
-
-
 
             // --- sorting (BEFORE paging) ---
             sortBy = (sortBy ?? "").Trim().ToLowerInvariant();
@@ -366,22 +370,22 @@ decimal? maxPrice = null,
                     CategoryId = p.CategoryId,
                     CategoryName = p.Category != null ? p.Category.CategoryName : null,
 
-                    // SUM actual stock quantity (units), not row count
+                    // UPDATED: SUM actual available stock quantity, ignore expired + ignore 0
                     InventoryCount =
                         (branchIds != null && branchIds.Length > 0)
                             ? _context.Inventories
                                 .Where(i =>
                                     i.ProductId == p.ProductId &&
                                     i.BranchId.HasValue &&
-                                    branchIds.Contains(i.BranchId.Value) &&
-                                    (i.InventoryQuantity ?? 0) > 0
+                                    branchIds.Contains(i.BranchId.Value)
                                 )
+                                .Where(i => (i.InventoryQuantity ?? 0) > 0)
+                                .Where(i => i.InventoryExpiryDate == null || i.InventoryExpiryDate >= today)
                                 .Sum(i => (int?)(i.InventoryQuantity ?? 0)) ?? 0
                             : _context.Inventories
-                                .Where(i =>
-                                    i.ProductId == p.ProductId &&
-                                    (i.InventoryQuantity ?? 0) > 0
-                                )
+                                .Where(i => i.ProductId == p.ProductId)
+                                .Where(i => (i.InventoryQuantity ?? 0) > 0)
+                                .Where(i => i.InventoryExpiryDate == null || i.InventoryExpiryDate >= today)
                                 .Sum(i => (int?)(i.InventoryQuantity ?? 0)) ?? 0
                 })
                 .ToListAsync();
@@ -392,5 +396,6 @@ decimal? maxPrice = null,
                 TotalCount = total
             };
         }
+
     }
 }

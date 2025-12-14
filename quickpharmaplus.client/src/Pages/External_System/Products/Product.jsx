@@ -6,7 +6,9 @@ import PageHeader from "../Shared_Components/PageHeader";
 import Pagination from "../../../Components/InternalSystem/GeneralComponents/Pagination";
 import "./ProductPage.css";
 import { AuthContext } from "../../../Context/AuthContext.jsx";
-import { FiSearch} from "react-icons/fi";
+import { FiSearch } from "react-icons/fi";
+import { WishlistContext } from "../../../Context/WishlistContext";
+import { CartContext } from "../../../Context/CartContext";
 
 // price ranges for filter
 const PRICE_RANGES = [
@@ -19,9 +21,14 @@ const PRICE_RANGES = [
     { key: "31+", label: "31 BHD and above", min: 31, max: null },
 ];
 
-
 export default function Product() {
     const location = useLocation();
+
+    const { refreshWishlistCount } = useContext(WishlistContext);
+
+    // ? safety: if CartProvider not wrapped yet, don’t crash
+    const cartCtx = useContext(CartContext);
+    const refreshCartCount = cartCtx?.refreshCartCount;
 
     const { user } = useContext(AuthContext);
     const currentUserId = user?.userId ?? user?.id ?? user?.UserId ?? null;
@@ -49,7 +56,7 @@ export default function Product() {
     const [totalPages, setTotalPages] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
 
-    // ? wishlist ids (for hearts)
+    // wishlist ids (for hearts)
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [wishlistLoading, setWishlistLoading] = useState(false);
 
@@ -79,11 +86,13 @@ export default function Product() {
             try {
                 setWishlistLoading(true);
 
-                const res = await fetch(`${API_BASE}/api/Wishlist/ids?userId=${currentUserId}`, {
-                    signal: controller.signal,
-                    headers: { "Content-Type": "application/json" },
-                    // credentials: "include", // later if you secure endpoints
-                });
+                const res = await fetch(
+                    `${API_BASE}/api/Wishlist/ids?userId=${currentUserId}`,
+                    {
+                        signal: controller.signal,
+                        headers: { "Content-Type": "application/json" },
+                    }
+                );
 
                 if (!res.ok) {
                     const body = await res.text();
@@ -95,7 +104,8 @@ export default function Product() {
                 const idsArr = Array.isArray(data?.ids) ? data.ids : [];
                 setWishlistIds(new Set(idsArr));
             } catch (e) {
-                if (e.name !== "AbortError") console.error("Failed to load wishlist ids:", e);
+                if (e.name !== "AbortError")
+                    console.error("Failed to load wishlist ids:", e);
             } finally {
                 setWishlistLoading(false);
             }
@@ -113,9 +123,10 @@ export default function Product() {
 
         async function fetchCategoriesForFilter() {
             try {
-                const res = await fetch(`${API_BASE}/api/Category?pageNumber=1&pageSize=200`, {
-                    signal: controller.signal,
-                });
+                const res = await fetch(
+                    `${API_BASE}/api/Category?pageNumber=1&pageSize=200`,
+                    { signal: controller.signal }
+                );
                 if (!res.ok) return;
 
                 const data = await res.json();
@@ -129,15 +140,17 @@ export default function Product() {
                     })),
                 }));
             } catch (e) {
-                if (e.name !== "AbortError") console.error("Failed to load categories:", e);
+                if (e.name !== "AbortError")
+                    console.error("Failed to load categories:", e);
             }
         }
 
         async function fetchTypesForFilter() {
             try {
-                const res = await fetch(`${API_BASE}/api/Category/types?pageNumber=1&pageSize=200`, {
-                    signal: controller.signal,
-                });
+                const res = await fetch(
+                    `${API_BASE}/api/Category/types?pageNumber=1&pageSize=200`,
+                    { signal: controller.signal }
+                );
                 if (!res.ok) return;
 
                 const data = await res.json();
@@ -146,21 +159,33 @@ export default function Product() {
                 setFilterMeta((prev) => ({
                     ...prev,
                     types: items.map((t) => ({
-                        id: t.productTypeId ?? t.ProductTypeId ?? t.typeId ?? t.TypeId ?? null,
-                        name: t.productTypeName ?? t.ProductTypeName ?? t.typeName ?? t.TypeName ?? "—",
+                        id:
+                            t.productTypeId ??
+                            t.ProductTypeId ??
+                            t.typeId ??
+                            t.TypeId ??
+                            null,
+                        name:
+                            t.productTypeName ??
+                            t.ProductTypeName ??
+                            t.typeName ??
+                            t.TypeName ??
+                            "—",
                         categoryId: t.categoryId ?? t.CategoryId ?? null,
                     })),
                 }));
             } catch (e) {
-                if (e.name !== "AbortError") console.error("Failed to load types:", e);
+                if (e.name !== "AbortError")
+                    console.error("Failed to load types:", e);
             }
         }
 
         async function fetchBrandsForFilter() {
             try {
-                const res = await fetch(`${API_BASE}/api/Suppliers?pageNumber=1&pageSize=200`, {
-                    signal: controller.signal,
-                });
+                const res = await fetch(
+                    `${API_BASE}/api/Suppliers?pageNumber=1&pageSize=200`,
+                    { signal: controller.signal }
+                );
                 if (!res.ok) return;
 
                 const data = await res.json();
@@ -174,15 +199,17 @@ export default function Product() {
                     })),
                 }));
             } catch (e) {
-                if (e.name !== "AbortError") console.error("Failed to load brands:", e);
+                if (e.name !== "AbortError")
+                    console.error("Failed to load brands:", e);
             }
         }
 
         async function fetchBranchesForFilter() {
             try {
-                const res = await fetch(`${API_BASE}/api/Branch?pageNumber=1&pageSize=200`, {
-                    signal: controller.signal,
-                });
+                const res = await fetch(
+                    `${API_BASE}/api/Branch?pageNumber=1&pageSize=200`,
+                    { signal: controller.signal }
+                );
                 if (!res.ok) return;
 
                 const data = await res.json();
@@ -200,7 +227,8 @@ export default function Product() {
                     }),
                 }));
             } catch (e) {
-                if (e.name !== "AbortError") console.error("Failed to load branches:", e);
+                if (e.name !== "AbortError")
+                    console.error("Failed to load branches:", e);
             }
         }
 
@@ -229,7 +257,15 @@ export default function Product() {
     // reset to first page when any filter changes
     useEffect(() => {
         setPageNumber(1);
-    }, [searchText, selectedCategories, selectedTypes, selectedBranches, selectedBrands, selectedPrices, sortBy]);
+    }, [
+        searchText,
+        selectedCategories,
+        selectedTypes,
+        selectedBranches,
+        selectedBrands,
+        selectedPrices,
+        sortBy,
+    ]);
 
     // =========================
     // Load products
@@ -286,28 +322,40 @@ export default function Product() {
 
                 const data = await response.json();
 
-                const mapped = (data.items || []).map((dto) => ({
-                    id: dto.id,
-                    name: dto.name,
+                const mapped = (data.items || []).map((dto) => {
+                    const inv = dto.inventoryCount ?? dto.InventoryCount ?? 0;
+                    const stockStatus =
+                        dto.stockStatus ??
+                        dto.StockStatus ??
+                        (inv <= 0 ? "OUT_OF_STOCK" : inv <= 5 ? "LOW_STOCK" : "IN_STOCK");
 
-                    categoryId: dto.categoryId,
-                    categoryName: dto.categoryName,
+                    return {
+                        id: dto.id,
+                        name: dto.name,
 
-                    productTypeId: dto.productTypeId ?? null,
-                    productType: dto.productTypeName,
+                        categoryId: dto.categoryId,
+                        categoryName: dto.categoryName,
 
-                    price: dto.price ?? 0,
+                        productTypeId: dto.productTypeId ?? null,
+                        productType: dto.productTypeName,
 
-                    supplierId: dto.supplierId ?? null,
-                    brand: dto.supplierName || "Unknown",
+                        price: dto.price ?? 0,
 
-                    branch: "All Branches",
+                        supplierId: dto.supplierId ?? null,
+                        brand: dto.supplierName || "Unknown",
 
-                    requiresPrescription: dto.requiresPrescription,
-                    incompatibilities: [],
+                        branch: "All Branches",
 
-                    imageUrl: dto.id ? `${API_BASE}/api/ExternalProducts/${dto.id}/image` : null,
-                }));
+                        requiresPrescription: dto.requiresPrescription,
+                        incompatibilities: [],
+
+                        imageUrl: dto.id ? `${API_BASE}/api/ExternalProducts/${dto.id}/image` : null,
+
+                        // stock fields for disabling add-to-cart
+                        inventoryCount: inv,
+                        stockStatus,
+                    };
+                });
 
                 setProducts(mapped);
                 setTotalPages(data.totalPages || 1);
@@ -333,7 +381,7 @@ export default function Product() {
         sortBy,
     ]);
 
-    // ? apply favorite state from wishlistIds
+    // apply favorite state from wishlistIds
     const productsWithFav = useMemo(() => {
         return products.map((p) => ({
             ...p,
@@ -370,7 +418,8 @@ export default function Product() {
         setSelectedPrices((prev) => (prev[0] === key ? [] : [key]));
     };
 
-    const handleToggleFavorite = async (id /*, isFavoriteFromCard */) => {
+    // wishlist toggle
+    const handleToggleFavorite = async (id) => {
         const productId = Number(id);
         if (!productId || Number.isNaN(productId)) return;
 
@@ -380,12 +429,6 @@ export default function Product() {
         }
 
         const isFavNow = wishlistIds.has(productId);
-
-        console.log("TOGGLE WISHLIST:", {
-            productId,
-            currentUserId,
-            isFavNow,
-        });
 
         try {
             const url = `${API_BASE}/api/Wishlist/${productId}?userId=${currentUserId}`;
@@ -408,14 +451,50 @@ export default function Product() {
                 else next.add(productId);
                 return next;
             });
+
+            refreshWishlistCount?.();
         } catch (e) {
             console.error("Failed to toggle wishlist:", e);
         }
     };
 
+    // Add to cart (real backend) + guard out-of-stock
+    const handleAddToCart = async (product) => {
+        if (!product?.id) return;
 
-    const handleAddToCart = (id) => {
-        console.log("Add to cart", id);
+        if (!currentUserId) {
+            console.warn("Login required to add to cart.");
+            return;
+        }
+
+        const inv = product.inventoryCount ?? 0;
+        const status = (product.stockStatus ?? "").toUpperCase();
+        if (inv <= 0 || status === "OUT_OF_STOCK") return;
+
+        try {
+            const url = `${API_BASE}/api/Cart/${product.id}?userId=${currentUserId}&qty=1`;
+
+            const res = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+            });
+
+            if (res.status === 409) {
+                const data = await res.json().catch(() => null);
+                console.warn("Cart conflict:", data?.reason || "OUT_OF_STOCK");
+                return;
+            }
+
+            if (!res.ok) {
+                const body = await res.text();
+                console.error("Cart add failed:", res.status, body);
+                return;
+            }
+
+            refreshCartCount?.();
+        } catch (e) {
+            console.error("Failed to add to cart:", e);
+        }
     };
 
     return (
@@ -429,7 +508,11 @@ export default function Product() {
 
                     {/* Category */}
                     <div className="filter-group">
-                        <button type="button" className="filter-group-header" onClick={() => setIsCategoryOpen((open) => !open)}>
+                        <button
+                            type="button"
+                            className="filter-group-header"
+                            onClick={() => setIsCategoryOpen((open) => !open)}
+                        >
                             <span>Category</span>
                             <span>{isCategoryOpen ? "-" : "+"}</span>
                         </button>
@@ -465,7 +548,11 @@ export default function Product() {
 
                     {/* Type */}
                     <div className="filter-group">
-                        <button type="button" className="filter-group-header" onClick={() => setIsTypeOpen((open) => !open)}>
+                        <button
+                            type="button"
+                            className="filter-group-header"
+                            onClick={() => setIsTypeOpen((open) => !open)}
+                        >
                             <span>Type</span>
                             <span>{isTypeOpen ? "-" : "+"}</span>
                         </button>
@@ -501,7 +588,11 @@ export default function Product() {
 
                     {/* Branch */}
                     <div className="filter-group">
-                        <button type="button" className="filter-group-header" onClick={() => setIsBranchOpen((open) => !open)}>
+                        <button
+                            type="button"
+                            className="filter-group-header"
+                            onClick={() => setIsBranchOpen((open) => !open)}
+                        >
                             <span>Branch</span>
                             <span>{isBranchOpen ? "-" : "+"}</span>
                         </button>
@@ -537,7 +628,11 @@ export default function Product() {
 
                     {/* Brand */}
                     <div className="filter-group">
-                        <button type="button" className="filter-group-header" onClick={() => setIsBrandOpen((open) => !open)}>
+                        <button
+                            type="button"
+                            className="filter-group-header"
+                            onClick={() => setIsBrandOpen((open) => !open)}
+                        >
                             <span>Brand</span>
                             <span>{isBrandOpen ? "-" : "+"}</span>
                         </button>
@@ -573,7 +668,11 @@ export default function Product() {
 
                     {/* Price */}
                     <div className="filter-group">
-                        <button type="button" className="filter-group-header" onClick={() => setIsPriceOpen((open) => !open)}>
+                        <button
+                            type="button"
+                            className="filter-group-header"
+                            onClick={() => setIsPriceOpen((open) => !open)}
+                        >
                             <span>Price</span>
                             <span>{isPriceOpen ? "-" : "+"}</span>
                         </button>
@@ -609,14 +708,22 @@ export default function Product() {
 
                     {/* Sort By */}
                     <div className="filter-group">
-                        <button type="button" className="filter-group-header" onClick={() => setIsSortOpen((open) => !open)}>
+                        <button
+                            type="button"
+                            className="filter-group-header"
+                            onClick={() => setIsSortOpen((open) => !open)}
+                        >
                             <span>Sort By</span>
                             <span>{isSortOpen ? "-" : "+"}</span>
                         </button>
 
                         {isSortOpen && (
                             <div className="filter-group-body">
-                                <select className="sort-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                                <select
+                                    className="sort-select"
+                                    value={sortBy}
+                                    onChange={(e) => setSortBy(e.target.value)}
+                                >
                                     <option value="price-asc">Price: Low to High</option>
                                     <option value="price-desc">Price: High to Low</option>
                                     <option value="name-asc">Name: A-Z</option>
@@ -636,7 +743,7 @@ export default function Product() {
                             placeholder="Search Products by Category, Brand, Name, Type and Branch"
                             value={searchText}
                             onChange={(e) => setSearchText(e.target.value)}
-                            style={{ paddingRight: "42px" }} // makes room for icon
+                            style={{ paddingRight: "42px" }}
                         />
 
                         <FiSearch
@@ -648,11 +755,10 @@ export default function Product() {
                                 transform: "translateY(-50%)",
                                 color: "#888",
                                 fontSize: "18px",
-                                pointerEvents: "none", // so clicks go to input
+                                pointerEvents: "none",
                             }}
                         />
                     </div>
-
 
                     {wishlistLoading && currentUserId && (
                         <small className="text-muted d-block mb-2">Loading wishlist...</small>
@@ -675,10 +781,12 @@ export default function Product() {
                                     categoryName={p.categoryName}
                                     productType={p.productType}
                                     onToggleFavorite={handleToggleFavorite}
-                                    onAddToCart={() => handleAddToCart(p.id)}
+                                    onAddToCart={() => handleAddToCart(p)}
                                     isPrescribed={p.requiresPrescription}
                                     hasIncompatibilities={p.incompatibilities && p.incompatibilities.length > 0}
                                     incompatibilityLines={p.incompatibilities}
+                                    inventoryCount={p.inventoryCount}
+                                    stockStatus={p.stockStatus}
                                 />
                             ))
                         )}

@@ -141,9 +141,9 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             }
         }
 
-    
 
-    [HttpGet("{id:int}")]
+
+        [HttpGet("{id:int}")]
         public async Task<IActionResult> GetExternalProductById(int id)
         {
             if (id <= 0) return BadRequest(new { error = "Invalid id" });
@@ -151,9 +151,13 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             var dto = await _productRepository.GetProductByIdAsync(id);
             if (dto == null) return NotFound(new { error = "Product not found" });
 
-            // Sum total units (same style as your list endpoint)
+            // Sum total units (ignore expired + ignore 0)
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
             var inventoryCount = await _context.Inventories
-                .Where(i => i.ProductId == id && (i.InventoryQuantity ?? 0) > 0)
+                .Where(i => i.ProductId == id)
+                .Where(i => (i.InventoryQuantity ?? 0) > 0)
+                .Where(i => i.InventoryExpiryDate == null || i.InventoryExpiryDate >= today)
                 .SumAsync(i => (int?)(i.InventoryQuantity ?? 0)) ?? 0;
 
             var detail = new CustomerProductDetailDto
@@ -180,7 +184,6 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                     inventoryCount <= 5 ? "LOW_STOCK" :
                     "IN_STOCK",
 
-                // If dto.ProductImage is byte[]:
                 ProductImageBase64 = dto.ProductImage != null ? Convert.ToBase64String(dto.ProductImage) : null,
 
                 Incompatibilities = null
@@ -189,15 +192,18 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             return Ok(detail);
         }
 
-        // GET: /api/ExternalProducts/{id}/availability
-        // GET: /api/ExternalProducts/{id}/availability
+
         [HttpGet("{id:int}/availability")]
         public async Task<IActionResult> GetProductAvailability(int id)
         {
             if (id <= 0) return BadRequest(new { error = "Invalid product id" });
 
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
             var rows = await _context.Inventories
                 .Where(i => i.ProductId == id && i.BranchId.HasValue)
+                .Where(i => (i.InventoryQuantity ?? 0) > 0)
+                .Where(i => i.InventoryExpiryDate == null || i.InventoryExpiryDate >= today)
                 .Select(i => new
                 {
                     Qty = (i.InventoryQuantity ?? 0),

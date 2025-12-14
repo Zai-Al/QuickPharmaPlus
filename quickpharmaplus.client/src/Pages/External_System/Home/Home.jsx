@@ -6,6 +6,8 @@ import "./Home.css";
 import ProductRowSection from "../Shared_Components/ProductRowSection";
 import DialogModal from "../../../Components/InternalSystem/Modals/ConfirmModal";
 import { AuthContext } from "../../../Context/AuthContext";
+import { WishlistContext } from "../../../Context/WishlistContext";
+import { CartContext } from "../../../Context/CartContext"; // ? add this
 
 // ==============================
 // TEMP mock Best Sellers (keep for now)
@@ -21,6 +23,8 @@ const mockBestSellers = [
         incompatibilities: [],
         categoryName: "Vitamins",
         productType: "Tablets",
+        inventoryCount: 999, // mock ok
+        stockStatus: "IN_STOCK",
     },
     {
         id: 102,
@@ -32,76 +36,62 @@ const mockBestSellers = [
         incompatibilities: [],
         categoryName: "Pain Relief",
         productType: "Tablets",
+        inventoryCount: 0, // ? example: out of stock mock
+        stockStatus: "OUT_OF_STOCK",
     },
-    {
-        id: 103,
-        name: "Blood Pressure Tabs",
-        price: 7.8,
-        imageUrl: null,
-        isFavorite: false,
-        requiresPrescription: true,
-        incompatibilities: ["May interact with existing blood pressure medication."],
-        categoryName: "Heart & BP",
-        productType: "Tablets",
-    },
-    {
-        id: 104,
-        name: "Blood Pressure Tabs",
-        price: 7.8,
-        imageUrl: null,
-        isFavorite: false,
-        requiresPrescription: true,
-        incompatibilities: ["May interact with existing blood pressure medication."],
-        categoryName: "Heart & BP",
-        productType: "Tablets",
-    },
-];
-
-// fallback categories if API fails (optional)
-const mockCategoriesFallback = [
-    { id: 1, name: "Cold & Flu", iconUrl: null },
-    { id: 2, name: "Vitamins", iconUrl: null },
-    { id: 3, name: "Skin Care", iconUrl: null },
-    { id: 4, name: "Pain Relief", iconUrl: null },
-    { id: 5, name: "Baby Care", iconUrl: null },
 ];
 
 // map API dto -> ProductRowSection card shape
-const mapApiToCard = (dto, API_BASE) => ({
-    id: dto.id,
-    name: dto.name,
-    price: dto.price ?? 0,
-    imageUrl: dto.id ? `${API_BASE}/api/ExternalProducts/${dto.id}/image` : null,
-    isFavorite: false,
-    requiresPrescription: dto.requiresPrescription ?? false,
-    incompatibilities: dto.incompatibilities ?? [],
-    categoryName: dto.categoryName ?? "",
-    productType: dto.productTypeName ?? "",
-});
+const mapApiToCard = (dto, API_BASE) => {
+    const inv = dto?.inventoryCount ?? dto?.InventoryCount ?? 0;
+    const stockStatus =
+        dto?.stockStatus ??
+        dto?.StockStatus ??
+        (inv <= 0 ? "OUT_OF_STOCK" : inv <= 5 ? "LOW_STOCK" : "IN_STOCK");
+
+    return {
+        id: dto.id,
+        name: dto.name,
+        price: dto.price ?? 0,
+        imageUrl: dto.id ? `${API_BASE}/api/ExternalProducts/${dto.id}/image` : null,
+        isFavorite: false,
+        requiresPrescription: dto.requiresPrescription ?? false,
+        incompatibilities: dto.incompatibilities ?? [],
+        categoryName: dto.categoryName ?? "",
+        productType: dto.productTypeName ?? "",
+
+        // ? needed for disabling button
+        inventoryCount: inv,
+        stockStatus,
+        canAddToCart: inv > 0 && stockStatus !== "OUT_OF_STOCK",
+    };
+};
 
 export default function HomeExternal() {
     const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
 
-    // ? get current user (we need userId for wishlist endpoints: ?userId=)
-    const { user } = useContext(AuthContext);
-    const currentUserId = user?.userId ?? user?.id ?? user?.UserId ?? null; // adapt if needed
+    const { refreshWishlistCount } = useContext(WishlistContext);
+    const { refreshCartCount } = useContext(CartContext); // ?
 
-    // cart + incompatibility dialog state
-    const [_cartItems, setCartItems] = useState([]);
+    // get current user (we need userId for wishlist/cart endpoints)
+    const { user } = useContext(AuthContext);
+    const currentUserId = user?.userId ?? user?.id ?? user?.UserId ?? null;
+
+    // incompatibility dialog state
     const [pendingProduct, setPendingProduct] = useState(null);
     const [interactionMessages, setInteractionMessages] = useState([]);
     const [showInteractionDialog, setShowInteractionDialog] = useState(false);
 
-    // ? categories from API
-    const [categories, setCategories] = useState(mockCategoriesFallback);
+    // ? categories from API only (no mock fallback)
+    const [categories, setCategories] = useState([]);
     const [loadingCategories, setLoadingCategories] = useState(false);
 
-    // ? newest products from API
+    // newest products from API
     const [newProducts, setNewProducts] = useState([]);
     const [loadingNew, setLoadingNew] = useState(false);
     const [newError, setNewError] = useState("");
 
-    // ? wishlist ids (used to render heart state)
+    // wishlist ids (used to render heart state)
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [wishlistLoading, setWishlistLoading] = useState(false);
 
@@ -110,7 +100,6 @@ export default function HomeExternal() {
     // GET: /api/Wishlist/ids?userId=5
     // =========================
     useEffect(() => {
-        // if not logged in yet, keep empty
         if (!currentUserId) {
             setWishlistIds(new Set());
             return;
@@ -125,8 +114,6 @@ export default function HomeExternal() {
                 const res = await fetch(`${API_BASE}/api/Wishlist/ids?userId=${currentUserId}`, {
                     signal: controller.signal,
                     headers: { "Content-Type": "application/json" },
-                    // if you later secure endpoints with cookies:
-                    // credentials: "include",
                 });
 
                 if (!res.ok) return;
@@ -146,7 +133,7 @@ export default function HomeExternal() {
     }, [API_BASE, currentUserId]);
 
     // =========================
-    // Load categories (same style as Product.jsx)
+    // Load categories (API)
     // GET: /api/Category?pageNumber=1&pageSize=200
     // =========================
     useEffect(() => {
@@ -161,12 +148,14 @@ export default function HomeExternal() {
                     headers: { "Content-Type": "application/json" },
                 });
 
-                if (!res.ok) return;
+                if (!res.ok) {
+                    setCategories([]); // ? no fallback
+                    return;
+                }
 
                 const data = await res.json();
                 const items = data.items ?? [];
 
-                // map to CategoriesRow shape
                 const mapped = items
                     .map((c) => ({
                         id: c.categoryId ?? c.CategoryId ?? null,
@@ -175,9 +164,10 @@ export default function HomeExternal() {
                     }))
                     .filter((c) => c.id != null);
 
-                if (mapped.length > 0) setCategories(mapped);
+                setCategories(mapped);
             } catch (e) {
                 if (e.name !== "AbortError") console.error("Failed to load categories:", e);
+                setCategories([]); // ? no fallback
             } finally {
                 setLoadingCategories(false);
             }
@@ -189,9 +179,6 @@ export default function HomeExternal() {
 
     // =========================
     // Load newest 10 products:
-    // - fetch a page (100)
-    // - sort by id DESC
-    // - take first 10
     // =========================
     useEffect(() => {
         const controller = new AbortController();
@@ -233,30 +220,59 @@ export default function HomeExternal() {
     }, [API_BASE]);
 
     // =========================
-    // Derived arrays with isFavorite computed from wishlistIds
+    // Add to cart (real backend)
+    // POST /api/Cart/{productId}?userId=5&qty=1
     // =========================
-    const bestSellersWithFav = useMemo(() => {
-        return mockBestSellers.map((p) => ({
-            ...p,
-            isFavorite: wishlistIds.has(p.id),
-        }));
-    }, [wishlistIds]);
+    const actuallyAddToCart = async (product) => {
+        if (!product?.id) return;
 
-    const newProductsWithFav = useMemo(() => {
-        return newProducts.map((p) => ({
-            ...p,
-            isFavorite: wishlistIds.has(p.id),
-        }));
-    }, [newProducts, wishlistIds]);
+        if (!currentUserId) {
+            console.warn("Login required to add to cart.");
+            return;
+        }
 
-    const actuallyAddToCart = (product) => {
-        setCartItems((prev) => [...prev, product]);
-        console.log("Added to cart:", product.name);
+        // ? block immediately if out of stock
+        const inv = product.inventoryCount ?? 0;
+        const status = product.stockStatus ?? "";
+        if (inv <= 0 || status === "OUT_OF_STOCK" || product.canAddToCart === false) {
+            console.warn("Out of stock. Add to cart blocked.");
+            return;
+        }
+
+        try {
+            const url = `${API_BASE}/api/Cart/${product.id}?userId=${currentUserId}&qty=1`;
+
+            const res = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+            });
+
+            // 409 when out of stock / exceeds stock
+            if (res.status === 409) {
+                const data = await res.json().catch(() => null);
+                console.warn("Cart conflict:", data?.reason || "OUT_OF_STOCK");
+                return;
+            }
+
+            if (!res.ok) throw new Error("Cart add failed");
+
+            // update navbar count
+            refreshCartCount?.();
+        } catch (e) {
+            console.error("Failed to add to cart:", e);
+        }
     };
 
     // Called from ProductRowSection / ProductCard
     const handleAddToCartRequest = (product) => {
-        const inc = product.incompatibilities || [];
+        // ? if no stock, do nothing (button will be disabled anyway)
+        const inv = product?.inventoryCount ?? 0;
+        const status = product?.stockStatus ?? "";
+        if (inv <= 0 || status === "OUT_OF_STOCK" || product?.canAddToCart === false) {
+            return;
+        }
+
+        const inc = product?.incompatibilities || [];
         const hasIncompatibility = Array.isArray(inc) && inc.length > 0;
 
         if (!hasIncompatibility) {
@@ -277,20 +293,15 @@ export default function HomeExternal() {
 
     const handleConfirmAdd = () => {
         if (pendingProduct) {
-            console.log("Proceeding to add despite incompatibility:", pendingProduct.name);
             actuallyAddToCart(pendingProduct);
         }
         handleCancelAdd();
     };
 
-    // ? Heart click: call POST (add) or DELETE (remove)
-    // Controller endpoints:
-    // POST   /api/Wishlist/{productId}?userId=5
-    // DELETE /api/Wishlist/{productId}?userId=5
+    // Heart click: call POST (add) or DELETE (remove)
     const handleToggleFavorite = async (product) => {
         if (!product?.id) return;
 
-        // if no user yet, just block (or show login dialog later)
         if (!currentUserId) {
             console.warn("No userId found. Login required to use wishlist.");
             return;
@@ -304,40 +315,63 @@ export default function HomeExternal() {
             const res = await fetch(url, {
                 method: isFav ? "DELETE" : "POST",
                 headers: { "Content-Type": "application/json" },
-                // if you later secure endpoints with cookies:
-                // credentials: "include",
             });
 
             if (!res.ok) throw new Error("Wishlist request failed");
 
-            // update local set immediately (fast UI)
             setWishlistIds((prev) => {
                 const next = new Set(prev);
                 if (isFav) next.delete(product.id);
                 else next.add(product.id);
                 return next;
             });
+
+            refreshWishlistCount?.();
         } catch (e) {
             console.error("Failed to toggle wishlist:", e);
         }
     };
+
+    // =========================
+    // Derived arrays with isFavorite computed from wishlistIds
+    // + ? add canAddToCart for mock best sellers too
+    // =========================
+    const bestSellersWithFav = useMemo(() => {
+        return mockBestSellers.map((p) => {
+            const inv = p.inventoryCount ?? 0;
+            const status =
+                p.stockStatus ?? (inv <= 0 ? "OUT_OF_STOCK" : inv <= 5 ? "LOW_STOCK" : "IN_STOCK");
+
+            return {
+                ...p,
+                stockStatus: status,
+                canAddToCart: inv > 0 && status !== "OUT_OF_STOCK",
+                isFavorite: wishlistIds.has(p.id),
+            };
+        });
+    }, [wishlistIds]);
+
+    const newProductsWithFav = useMemo(() => {
+        return newProducts.map((p) => ({
+            ...p,
+            isFavorite: wishlistIds.has(p.id),
+        }));
+    }, [newProducts, wishlistIds]);
 
     return (
         <div className="home-external">
             {/* Hero slider */}
             <HomeSlider />
 
-            {/* Categories (API) */}
+            {/* Categories (API only) */}
             <CategoriesRow categories={categories} />
 
-            {/* Optional: tiny loading text */}
             {loadingCategories && (
                 <div className="container mt-2">
                     <small className="text-muted">Loading categories...</small>
                 </div>
             )}
 
-            {/* Optional: wishlist ids loading (tiny) */}
             {wishlistLoading && (
                 <div className="container mt-2">
                     <small className="text-muted">Loading wishlist...</small>

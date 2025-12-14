@@ -1,5 +1,5 @@
 // src/Pages/External_System/ProductDetails.jsx
-import { useEffect, useMemo, useState, useContext } from "react";
+import { useEffect, useMemo, useState, useContext, useRef } from "react";
 import { useParams } from "react-router-dom";
 import PageHeader from "../Shared_Components/PageHeader";
 import StockStatus from "../Shared_Components/StockStatus";
@@ -10,6 +10,8 @@ import Heart from "../../../assets/icons/heart.svg";
 import HeartFilled from "../../../assets/icons/heart-filled.svg";
 import "./ProductDetails.css";
 import { AuthContext } from "../../../Context/AuthContext.jsx";
+import { WishlistContext } from "../../../Context/WishlistContext";
+import { CartContext } from "../../../Context/CartContext";
 
 // ---------- helper to build messages like in Home / WishList ----------
 const buildInteractionMessages = (inc) => {
@@ -29,22 +31,28 @@ const buildInteractionMessages = (inc) => {
     return msgs;
 };
 
-const mockCheckInteractions = (currentCart, productToAdd) => {
+const mockCheckInteractions = (_currentCart, productToAdd) => {
     const inc = productToAdd?.incompatibilities;
     return buildInteractionMessages(inc);
 };
 
-// map API list item -> ProductRowSection card shape
-const mapListItemToCard = (dto) => ({
+// map API list item -> ProductRowSection card shape (IMPORTANT: include stock fields)
+const mapListItemToCard = (dto, API_BASE) => ({
     id: dto.id,
     name: dto.name,
     price: dto.price ?? 0,
-    imageUrl: dto.id ? `https://localhost:7231/api/ExternalProducts/${dto.id}/image` : null,
+    imageUrl: dto.id ? `${API_BASE}/api/ExternalProducts/${dto.id}/image` : null,
     isFavorite: false,
     requiresPrescription: dto.requiresPrescription ?? false,
     incompatibilities: dto.incompatibilities ?? [],
     categoryName: dto.categoryName ?? "",
     productType: dto.productTypeName ?? "",
+
+    
+    inventoryCount: dto.inventoryCount ?? 0,
+    stockStatus:
+        dto.stockStatus ??
+        ((dto.inventoryCount ?? 0) <= 0 ? "OUT_OF_STOCK" : "IN_STOCK"),
 });
 
 export default function ProductDetails() {
@@ -52,8 +60,30 @@ export default function ProductDetails() {
 
     const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
 
+    const { refreshWishlistCount } = useContext(WishlistContext);
+    const { refreshCartCount } = useContext(CartContext);
+
     const { user } = useContext(AuthContext);
     const currentUserId = user?.userId ?? user?.id ?? user?.UserId ?? null;
+
+    
+    const [isAdded, setIsAdded] = useState(false);
+    const addedTimerRef = useRef(null);
+
+    const flashAdded = () => {
+        setIsAdded(true);
+        if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
+        addedTimerRef.current = setTimeout(() => {
+            setIsAdded(false);
+            setQuantity(1); 
+        }, 1400);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
+        };
+    }, []);
 
     // ? wishlist ids (for hearts everywhere)
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
@@ -69,7 +99,7 @@ export default function ProductDetails() {
 
     const [quantity, setQuantity] = useState(1);
 
-    // local cart mock
+    // local cart mock (kept for interaction logic — you can later replace with real cart fetch)
     const [cartItems, setCartItems] = useState([]);
 
     // dialogs
@@ -157,9 +187,7 @@ export default function ProductDetails() {
             const data = await res.json();
             const items = data.items || [];
 
-            setProduct((prev) =>
-                prev ? { ...prev, branchesCount: data.branchesCount ?? 0 } : prev
-            );
+            setProduct((prev) => (prev ? { ...prev, branchesCount: data.branchesCount ?? 0 } : prev));
 
             computeAndSetMaxQtyFromItems(items);
         } catch {
@@ -205,6 +233,9 @@ export default function ProductDetails() {
 
                 setQuantity(1);
                 setMaxQty(0);
+
+                
+                setIsAdded(false);
 
                 setProduct({
                     id: data.id,
@@ -278,7 +309,7 @@ export default function ProductDetails() {
                 const items = (data.items || [])
                     .filter((x) => x.id !== product.id)
                     .slice(0, 10)
-                    .map(mapListItemToCard);
+                    .map((dto) => mapListItemToCard(dto, API_BASE));
 
                 setSimilarProducts(items);
             } catch {
@@ -309,7 +340,7 @@ export default function ProductDetails() {
                 const items = (data.items || [])
                     .filter((x) => x.id !== product.id)
                     .slice(0, 10)
-                    .map(mapListItemToCard);
+                    .map((dto) => mapListItemToCard(dto, API_BASE));
 
                 setBrandProducts(items);
             } catch {
@@ -347,12 +378,59 @@ export default function ProductDetails() {
         });
     };
 
-    const actuallyAddToCart = (prod, qty) => {
-        setCartItems((prev) => [...prev, { ...prod, quantity: qty }]);
-        console.log("Added to cart:", prod.name, "qty:", qty);
+    // ==============================
+    // REAL add-to-cart API
+    // POST: /api/Cart/{productId}?userId=...&qty=...
+    // ==============================
+    const addToCartApi = async (prod, qty) => {
+        if (!currentUserId) {
+            console.warn("Login required to use cart.");
+            return false;
+        }
+        if (!prod?.id) return false;
+
+        // hard guard: out of stock
+        const outOfStock =
+            prod.stockStatus === "OUT_OF_STOCK" || (prod.id === product?.id && maxQty <= 0);
+
+        if (outOfStock) return false;
+
+        const safeQty = Math.max(1, Number(qty || 1));
+
+        try {
+            const url = `${API_BASE}/api/Cart/${prod.id}?userId=${currentUserId}&qty=${safeQty}`;
+
+            const res = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+            });
+
+            if (res.status === 409) {
+                const data = await res.json().catch(() => null);
+                console.warn("Cart conflict:", data?.reason || "OUT_OF_STOCK");
+                return false;
+            }
+
+            if (!res.ok) {
+                const body = await res.text();
+                console.error("Add to cart failed:", res.status, body);
+                return false;
+            }
+
+            refreshCartCount?.();
+            return true;
+        } catch (e) {
+            console.error("Failed to add to cart:", e);
+            return false;
+        }
     };
 
-    const handleAddToCartClick = () => {
+    // (optional) still keep local cart list for incompatibility mock
+    const addToLocalCartForMock = (prod, qty) => {
+        setCartItems((prev) => [...prev, { ...prod, quantity: qty }]);
+    };
+
+    const handleAddToCartClick = async () => {
         if (!product) return;
         if (maxQty <= 0) return;
 
@@ -360,7 +438,11 @@ export default function ProductDetails() {
         const messages = mockCheckInteractions(cartItems, product);
 
         if (messages.length === 0) {
-            actuallyAddToCart(product, safeQty);
+            const ok = await addToCartApi(product, safeQty);
+            if (ok) {
+                addToLocalCartForMock(product, safeQty);
+                flashAdded(); 
+            }
             return;
         }
 
@@ -369,11 +451,18 @@ export default function ProductDetails() {
         setShowInteractionDialog(true);
     };
 
-    const handleCarouselAddToCart = (p) => {
+    const handleCarouselAddToCart = async (p) => {
+        const outOfStock =
+            p?.stockStatus === "OUT_OF_STOCK" ||
+            (typeof p?.inventoryCount === "number" && p.inventoryCount <= 0);
+
+        if (outOfStock) return;
+
         const messages = mockCheckInteractions(cartItems, p);
 
         if (messages.length === 0) {
-            actuallyAddToCart(p, 1);
+            const ok = await addToCartApi(p, 1);
+            if (ok) addToLocalCartForMock(p, 1);
             return;
         }
 
@@ -390,15 +479,12 @@ export default function ProductDetails() {
             return;
         }
 
-        // if ProductRowSection passes a product object:
         const productId =
             typeof arg1 === "object" && arg1 !== null ? (arg1.id ?? arg1.productId) : arg1;
 
         if (!productId) return;
 
-        // if second arg missing, compute from set
-        const isFav =
-            typeof arg2 === "boolean" ? arg2 : wishlistIds.has(Number(productId));
+        const isFav = typeof arg2 === "boolean" ? arg2 : wishlistIds.has(Number(productId));
 
         try {
             const url = `${API_BASE}/api/Wishlist/${productId}?userId=${currentUserId}`;
@@ -420,12 +506,13 @@ export default function ProductDetails() {
                 else next.add(Number(productId));
                 return next;
             });
+
+            refreshWishlistCount();
         } catch (e) {
             console.error("Failed to toggle wishlist:", e);
         }
     };
 
-    // main product heart uses same handler
     const handleMainToggleFavorite = () => {
         if (!product?.id) return;
         handleToggleFavorite(product.id, mainIsFavorite);
@@ -451,9 +538,7 @@ export default function ProductDetails() {
 
             setBranchAvailability(items);
 
-            setProduct((prev) =>
-                prev ? { ...prev, branchesCount: data.branchesCount ?? 0 } : prev
-            );
+            setProduct((prev) => (prev ? { ...prev, branchesCount: data.branchesCount ?? 0 } : prev));
 
             computeAndSetMaxQtyFromItems(items);
         } catch (e) {
@@ -470,9 +555,14 @@ export default function ProductDetails() {
         setInteractionMessages([]);
     };
 
-    const handleConfirmAdd = () => {
+    const handleConfirmAdd = async () => {
         if (pendingItem) {
-            actuallyAddToCart(pendingItem.product, pendingItem.quantity);
+            const ok = await addToCartApi(pendingItem.product, pendingItem.quantity);
+            if (ok) {
+                addToLocalCartForMock(pendingItem.product, pendingItem.quantity);
+                // if the dialog was for the MAIN product, show Added on the main button too
+                if (pendingItem.product?.id === product?.id) flashAdded();
+            }
         }
         handleCancelAdd();
     };
@@ -595,12 +685,12 @@ export default function ProductDetails() {
 
                                     <button
                                         type="button"
-                                        className="btn qp-add-btn px-4"
+                                        className={`btn qp-add-btn px-4 ${isAdded ? "qp-added-btn" : ""}`}
                                         onClick={handleAddToCartClick}
-                                        disabled={maxQty <= 0}
-                                        title={maxQty <= 0 ? "Out of stock in all branches" : ""}
+                                        disabled={maxQty <= 0} // ? disabled only when out of stock
+                                        title={maxQty <= 0 ? "Out of stock in all branches" : "Add to cart"}
                                     >
-                                        Add to Cart
+                                        {maxQty <= 0 ? "Out of Stock" : isAdded ? "Added" : "Add to Cart"}
                                     </button>
                                 </div>
 
@@ -623,7 +713,7 @@ export default function ProductDetails() {
                                 title={loadingSimilar ? "Similar Products (Loading...)" : "Similar Products"}
                                 products={similarWithFav}
                                 onAddToCart={handleCarouselAddToCart}
-                                onToggleFavorite={handleToggleFavorite} // ? fixed
+                                onToggleFavorite={handleToggleFavorite}
                             />
                         </div>
 
@@ -633,7 +723,7 @@ export default function ProductDetails() {
                                 title={loadingBrand ? "Other Products by Brand (Loading...)" : "Other Products by Brand"}
                                 products={brandWithFav}
                                 onAddToCart={handleCarouselAddToCart}
-                                onToggleFavorite={handleToggleFavorite} // ? fixed
+                                onToggleFavorite={handleToggleFavorite}
                             />
                         </div>
                     </>

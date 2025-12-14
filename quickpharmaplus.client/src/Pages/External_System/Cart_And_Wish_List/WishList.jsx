@@ -1,5 +1,5 @@
-// src/Pages/External_System/WishList/WishList.jsx  (adjust path if different)
-import { useEffect, useMemo, useState, useContext } from "react";
+// src/Pages/External_System/WishList/WishList.jsx
+import { useEffect, useState, useContext } from "react";
 import PageHeader from "../Shared_Components/PageHeader";
 import TableFormat from "../Shared_Components/TableFormat";
 import formatCurrency from "../Shared_Components/formatCurrency";
@@ -10,24 +10,8 @@ import HeartFilled from "../../../assets/icons/heart-filled.svg";
 import "../Shared_Components/External_Style.css";
 import { AuthContext } from "../../../Context/AuthContext";
 import { Link } from "react-router-dom";
-
-
-// --- keep mock as fallback if API fails (optional) ---
-const INITIAL_WISHLIST_ITEMS = [
-    {
-        id: 1,
-        productId: 201,
-        name: "Product Name A",
-        category: "Category",
-        type: "type",
-        price: 0,
-        stockAvailable: 5,
-        stockStatus: "IN_STOCK",
-        prescribed: true,
-        imageSrc: "",
-        incompatibilities: { medications: [], allergies: [], illnesses: [] },
-    },
-];
+import { WishlistContext } from "../../../Context/WishlistContext";
+import { CartContext } from "../../../Context/CartContext";
 
 // build lines shown inside the incompatibility popover (for ProductInfoCell)
 const buildIncompatibilityLines = (inc = {}) => {
@@ -74,9 +58,17 @@ export default function WishList() {
     const { user } = useContext(AuthContext);
     const currentUserId = user?.userId ?? user?.id ?? user?.UserId ?? null;
 
+    // navbar badge refreshers
+    const { refreshWishlistCount } = useContext(WishlistContext);
+    const cartCtx = useContext(CartContext);
+    const refreshCartCount = cartCtx?.refreshCartCount;
+
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [loadError, setLoadError] = useState("");
+
+    const [rowBusy, setRowBusy] = useState({}); // { [productId]: true }
+    const [actionError, setActionError] = useState(""); // optional visible error
 
     const [addDialog, setAddDialog] = useState({
         show: false,
@@ -89,7 +81,7 @@ export default function WishList() {
 
     // =========================
     // Load wishlist from API
-    // GET: /api/Wishlist?userId=5
+    // GET: /api/Wishlist?userId=...
     // =========================
     useEffect(() => {
         if (!currentUserId) {
@@ -103,41 +95,61 @@ export default function WishList() {
             try {
                 setLoading(true);
                 setLoadError("");
+                setActionError("");
 
                 const res = await fetch(`${API_BASE}/api/Wishlist?userId=${currentUserId}`, {
                     signal: controller.signal,
                     headers: { "Content-Type": "application/json" },
-                    // credentials: "include", // enable later if you secure with cookies
                 });
 
-                if (!res.ok) throw new Error("Failed to load wishlist.");
+                if (!res.ok) {
+                    const body = await res.text().catch(() => "");
+                    throw new Error(body || "Failed to load wishlist.");
+                }
 
                 const data = await res.json();
                 const apiItems = Array.isArray(data?.items) ? data.items : [];
 
-                // Map API -> your UI shape
-                const mapped = apiItems.map((x, idx) => ({
-                    id: x.productId ?? idx + 1, // unique key for table row
-                    productId: x.productId,
-                    name: x.name ?? "—",
-                    category: x.categoryName ?? "—",
-                    type: x.productTypeName ?? "—",
-                    price: x.price ?? 0,
-                    stockAvailable: x.inventoryCount ?? 0,
-                    stockStatus: x.stockStatus ?? "IN_STOCK",
-                    prescribed: !!x.requiresPrescription,
-                    imageSrc: x.productId
-                        ? `${API_BASE}/api/ExternalProducts/${x.productId}/image`
-                        : "",
-                    incompatibilities: { medications: [], allergies: [], illnesses: [] }, // later
-                }));
+                const mapped = apiItems.map((x, idx) => {
+                    const productId = x.productId ?? x.ProductId ?? null;
+
+                    const inv =
+                        x.inventoryCount ??
+                        x.InventoryCount ??
+                        x.stockAvailable ??
+                        x.StockAvailable ??
+                        0;
+
+                    const stockStatus =
+                        x.stockStatus ??
+                        x.StockStatus ??
+                        (inv <= 0 ? "OUT_OF_STOCK" : inv <= 5 ? "LOW_STOCK" : "IN_STOCK");
+
+                    return {
+                        id: productId ?? idx + 1,
+                        productId,
+                        name: x.name ?? x.productName ?? "—",
+                        category: x.categoryName ?? x.category ?? "—",
+                        type: x.productTypeName ?? x.type ?? "—",
+                        price: x.price ?? 0,
+
+                        stockAvailable: inv,
+                        stockStatus,
+                        prescribed: !!(x.requiresPrescription ?? x.prescribed ?? false),
+
+                        imageSrc: productId ? `${API_BASE}/api/ExternalProducts/${productId}/image` : "",
+
+                        // keep structure
+                        incompatibilities: x.incompatibilities ?? { medications: [], allergies: [], illnesses: [] },
+                    };
+                });
 
                 setItems(mapped);
+
+                refreshWishlistCount?.();
             } catch (e) {
                 if (e.name !== "AbortError") {
                     setLoadError(e?.message || "Error loading wishlist.");
-                    // optional fallback:
-                    // setItems(INITIAL_WISHLIST_ITEMS);
                     setItems([]);
                 }
             } finally {
@@ -147,30 +159,38 @@ export default function WishList() {
 
         fetchWishlist();
         return () => controller.abort();
-    }, [API_BASE, currentUserId]);
+    }, [API_BASE, currentUserId, refreshWishlistCount]);
 
     // =========================
-    // Remove item (API)
-    // DELETE: /api/Wishlist/{productId}?userId=5
+    // Remove item from wishlist (API)
+    // DELETE: /api/Wishlist/{productId}?userId=...
     // =========================
+    const removeFromWishlistApi = async (productId) => {
+        const res = await fetch(`${API_BASE}/api/Wishlist/${productId}?userId=${currentUserId}`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+        });
+
+        if (!res.ok) {
+            const body = await res.text().catch(() => "");
+            throw new Error(body || "Failed to remove item from wishlist.");
+        }
+
+        return true;
+    };
+
     const handleRemoveItem = async (productId) => {
         if (!currentUserId || !productId) return;
 
         try {
-            const res = await fetch(
-                `${API_BASE}/api/Wishlist/${productId}?userId=${currentUserId}`,
-                {
-                    method: "DELETE",
-                    headers: { "Content-Type": "application/json" },
-                    // credentials: "include",
-                }
-            );
-
-            if (!res.ok) throw new Error("Failed to remove item.");
+            setActionError("");
+            await removeFromWishlistApi(productId);
 
             setItems((prev) => prev.filter((it) => it.productId !== productId));
+            refreshWishlistCount?.();
         } catch (e) {
             console.error(e);
+            setActionError(e?.message || "Failed to remove item.");
         }
     };
 
@@ -179,28 +199,109 @@ export default function WishList() {
         if (!currentUserId || items.length === 0) return;
 
         try {
-            // delete sequentially (simple + safe)
+            setActionError("");
+
             for (const it of items) {
                 // eslint-disable-next-line no-await-in-loop
-                await fetch(`${API_BASE}/api/Wishlist/${it.productId}?userId=${currentUserId}`, {
-                    method: "DELETE",
-                    headers: { "Content-Type": "application/json" },
-                    // credentials: "include",
-                });
+                await removeFromWishlistApi(it.productId);
             }
+
             setItems([]);
+            refreshWishlistCount?.();
         } catch (e) {
             console.error("Failed to clear wishlist:", e);
+            setActionError(e?.message || "Failed to clear wishlist.");
         }
     };
 
-    // Add to cart with incompatibility check (still mock logic)
+    // =========================
+    // Add to cart (API)
+    // POST: /api/Cart/{productId}?userId=...&qty=1
+    // =========================
+    const addToCartApi = async (productId, qty = 1) => {
+        const url = `${API_BASE}/api/Cart/${productId}?userId=${currentUserId}&qty=${qty}`;
+
+        const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+        });
+
+        // if your backend uses 409 for stock conflict
+        if (res.status === 409) {
+            const data = await res.json().catch(() => null);
+            return { ok: false, reason: data?.reason || "OUT_OF_STOCK" };
+        }
+
+        if (!res.ok) {
+            const body = await res.text().catch(() => "");
+            return { ok: false, reason: body || "FAILED" };
+        }
+
+        return { ok: true };
+    };
+
+    // =========================
+    // Add to cart + remove from wishlist (IMPORTANT FLOW)
+    // =========================
+    const addToCartThenRemoveFromWishlist = async (item) => {
+        if (!currentUserId) {
+            setActionError("Please login to add items to cart.");
+            return;
+        }
+
+        const productId = item?.productId;
+        if (!productId) {
+            setActionError("Missing product id.");
+            return;
+        }
+
+        // guard: don’t call backend if out of stock
+        const outOfStock =
+            (item.stockStatus || "").toUpperCase() === "OUT_OF_STOCK" ||
+            (typeof item.stockAvailable === "number" && item.stockAvailable <= 0);
+
+        if (outOfStock) return;
+
+        try {
+            setActionError("");
+            setRowBusy((prev) => ({ ...prev, [productId]: true }));
+
+            // 1) add to cart
+            const addRes = await addToCartApi(productId, 1);
+
+            if (!addRes.ok) {
+                const msg =
+                    addRes.reason === "OUT_OF_STOCK"
+                        ? "This product is out of stock."
+                        : `Failed to add to cart: ${addRes.reason}`;
+                console.warn(msg);
+                setActionError(msg);
+                return;
+            }
+
+            refreshCartCount?.();
+
+            // 2) remove from wishlist ONLY if cart add succeeded
+            await removeFromWishlistApi(productId);
+
+            setItems((prev) => prev.filter((it) => it.productId !== productId));
+            refreshWishlistCount?.();
+        } catch (e) {
+            console.error("Add-to-cart + remove-from-wishlist failed:", e);
+            setActionError(e?.message || "Something went wrong. Please try again.");
+        } finally {
+            setRowBusy((prev) => ({ ...prev, [productId]: false }));
+        }
+    };
+
+    // Add to cart click (with incompatibility dialog)
     const handleAddToCart = (item) => {
         const inc = item.incompatibilities || {};
         const summary = buildIncompatibilitySummary(inc);
 
+        // no incompatibility -> do action immediately
         if (!summary) {
-            console.log("Add to cart (no incompatibility):", item);
+            addToCartThenRemoveFromWishlist(item);
             return;
         }
 
@@ -214,10 +315,11 @@ export default function WishList() {
         });
     };
 
-    const handleConfirmAdd = () => {
+    const handleConfirmAdd = async () => {
         if (addDialog.item) {
-            console.log("Add to cart with incompatibility warning:", addDialog.item);
+            await addToCartThenRemoveFromWishlist(addDialog.item);
         }
+
         setAddDialog({
             show: false,
             item: null,
@@ -242,11 +344,7 @@ export default function WishList() {
                 {/* top right actions */}
                 <div className="d-flex justify-content-end mb-2">
                     {!isEmpty && (
-                        <button
-                            type="button"
-                            className="btn btn-link p-0"
-                            onClick={handleClearWishList}
-                        >
+                        <button type="button" className="btn btn-link p-0" onClick={handleClearWishList}>
                             Clear Wish List
                         </button>
                     )}
@@ -259,27 +357,26 @@ export default function WishList() {
                     </div>
                 )}
 
-                {loadError && (
-                    <div className="alert alert-danger">{loadError}</div>
-                )}
+                {loadError && <div className="alert alert-danger">{loadError}</div>}
+                {actionError && <div className="alert alert-warning">{actionError}</div>}
 
                 {/* table */}
-                <TableFormat
-                    headers={["", "Product", "Price", "Stock Status", ""]}
-                    headerBg="#54B2B5"
-                >
+                <TableFormat headers={["", "Product", "Price", "Stock Status", ""]} headerBg="#54B2B5">
                     {isEmpty ? (
                         <tr>
                             <td colSpan={5} className="text-center py-4 text-muted">
-                                {currentUserId
-                                    ? "Your wish list is empty."
-                                    : "Please login to view your wish list."}
+                                {currentUserId ? "Your wish list is empty." : "Please login to view your wish list."}
                             </td>
                         </tr>
                     ) : (
                         items.map((item) => {
                             const incLines = buildIncompatibilityLines(item.incompatibilities);
-                            const outOfStock = item.stockStatus === "OUT_OF_STOCK";
+
+                            const outOfStock =
+                                (item.stockStatus || "").toUpperCase() === "OUT_OF_STOCK" ||
+                                (typeof item.stockAvailable === "number" && item.stockAvailable <= 0);
+
+                            const busy = !!rowBusy[item.productId];
 
                             return (
                                 <tr key={item.productId}>
@@ -291,13 +388,10 @@ export default function WishList() {
                                             onClick={() => handleRemoveItem(item.productId)}
                                             aria-label="Remove from wish list"
                                             style={{ cursor: "pointer" }}
+                                            disabled={busy}
+                                            title={busy ? "Please wait..." : "Remove"}
                                         >
-                                            <img
-                                                src={HeartFilled}
-                                                alt="Remove from wishlist"
-                                                width="22"
-                                                height="22"
-                                            />
+                                            <img src={HeartFilled} alt="Remove from wishlist" width="22" height="22" />
                                         </button>
                                     </td>
 
@@ -319,13 +413,10 @@ export default function WishList() {
                                             incompatibilityLines={incLines}
                                             prescribed={item.prescribed}
                                         />
-
                                     </td>
 
                                     {/* price */}
-                                    <td className="align-middle">
-                                        {formatCurrency(item.price || 0)}
-                                    </td>
+                                    <td className="align-middle">{formatCurrency(item.price || 0)}</td>
 
                                     {/* stock status */}
                                     <td className="align-middle">
@@ -337,10 +428,17 @@ export default function WishList() {
                                         <button
                                             type="button"
                                             className="btn qp-add-btn px-3"
-                                            disabled={outOfStock}
+                                            disabled={outOfStock || busy}
                                             onClick={() => handleAddToCart(item)}
+                                            title={
+                                                outOfStock
+                                                    ? "Out of stock"
+                                                    : busy
+                                                        ? "Please wait..."
+                                                        : "Add to Cart"
+                                            }
                                         >
-                                            Add to Cart
+                                            {busy ? "Adding..." : "Add to Cart"}
                                         </button>
                                     </td>
                                 </tr>
@@ -356,9 +454,7 @@ export default function WishList() {
                 title="Possible Incompatibility"
                 body={
                     <>
-                        <p className="fw-bold">
-                            Are you sure you want to add this product to your cart?
-                        </p>
+                        <p className="fw-bold">Are you sure you want to add this product to your cart?</p>
                         <p>{addDialog.summary}</p>
 
                         {addDialog.detailLines && addDialog.detailLines.length > 0 && (
