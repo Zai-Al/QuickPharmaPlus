@@ -18,3 +18,122 @@
     align-items: center;
     gap: 1.2em;
 }
+
+/* ================================
+   SEARCHABLE DROPDOWN - CUSTOM WIDTH
+================================ */
+.safety-product-dropdown {
+    position: relative;
+    width: 80%; /* Changed to 80% */
+}
+
+.safety-dropdown-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    border: 1px solid #ced4da;
+    border-radius: 8px;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+    .safety-dropdown-input:focus {
+        border-color: #598199;
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgba(89, 129, 153, 0.25);
+    }
+
+    .safety-dropdown-input:disabled {
+        background-color: #e9ecef;
+        cursor: not-allowed;
+    }
+
+/* Dropdown suggestions list */
+.safety-dropdown-list {
+    position: absolute;
+    top: 100%; /* Shows below the input */
+    left: 0;
+    width: 100%; /* Matches input width exactly */
+    z-index: 2000;
+    /* Visual styling */
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 0;
+    margin: 0;
+    margin-top: 4px;
+}
+
+    /* List items */
+    .safety-dropdown-list .list-group-item {
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        white-space: nowrap;
+        border: none;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+        .safety-dropdown-list .list-group-item:last-child {
+            border-bottom: none;
+        }
+
+    /* Hover effect */
+    .safety-dropdown-list .list-group-item-action:hover {
+        background-color: #598199 !important;
+        color: white !important;
+    }
+
+    /* Active/selected item */
+    .safety-dropdown-list .active,
+    .safety-dropdown-list .list-group-item.active {
+        background-color: #598199 !important;
+        color: white !important;
+    }
+
+/* ================================
+   INTERACTION RESULTS
+================================ */
+/* Container for interaction results - matches form width */
+.interaction-result-container {
+    width: 61%;
+    margin-top: 0;
+    margin-bottom: 3em;
+    padding: 0 1rem;
+}
+
+/* Alert styling to match form */
+.interaction-alert {
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+    .interaction-alert p {
+        text-align: left;
+        font-size: 1.2rem;
+    }
+
+    .interaction-alert .alert-heading {
+        font-weight: 600;
+        text-align: center;
+    }
+
+    .interaction-alert i {
+        font-size: 1.2rem;
+    }
+
+/* Success state */
+.alert-success {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+/* Danger state */
+.alert-danger {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
