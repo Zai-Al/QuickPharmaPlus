@@ -32,7 +32,13 @@ public partial class Branch
     public virtual ICollection<Inventory> Inventories { get; set; } = new List<Inventory>();
 
     [InverseProperty("Branch")]
+    public virtual ICollection<Reorder> Reorders { get; set; } = new List<Reorder>();
+
+    [InverseProperty("Branch")]
     public virtual ICollection<Shipping> Shippings { get; set; } = new List<Shipping>();
+
+    [InverseProperty("Branch")]
+    public virtual ICollection<SupplierOrder> SupplierOrders { get; set; } = new List<SupplierOrder>();
 
     [ForeignKey("UserId")]
     [InverseProperty("Branches")]

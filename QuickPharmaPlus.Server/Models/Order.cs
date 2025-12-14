@@ -20,8 +20,8 @@ public partial class Order
     [Column("Order_Status_id")]
     public int? OrderStatusId { get; set; }
 
-    [Column("Order_total")]
-    public int? OrderTotal { get; set; }
+    [Column("Order_total", TypeName = "decimal(6, 3)")]
+    public decimal? OrderTotal { get; set; }
 
     [Column("Payment_id")]
     public int? PaymentId { get; set; }
@@ -31,6 +31,9 @@ public partial class Order
 
     [Column("Shipping_id")]
     public int? ShippingId { get; set; }
+
+    [Column("Order_creation_date")]
+    public DateTime? OrderCreationDate { get; set; }
 
     [ForeignKey("OrderStatusId")]
     [InverseProperty("Orders")]

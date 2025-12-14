@@ -23,8 +23,8 @@ public partial class PrescriptionPlan
     [Column("Prescription_Plan_Status_id")]
     public int? PrescriptionPlanStatusId { get; set; }
 
-    [Column("Prescription_Plan_total_amount")]
-    public int? PrescriptionPlanTotalAmount { get; set; }
+    [Column("Prescription_Plan_total_amount", TypeName = "decimal(6, 3)")]
+    public decimal? PrescriptionPlanTotalAmount { get; set; }
 
     [Column("User_id")]
     public int? UserId { get; set; }
