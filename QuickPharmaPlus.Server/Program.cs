@@ -128,6 +128,10 @@ namespace QuickPharmaPlus.Server
             builder.Services.AddScoped<IBranchRepository, BranchRepository>();
             builder.Services.AddScoped<IWishlistRepository, WishlistRepository>();
             builder.Services.AddScoped<ICartRepository, CartRepository>();
+            builder.Services.AddScoped<IReorderRepository, ReorderRepository>();
+            builder.Services.AddScoped<ISupplierOrderRepository, SupplierOrderRepository>();
+            builder.Services.AddScoped<IQuickPharmaLogRepository, QuickPharmaLogRepository>();
+            builder.Services.AddScoped<ISafetyCheckRepository, SafetyCheckRepository>();
 
 
             // 6) Stripe configuration (test secret key from appsettings.json)

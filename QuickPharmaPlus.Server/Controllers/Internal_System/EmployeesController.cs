@@ -1,9 +1,11 @@
 ﻿using System;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using QuickPharmaPlus.Server.Models;
+using QuickPharmaPlus.Server.ModelsDTO.Employee;
 using QuickPharmaPlus.Server.Repositories.Interface;
 
 namespace QuickPharmaPlus.Server.Controllers.Internal_System
@@ -66,9 +68,24 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                 role
             );
 
+            // MAP TO DTO TO PREVENT CIRCULAR REFERENCES
+            var dtoItems = result.Items.Select(u => new EmployeeDto
+            {
+                UserId = u.UserId,
+                FirstName = u.FirstName,
+                LastName = u.LastName,
+                EmailAddress = u.EmailAddress,
+                ContactNumber = u.ContactNumber,
+                RoleName = u.Role?.RoleName,
+                City = u.Address?.City?.CityName,
+                Block = u.Address?.Block,
+                Street = u.Address?.Street,
+                BuildingNumber = u.Address?.BuildingNumber
+            }).ToList();
+
             return Ok(new
             {
-                items = result.Items,
+                items = dtoItems,
                 totalCount = result.TotalCount,
                 pageNumber,
                 pageSize

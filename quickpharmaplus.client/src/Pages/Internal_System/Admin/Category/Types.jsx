@@ -20,6 +20,7 @@ export default function CategoryTypes() {
     const [types, setTypes] = useState([]);
 
     const [totalCount, setTotalCount] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
 
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 5;
@@ -53,7 +54,9 @@ export default function CategoryTypes() {
             const data = await res.json();
 
             setTypes(data.items ?? []);
-            setTotalCount(data.totalCount ?? 0);
+            const count = data.totalCount ?? 0;
+            setTotalCount(count);
+            setTotalPages(Math.max(1, Math.ceil(count / pageSize)));
 
         } catch (err) {
             console.error("Failed to fetch types:", err);
@@ -89,6 +92,7 @@ export default function CategoryTypes() {
 
             setShowAddPopup(false);
             setNewTypeName("");
+            setCurrentPage(1); // Reset to first page after adding
 
             fetchTypes();
 
@@ -115,7 +119,13 @@ export default function CategoryTypes() {
             if (!res.ok) throw new Error("Failed deleting type");
 
             setShowDeleteModal(false);
-            fetchTypes();
+
+            // If deleting the last item on current page, go to previous page
+            if (types.length === 1 && currentPage > 1) {
+                setCurrentPage(currentPage - 1);
+            } else {
+                fetchTypes();
+            }
 
         } catch (err) {
             console.error("Error deleting type:", err);
@@ -199,9 +209,8 @@ export default function CategoryTypes() {
             />
 
             <Pagination
-                totalItems={totalCount}
-                itemsPerPage={pageSize}
                 currentPage={currentPage}
+                totalPages={totalPages}
                 onPageChange={setCurrentPage}
             />
 
