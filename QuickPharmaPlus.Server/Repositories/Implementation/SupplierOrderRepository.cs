@@ -32,12 +32,15 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 1) pageSize = 10;
 
-            // Base query with all related entities
+            // Base query with all related entities including Branch → Address → City
             var query = _context.SupplierOrders
                 .Include(so => so.Supplier)
                 .Include(so => so.Employee)
                 .Include(so => so.Product)
                 .Include(so => so.SupplierOrderType)
+                .Include(so => so.Branch)
+                    .ThenInclude(b => b.Address)
+                        .ThenInclude(a => a.City)
                 .AsQueryable();
 
             // =============================================================
@@ -122,6 +125,10 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     SupplierOrderTypeId = so.SupplierOrderTypeId,
                     SupplierOrderTypeName = so.SupplierOrderType != null 
                         ? so.SupplierOrderType.SupplierOrderTypeName 
+                        : null,
+                    BranchId = so.BranchId,
+                    BranchName = so.Branch != null && so.Branch.Address != null && so.Branch.Address.City != null
+                        ? so.Branch.Address.City.CityName
                         : null
                 })
                 .ToListAsync();
@@ -153,6 +160,9 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 .Include(so => so.Employee)
                 .Include(so => so.Product)
                 .Include(so => so.SupplierOrderType)
+                .Include(so => so.Branch)
+                    .ThenInclude(b => b.Address)
+                        .ThenInclude(a => a.City)
                 .FirstOrDefaultAsync(so => so.SupplierOrderId == id);
 
             if (supplierOrder == null) return null;
@@ -187,7 +197,9 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 ProductDescription = supplierOrder.Product?.ProductDescription,
                 ProductPrice = supplierOrder.Product?.ProductPrice,
                 SupplierOrderTypeId = supplierOrder.SupplierOrderTypeId,
-                SupplierOrderTypeName = supplierOrder.SupplierOrderType?.SupplierOrderTypeName
+                SupplierOrderTypeName = supplierOrder.SupplierOrderType?.SupplierOrderTypeName,
+                BranchId = supplierOrder.BranchId,
+                BranchName = supplierOrder.Branch?.Address?.City?.CityName
             };
         }
 
@@ -218,6 +230,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             existing.EmployeeId = supplierOrder.EmployeeId;
             existing.ProductId = supplierOrder.ProductId;
             existing.SupplierOrderTypeId = supplierOrder.SupplierOrderTypeId;
+            existing.BranchId = supplierOrder.BranchId;
 
             await _context.SaveChangesAsync();
             return existing;

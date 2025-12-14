@@ -25,5 +25,8 @@
 
         public int? SupplierOrderTypeId { get; set; }
         public string? SupplierOrderTypeName { get; set; }
+
+        public int BranchId { get; set; }
+        public string? BranchName { get; set; }
     }
 }
