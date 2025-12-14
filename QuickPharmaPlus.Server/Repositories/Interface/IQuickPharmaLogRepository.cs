@@ -1,0 +1,29 @@
+﻿using QuickPharmaPlus.Server.ModelsDTO;
+using QuickPharmaPlus.Server.ModelsDTO.QuickPharmaLog;
+
+namespace QuickPharmaPlus.Server.Repositories.Interface
+{
+    public interface IQuickPharmaLogRepository
+    {
+        // Fetch logs with pagination, search, and filters
+        Task<PagedResult<QuickPharmaLogListDto>> GetAllQuickPharmaLogsAsync(
+            int pageNumber,
+            int pageSize,
+            string? search = null,
+            int? logTypeId = null,
+            string? employeeName = null,
+            DateOnly? actionDate = null);
+
+        // Fetch all log types for dropdown
+        Task<List<QuickPharmaLogTypeDto>> GetAllLogTypesAsync();
+
+        // Auto-generated log creation methods
+        Task CreateInventoryChangeLogAsync(int? userId, string? productName, string? branchName);
+        Task CreateLoginFailureLogAsync(string email);
+        Task CreateAddRecordLogAsync(int userId, string tableName);
+        Task CreateEditRecordLogAsync(int userId, string tableName);
+        Task CreateDeleteRecordLogAsync(int userId, string tableName);
+        Task CreatePrescriptionApprovalLogAsync(int userId, int prescriptionId);
+        Task CreateControlledProductDispensedLogAsync(int userId, string productName, int prescriptionId);
+    }
+}
