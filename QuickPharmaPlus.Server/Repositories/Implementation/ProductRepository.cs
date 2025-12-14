@@ -217,12 +217,17 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
     int[]? supplierIds = null,
     int[]? categoryIds = null,
     int[]? productTypeIds = null,
-    List<(decimal Min, decimal Max)>? priceRanges = null,
+    int[]? branchIds = null,
+    decimal? minPrice = null,
+    decimal? maxPrice = null,
     string? sortBy = null)
         {
             // --- basic guards ---
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 1) pageSize = 12;
+
+            // NEW: expiry cutoff date (ignore expired inventory)
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
             // --- reuse your existing search validation pattern ---
             if (!string.IsNullOrWhiteSpace(search))
@@ -245,7 +250,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             supplierIds = supplierIds?.Where(x => x > 0).Distinct().ToArray();
             categoryIds = categoryIds?.Where(x => x > 0).Distinct().ToArray();
             productTypeIds = productTypeIds?.Where(x => x > 0).Distinct().ToArray();
-
+            branchIds = branchIds?.Where(x => x > 0).Distinct().ToArray();
 
             // --- base query ---
             var query = _context.Products
@@ -264,35 +269,74 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             if (productTypeIds != null && productTypeIds.Length > 0)
                 query = query.Where(p => p.ProductTypeId.HasValue && productTypeIds.Contains(p.ProductTypeId.Value));
 
-            // --- price filter ---
-            if (priceRanges != null && priceRanges.Count > 0)
+            // UPDATED: branch filter ignores expired inventory too
+            if (branchIds != null && branchIds.Length > 0)
             {
                 query = query.Where(p =>
-                    priceRanges.Any(r =>
-                        (p.ProductPrice ?? 0m) >= r.Min &&
-                        (p.ProductPrice ?? 0m) <= r.Max
+                    _context.Inventories.Any(i =>
+                        i.ProductId == p.ProductId &&
+                        i.BranchId.HasValue &&
+                        branchIds.Contains(i.BranchId.Value) &&
+                        (i.InventoryQuantity ?? 0) > 0 &&
+                        (i.InventoryExpiryDate == null || i.InventoryExpiryDate >= today)
                     )
                 );
             }
 
+            // --- price filter (SQL-translatable) ---
+            if (minPrice.HasValue)
+                query = query.Where(p => (p.ProductPrice ?? 0m) >= minPrice.Value);
 
-            // --- search filter (same behavior as your original) ---
+            if (maxPrice.HasValue)
+                query = query.Where(p => (p.ProductPrice ?? 0m) <= maxPrice.Value);
+
+            // --- search filter (Product + Category + Brand + Type + Branch location) ---
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var term = search.Trim();
 
+                // numeric search → product ID
                 if (int.TryParse(term, out int idVal))
                 {
                     query = query.Where(p => p.ProductId == idVal);
                 }
                 else
                 {
-                    var lower = term.ToLower();
+                    var like = $"%{term}%";
 
                     query = query.Where(p =>
-                        (p.ProductName ?? "").ToLower().StartsWith(lower) ||
-                        (p.Category != null && (p.Category.CategoryName ?? "").ToLower().StartsWith(lower)) ||
-                        (p.Supplier != null && (p.Supplier.SupplierName ?? "").ToLower().StartsWith(lower))
+                        // Product name
+                        EF.Functions.Like(p.ProductName ?? "", like)
+
+                        // Category
+                        || (p.Category != null &&
+                            EF.Functions.Like(p.Category.CategoryName ?? "", like))
+
+                        // Brand / Supplier
+                        || (p.Supplier != null &&
+                            EF.Functions.Like(p.Supplier.SupplierName ?? "", like))
+
+                        // Product Type
+                        || (p.ProductType != null &&
+                            EF.Functions.Like(p.ProductType.ProductTypeName ?? "", like))
+
+                        // Branch search (Inventory → Branch → Address → City)
+                        || _context.Inventories.Any(i =>
+                            i.ProductId == p.ProductId
+                            && (i.InventoryQuantity ?? 0) > 0
+                            && (i.InventoryExpiryDate == null || i.InventoryExpiryDate >= today)
+                            && i.Branch != null
+                            && i.Branch.Address != null
+                            && (
+                                (i.Branch.Address.City != null &&
+                                 EF.Functions.Like(i.Branch.Address.City.CityName ?? "", like))
+                                || EF.Functions.Like(i.Branch.Address.Block ?? "", like)
+                                || EF.Functions.Like(i.Branch.Address.Street ?? "", like)
+                                || EF.Functions.Like(i.Branch.Address.BuildingNumber ?? "", like)
+                            )
+                        )
+
+         
                     );
                 }
             }
@@ -301,10 +345,11 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             sortBy = (sortBy ?? "").Trim().ToLowerInvariant();
             query = sortBy switch
             {
+                "price-asc" => query.OrderBy(p => p.ProductPrice ?? 0m),
                 "price-desc" => query.OrderByDescending(p => p.ProductPrice ?? 0m),
                 "name-asc" => query.OrderBy(p => p.ProductName),
                 "name-desc" => query.OrderByDescending(p => p.ProductName),
-                _ => query.OrderBy(p => p.ProductId), // default
+                _ => query.OrderBy(p => p.ProductId),
             };
 
             var total = await query.CountAsync();
@@ -324,7 +369,24 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     ProductTypeName = p.ProductType != null ? p.ProductType.ProductTypeName : null,
                     CategoryId = p.CategoryId,
                     CategoryName = p.Category != null ? p.Category.CategoryName : null,
-                    InventoryCount = _context.Inventories.Count(i => i.ProductId == p.ProductId)
+
+                    // UPDATED: SUM actual available stock quantity, ignore expired + ignore 0
+                    InventoryCount =
+                        (branchIds != null && branchIds.Length > 0)
+                            ? _context.Inventories
+                                .Where(i =>
+                                    i.ProductId == p.ProductId &&
+                                    i.BranchId.HasValue &&
+                                    branchIds.Contains(i.BranchId.Value)
+                                )
+                                .Where(i => (i.InventoryQuantity ?? 0) > 0)
+                                .Where(i => i.InventoryExpiryDate == null || i.InventoryExpiryDate >= today)
+                                .Sum(i => (int?)(i.InventoryQuantity ?? 0)) ?? 0
+                            : _context.Inventories
+                                .Where(i => i.ProductId == p.ProductId)
+                                .Where(i => (i.InventoryQuantity ?? 0) > 0)
+                                .Where(i => i.InventoryExpiryDate == null || i.InventoryExpiryDate >= today)
+                                .Sum(i => (int?)(i.InventoryQuantity ?? 0)) ?? 0
                 })
                 .ToListAsync();
 

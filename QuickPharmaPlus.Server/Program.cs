@@ -125,6 +125,9 @@ namespace QuickPharmaPlus.Server
             builder.Services.AddScoped<ISupplierRepository, SupplierRepository>();
             builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
             builder.Services.AddScoped<IProductRepository, ProductRepository>();
+            builder.Services.AddScoped<IBranchRepository, BranchRepository>();
+            builder.Services.AddScoped<IWishlistRepository, WishlistRepository>();
+            builder.Services.AddScoped<ICartRepository, CartRepository>();
             builder.Services.AddScoped<IReorderRepository, ReorderRepository>();
             builder.Services.AddScoped<ISupplierOrderRepository, SupplierOrderRepository>();
             builder.Services.AddScoped<IQuickPharmaLogRepository, QuickPharmaLogRepository>();

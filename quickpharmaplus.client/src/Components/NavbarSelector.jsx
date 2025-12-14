@@ -1,22 +1,28 @@
-// NavbarSelector.jsx
 import { useContext } from "react";
-import { AuthContext } from "../Context/AuthContext.jsx";
+import { AuthContext } from "../Context/AuthContext";
+import { WishlistContext } from "../Context/WishlistContext";
+import { CartContext } from "../Context/CartContext";
 import { useLocation } from "react-router-dom";
-import Navbar from "./Navbar";   // unified navbar
+import Navbar from "./Navbar";
 
 export default function NavbarSelector() {
     const { user } = useContext(AuthContext);
+    const { wishlistCount } = useContext(WishlistContext);
+    const { cartCount } = useContext(CartContext);
     const location = useLocation();
 
-    // Pages where navbar should not appear (utility pages)
     const hideOnPages = [
         "/forgotPassword",
-        "/resetPassworPublic"
+        "/resetPassworPublic",
     ];
 
-    // don't render navbar on certain utility pages
     if (hideOnPages.includes(location.pathname)) return null;
 
-    // always render Navbar; Navbar will show role-based or default links when user is null
-    return <Navbar user={user} />;
+    return (
+        <Navbar
+            user={user}
+            wishlistCount={wishlistCount}
+            cartCount={cartCount}
+        />
+    );
 }

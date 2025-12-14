@@ -12,7 +12,9 @@
     flex: 0 0 280px;
 }
 
-/* Pills: top-left stacked */
+/* =========================
+   Pills
+   ========================= */
 .product-badges {
     position: absolute;
     top: 0.6rem;
@@ -20,10 +22,11 @@
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
-    align-items: flex-start;
 }
 
-/* Heart button: top-right */
+/* =========================
+   Heart button
+   ========================= */
 .favorite-btn {
     position: absolute;
     top: 0.4rem;
@@ -32,28 +35,26 @@
     background: transparent;
     padding: 0.2rem;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
-    .favorite-btn svg {
-        width: 18px;
-        height: 18px;
-    }
+.favorite-icon {
+    width: 28px;
+    height: 28px;
+}
 
-    /* Optional hover */
-    .favorite-btn:hover svg {
-        transform: scale(1.05);
-    }
+.favorite-btn:hover .favorite-icon {
+    transform: scale(1.05);
+}
 
-/* Image area */
+/* =========================
+   Image
+   ========================= */
 .product-image-wrapper {
     width: 100%;
     height: 145px;
     border-radius: 12px;
     overflow: hidden;
-    margin-top: 3.6rem; /* leave space for pills/heart */
+    margin-top: 3.6rem;
     margin-bottom: 0.75rem;
     background: #f5f7fb;
     display: flex;
@@ -67,7 +68,9 @@
     object-fit: contain;
 }
 
-/* Info + button */
+/* =========================
+   Info
+   ========================= */
 .product-info {
     margin-bottom: 0.5rem;
 }
@@ -89,8 +92,10 @@
     color: #666;
 }
 
+/* =========================
+   Add to cart
+   ========================= */
 .product-add-btn {
-    align-self: stretch;
     border: none;
     border-radius: 999px;
     padding: 0.45rem 0.75rem;
@@ -99,4 +104,40 @@
     background: #3FA6AB;
     color: #fff;
     cursor: pointer;
+    transition: background 0.15s ease, transform 0.1s ease;
 }
+
+    .product-add-btn:hover {
+        background: #36969a;
+    }
+
+    .product-add-btn:active {
+        transform: scale(0.98);
+    }
+
+    /* =========================
+   Added state (GREEN, clickable)
+   ========================= */
+    .product-add-btn.added {
+        background: #22c55e; /* green */
+        color: #fff;
+    }
+
+        .product-add-btn.added:hover {
+            background: #16a34a;
+        }
+
+
+    /* =========================
+   Disabled / out of stock
+   ========================= */
+    .product-add-btn:disabled,
+    .product-add-btn[aria-disabled="true"] {
+        background: #e5e7eb;
+        color: #9ca3af;
+        cursor: not-allowed;
+    }
+
+        .product-add-btn:disabled:hover {
+            background: #e5e7eb;
+        }

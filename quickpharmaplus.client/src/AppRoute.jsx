@@ -397,7 +397,8 @@ export default function AppRoutes() {
                             <Route path="/productsPage" element={<Product />} />
 
 
-                            
+                            <Route path="/productDetails/:id" element={<ProductDetails />} />
+                                
 
                             <Route path="/myOrders" element={<ProtectedRoute allowedRoles={["Customer"]}>
                                 <MyOrders />
@@ -445,11 +446,7 @@ export default function AppRoutes() {
                             }
                             />
 
-                            <Route path="/productDetails/:id" element={<ProtectedRoute allowedRoles={["Customer"]}>
-                                <ProductDetails />
-                            </ProtectedRoute>
-                            }
-                            />
+                            
 
                             <Route path="/checkout" element={<ProtectedRoute allowedRoles={["Customer"]}>
                                 <Checkout />

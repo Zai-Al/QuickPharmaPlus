@@ -47,23 +47,23 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
         /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetExternalProducts(
-            int pageNumber = 1,
-            int pageSize = 12,
-            string? search = null,
+    int pageNumber = 1,
+    int pageSize = 12,
+    string? search = null,
 
-            [FromQuery] int[]? categoryIds = null,
-            [FromQuery] int[]? supplierIds = null,
-            [FromQuery] int[]? productTypeIds = null,
+    [FromQuery] int[]? categoryIds = null,
+    [FromQuery] int[]? supplierIds = null,
+    [FromQuery] int[]? productTypeIds = null,
+    [FromQuery] int[]? branchIds = null,
 
-            [FromQuery] string[]? priceRanges = null,
-            string? sortBy = "price-asc")
+    decimal? minPrice = null,
+    decimal? maxPrice = null,
+
+    string? sortBy = "price-asc")
         {
             try
             {
-                var parsedRanges = ParsePriceRanges(priceRanges);
-
                 // IMPORTANT: Match repository signature order!
-                // (supplierIds, categoryIds, productTypeIds)
                 var result = await _productRepository.GetExternalProductsAsync(
                     pageNumber,
                     pageSize,
@@ -71,7 +71,9 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                     supplierIds,
                     categoryIds,
                     productTypeIds,
-                    parsedRanges,
+                    branchIds,
+                    minPrice,
+                    maxPrice,
                     sortBy
                 );
 
@@ -139,63 +141,100 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             }
         }
 
-        // ------------------------------------------------------------
-        // GET api/ExternalProducts/filters
-        // ------------------------------------------------------------
-        [HttpGet("filters")]
-        public async Task<IActionResult> GetExternalProductFilters()
+
+
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> GetExternalProductById(int id)
         {
-            try
+            if (id <= 0) return BadRequest(new { error = "Invalid id" });
+
+            var dto = await _productRepository.GetProductByIdAsync(id);
+            if (dto == null) return NotFound(new { error = "Product not found" });
+
+            // Sum total units (ignore expired + ignore 0)
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            var inventoryCount = await _context.Inventories
+                .Where(i => i.ProductId == id)
+                .Where(i => (i.InventoryQuantity ?? 0) > 0)
+                .Where(i => i.InventoryExpiryDate == null || i.InventoryExpiryDate >= today)
+                .SumAsync(i => (int?)(i.InventoryQuantity ?? 0)) ?? 0;
+
+            var detail = new CustomerProductDetailDto
             {
-                var categories = await _context.Categories
-                    .Select(c => new { id = c.CategoryId, name = c.CategoryName })
-                    .OrderBy(x => x.name)
-                    .ToListAsync();
+                Id = dto.ProductId,
+                Name = dto.ProductName,
+                Description = dto.ProductDescription,
+                Price = dto.ProductPrice,
 
-                var brands = await _context.Suppliers
-                    .Select(s => new { id = s.SupplierId, name = s.SupplierName })
-                    .OrderBy(x => x.name)
-                    .ToListAsync();
+                CategoryId = dto.CategoryId,
+                CategoryName = dto.CategoryName,
 
-                var types = await _context.ProductTypes
-                    .Select(t => new { id = t.ProductTypeId, name = t.ProductTypeName })
-                    .OrderBy(x => x.name)
-                    .ToListAsync();
+                ProductTypeId = dto.ProductTypeId,
+                ProductTypeName = dto.ProductTypeName,
 
-                return Ok(new { categories, brands, types });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error while loading external product filters");
-                // Return a JSON error (helpful to the client), instead of HTML
-                return StatusCode(500, new
-                {
-                    error = "Failed to load filter options",
-                    message = ex.Message,
-#if DEBUG
-                    stackTrace = ex.StackTrace
-#endif
-                });
-            }
+                SupplierId = dto.SupplierId,
+                SupplierName = dto.SupplierName,
+
+                RequiresPrescription = dto.IsControlled ?? false,
+
+                InventoryCount = inventoryCount,
+                StockStatus =
+                    inventoryCount <= 0 ? "OUT_OF_STOCK" :
+                    inventoryCount <= 5 ? "LOW_STOCK" :
+                    "IN_STOCK",
+
+                ProductImageBase64 = dto.ProductImage != null ? Convert.ToBase64String(dto.ProductImage) : null,
+
+                Incompatibilities = null
+            };
+
+            return Ok(detail);
         }
 
-        private static List<(decimal Min, decimal Max)> ParsePriceRanges(string[]? priceRanges)
-        {
-            var result = new List<(decimal Min, decimal Max)>();
-            if (priceRanges == null) return result;
 
-            foreach (var range in priceRanges)
-            {
-                if (string.IsNullOrWhiteSpace(range)) continue;
-                var parts = range.Split('-', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length == 2
-                    && decimal.TryParse(parts[0].Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out var min)
-                    && decimal.TryParse(parts[1].Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out var max))
+        [HttpGet("{id:int}/availability")]
+        public async Task<IActionResult> GetProductAvailability(int id)
+        {
+            if (id <= 0) return BadRequest(new { error = "Invalid product id" });
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            var rows = await _context.Inventories
+                .Where(i => i.ProductId == id && i.BranchId.HasValue)
+                .Where(i => (i.InventoryQuantity ?? 0) > 0)
+                .Where(i => i.InventoryExpiryDate == null || i.InventoryExpiryDate >= today)
+                .Select(i => new
                 {
-                    result.Add((Min: min, Max: max));
-                }
-            }
-            return result;
+                    Qty = (i.InventoryQuantity ?? 0),
+                    CityName =
+                        i.Branch != null &&
+                        i.Branch.Address != null &&
+                        i.Branch.Address.City != null
+                            ? i.Branch.Address.City.CityName
+                            : "Unknown"
+                })
+                .ToListAsync();
+
+            var items = rows
+                .GroupBy(x => x.CityName)
+                .Select(g => new BranchAvailabilityDto
+                {
+                    CityName = g.Key,
+                    Stock = g.Sum(x => x.Qty)
+                })
+                .OrderByDescending(x => x.Stock)
+                .ToList();
+
+            var branchesCount = items.Count(x => x.Stock > 0);
+
+            return Ok(new
+            {
+                branchesCount,
+                items
+            });
         }
+
+
     }
 }

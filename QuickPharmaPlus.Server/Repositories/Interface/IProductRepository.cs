@@ -24,7 +24,9 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
     int[]? supplierIds = null,
     int[]? categoryIds = null,
     int[]? productTypeIds = null,
-    List<(decimal Min, decimal Max)>? priceRanges = null,
+    int[]? branchIds = null,
+    decimal? minPrice = null,
+decimal? maxPrice = null,
     string? sortBy = null
 );
 

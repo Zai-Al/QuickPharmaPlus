@@ -146,3 +146,60 @@
     .view-all-btn:hover {
         text-decoration: underline;
     }
+
+
+/* =========================
+   Categories carousel (safe)
+   ========================= */
+
+.categories-carousel {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    margin-top: 1.5rem;
+}
+
+/* override your wrap behavior ONLY when used as carousel */
+.categories-list.categories-scroll {
+    justify-content: flex-start; /* not centered in a scroll row */
+    flex-wrap: nowrap; /* IMPORTANT: stop wrapping */
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    padding: 0.5rem 0 0.75rem;
+}
+
+    .categories-list.categories-scroll::-webkit-scrollbar {
+        display: none;
+    }
+
+/* category arrows separate from product arrows */
+.categories-arrow {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    border: 1px solid #d0dde7;
+    background: #ffffff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    cursor: pointer;
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4a6572;
+}
+
+    .categories-arrow:hover {
+        background: #16a7b8;
+        color: #fff;
+        border-color: #16a7b8;
+    }
+
+/* optional: on small screens hide arrows and allow swipe */
+@media (max-width: 768px) {
+    .categories-arrow {
+        display: none;
+    }
+}

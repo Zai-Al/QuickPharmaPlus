@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+// src/Pages/External_System/Cart/Cart.jsx
+import { useEffect, useMemo, useState, useContext } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import PageHeader from "../Shared_Components/PageHeader";
 import TableFormat from "../Shared_Components/TableFormat";
 import formatCurrency from "../Shared_Components/formatCurrency";
@@ -7,218 +8,300 @@ import ProductInfoCell from "../Shared_Components/ProductInfoCell";
 import StockStatus from "../Shared_Components/StockStatus";
 import DialogModal from "../Shared_Components/DialogModal";
 import "../Shared_Components/External_Style.css";
+import { AuthContext } from "../../../Context/AuthContext";
+import { CartContext } from "../../../Context/CartContext";
 
-// --- Mock cart data – replace with API later ---
-const INITIAL_CART_ITEMS = [
-    {
-        id: 1,
-        productId: 101,
-        name: "Product Name A",
-        category: "Category",
-        type: "type",
-        price: 0,
-        quantity: 1,
-        stockAvailable: 5,
-        stockStatus: "IN_STOCK", // IN_STOCK | LOW_STOCK | OUT_OF_STOCK
-        prescribed: true,
-        imageSrc: "",
-        incompatibilities: {
-            medications: [
-                {
-                    otherProductId: 102,
-                    otherProductName: "Product Name B",
-                    interactionType: "MAJOR",
-                },
-            ],
-            allergies: [],
-            illnesses: [],
-        },
-    },
-    {
-        id: 2,
-        productId: 102,
-        name: "Product Name B",
-        category: "Category",
-        type: "type",
-        price: 0,
-        quantity: 1,
-        stockAvailable: 2,
-        stockStatus: "LOW_STOCK",
-        prescribed: false,
-        imageSrc: "",
-        incompatibilities: {
-            medications: [
-                {
-                    otherProductId: 101,
-                    otherProductName: "Product Name A",
-                    interactionType: "MAJOR",
-                },
-            ],
-            allergies: ["Penicillin"],
-            illnesses: ["Asthma"],
-        },
-    },
-    {
-        id: 3,
-        productId: 103,
-        name: "Product Name C",
-        category: "Category",
-        type: "type",
-        price: 0,
-        quantity: 1,
-        stockAvailable: 0,
-        stockStatus: "OUT_OF_STOCK",
-        prescribed: true,
-        imageSrc: "",
-        incompatibilities: {
-            medications: [],
-            allergies: [],
-            illnesses: [],
-        },
-    },
-];
-
-// build lines shown inside the incompatibility popover
+/* ---------------- helpers ---------------- */
 const buildIncompatibilityLines = (inc = {}) => {
     const lines = [];
 
-    if (inc.medications && inc.medications.length) {
+    if (inc.medications?.length) {
         lines.push(
-            "Not compatible with: " +
-            inc.medications
-                .map((m) => m.otherProductName)
-                .join(", ")
+            "Not compatible with: " + inc.medications.map((m) => m.otherProductName).join(", ")
         );
     }
-
-    if (inc.allergies && inc.allergies.length) {
-        lines.push(
-            "Allergy conflict: " + inc.allergies.join(", ")
-        );
+    if (inc.allergies?.length) {
+        lines.push("Allergy conflict: " + inc.allergies.join(", "));
     }
-
-    if (inc.illnesses && inc.illnesses.length) {
-        lines.push(
-            "Illness conflict: " + inc.illnesses.join(", ")
-        );
+    if (inc.illnesses?.length) {
+        lines.push("Illness conflict: " + inc.illnesses.join(", "));
     }
 
     return lines;
 };
 
-
-
 export default function Cart() {
-    const [items, setItems] = useState(INITIAL_CART_ITEMS);
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
+
+    const { user } = useContext(AuthContext);
+    const currentUserId = user?.userId ?? user?.id ?? user?.UserId ?? null;
+
+    // safe: don’t crash if provider not wrapped yet
+    const cartCtx = useContext(CartContext);
+    const refreshCartCount = cartCtx?.refreshCartCount;
+
     const navigate = useNavigate();
 
-    // per-item quantity errors (e.g., exceeding stock)
-    const [quantityErrors, setQuantityErrors] = useState({}); // { [id]: string }
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [loadError, setLoadError] = useState("");
+
+    // per-row qty errors (keyed by row.id)
+    const [quantityErrors, setQuantityErrors] = useState({});
     const [showProceedWarning, setShowProceedWarning] = useState(false);
 
+    /* =========================
+       Load cart
+       ========================= */
+    useEffect(() => {
+        if (!currentUserId) {
+            setItems([]);
+            return;
+        }
 
-    const itemsCount = items.reduce(
-        (sum, item) => sum + (item.quantity || 0),
-        0
+        const controller = new AbortController();
+
+        const fetchCart = async () => {
+            try {
+                setLoading(true);
+                setLoadError("");
+
+                const res = await fetch(`${API_BASE}/api/Cart?userId=${currentUserId}`, {
+                    signal: controller.signal,
+                    headers: { "Content-Type": "application/json" },
+                });
+
+                if (!res.ok) throw new Error("Failed to load cart.");
+
+                const data = await res.json();
+                const apiItems = Array.isArray(data?.items) ? data.items : [];
+
+                
+                const mapped = apiItems.map((x, idx) => {
+                    const productId = x.productId ?? x.ProductId;
+
+                    const qty =
+                        x.cartQuantity ??
+                        x.CartQuantity ??
+                        x.cartItemQuantity ??
+                        x.CartItemQuantity ??
+                        x.quantity ?? // fallback
+                        1;
+
+                    const inv =
+                        x.inventoryCount ??
+                        x.InventoryCount ??
+                        x.stockAvailable ??
+                        x.StockAvailable ??
+                        0;
+
+                    const stockStatus =
+                        x.stockStatus ??
+                        x.StockStatus ??
+                        (inv <= 0 ? "OUT_OF_STOCK" : inv <= 5 ? "LOW_STOCK" : "IN_STOCK");
+
+                    return {
+                        // keep row key stable (prefer cartItemId if backend returns it)
+                        id: x.cartItemId ?? x.CartItemId ?? x.id ?? idx + 1,
+                        productId,
+
+                        name: x.name ?? x.Name ?? "—",
+                        category: x.categoryName ?? x.CategoryName ?? "—",
+                        type: x.productTypeName ?? x.ProductTypeName ?? "—",
+                        price: x.price ?? x.Price ?? 0,
+
+                        quantity: Number(qty) || 1,
+
+                        stockAvailable: Number(inv) || 0,
+                        stockStatus,
+
+                        prescribed: !!(x.requiresPrescription ?? x.RequiresPrescription ?? false),
+
+                        imageSrc: productId ? `${API_BASE}/api/ExternalProducts/${productId}/image` : "",
+
+                        incompatibilities:
+                            x.incompatibilities ?? { medications: [], allergies: [], illnesses: [] },
+                    };
+                });
+
+                setItems(mapped);
+                refreshCartCount?.();
+            } catch (e) {
+                if (e.name !== "AbortError") {
+                    setLoadError(e?.message || "Error loading cart.");
+                    setItems([]);
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchCart();
+        return () => controller.abort();
+    }, [API_BASE, currentUserId, refreshCartCount]);
+
+    /* =========================
+       Derived values
+       ========================= */
+    const itemsCount = useMemo(
+        () => items.reduce((sum, it) => sum + (it.quantity || 0), 0),
+        [items]
     );
-    const totalWithoutShipping = items.reduce(
-        (sum, item) =>
-            sum + (item.price || 0) * (item.quantity || 0),
-        0
+
+    const subtotal = useMemo(
+        () => items.reduce((sum, it) => sum + (it.price || 0) * (it.quantity || 0), 0),
+        [items]
     );
 
     const isCartEmpty = items.length === 0;
 
-    // -- quantity change handler with stock rules --
-    const handleChangeQuantity = (id, delta) => {
-        setItems((prevItems) => {
-            let updatedItems = [...prevItems];
-            let errorMsg = "";
+    /* =========================
+       Quantity update (API)
+       PUT: /api/Cart/{productId}?userId=...&qty=NEW_QTY
+       (absolute set)
+       ========================= */
+    const updateQtyApi = async (productId, qty) => {
+        const res = await fetch(
+            `${API_BASE}/api/Cart/${productId}?userId=${currentUserId}&qty=${qty}`,
+            { method: "PUT", headers: { "Content-Type": "application/json" } }
+        );
 
-            updatedItems = updatedItems.map((item) => {
-                if (item.id !== id) return item;
+        if (res.status === 409) {
+            const data = await res.json().catch(() => null);
+            return { ok: false, reason: data?.reason || "EXCEEDS_AVAILABLE_STOCK" };
+        }
 
-                // if out of stock – no change
-                if (item.stockStatus === "OUT_OF_STOCK") {
-                    errorMsg =
-                        "This product is currently out of stock.";
-                    return item;
-                }
+        if (!res.ok) {
+            const body = await res.text().catch(() => "");
+            return { ok: false, reason: body || "FAILED" };
+        }
 
-                const currentQty = item.quantity || 1;
-                const stockAvailable =
-                    item.stockAvailable ?? currentQty;
+        return { ok: true };
+    };
 
-                const newQty = currentQty + delta;
+    const handleChangeQuantity = async (rowId, delta) => {
+        const row = items.find((x) => x.id === rowId);
+        if (!row) return;
 
-                if (newQty < 1) {
-                    return { ...item, quantity: 1 };
-                }
+        if (!currentUserId || !row.productId) return;
 
-                if (newQty > stockAvailable) {
-                    errorMsg = `Only ${stockAvailable} in stock.`;
-                    // do NOT change quantity
-                    return item;
-                }
+        const statusUpper = (row.stockStatus || "").toUpperCase();
+        if (statusUpper === "OUT_OF_STOCK") {
+            setQuantityErrors((p) => ({ ...p, [rowId]: "This product is currently out of stock." }));
+            return;
+        }
 
-                // valid change
-                return { ...item, quantity: newQty };
+        const currentQty = Number(row.quantity || 1);
+        const maxQty = Number.isFinite(row.stockAvailable) ? Number(row.stockAvailable) : currentQty;
+        const nextQty = currentQty + delta;
+
+        if (nextQty < 1) return;
+
+        if (nextQty > maxQty) {
+            setQuantityErrors((p) => ({ ...p, [rowId]: `Only ${maxQty} in stock.` }));
+            return;
+        }
+
+        // optimistic UI
+        setItems((prev) => prev.map((it) => (it.id === rowId ? { ...it, quantity: nextQty } : it)));
+        setQuantityErrors((p) => ({ ...p, [rowId]: "" }));
+
+        const result = await updateQtyApi(row.productId, nextQty);
+        if (!result.ok) {
+            // revert on failure
+            setItems((prev) => prev.map((it) => (it.id === rowId ? { ...it, quantity: currentQty } : it)));
+            setQuantityErrors((p) => ({
+                ...p,
+                [rowId]:
+                    result.reason === "EXCEEDS_AVAILABLE_STOCK"
+                        ? `Only ${maxQty} in stock.`
+                        : "Could not update quantity. Please try again.",
+            }));
+            return;
+        }
+
+        refreshCartCount?.();
+    };
+
+    /* =========================
+       Remove / clear
+       ========================= */
+    const handleRemoveItem = async (rowId) => {
+        const row = items.find((x) => x.id === rowId);
+        if (!row) return;
+
+        if (!currentUserId || !row.productId) return;
+
+        try {
+            const res = await fetch(`${API_BASE}/api/Cart/${row.productId}?userId=${currentUserId}`, {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
             });
 
-            // update error message for this item id
-            setQuantityErrors((prev) => ({
-                ...prev,
-                [id]: errorMsg,
-            }));
+            if (!res.ok) {
+                const body = await res.text().catch(() => "");
+                throw new Error(body || "Failed to remove item.");
+            }
 
-            return updatedItems;
-        });
-    };
+            setItems((prev) => prev.filter((x) => x.id !== rowId));
+            setQuantityErrors((prev) => {
+                const copy = { ...prev };
+                delete copy[rowId];
+                return copy;
+            });
 
-    // remove one item
-    const handleRemoveItem = (id) => {
-        setItems((prev) => prev.filter((item) => item.id !== id));
-        setQuantityErrors((prev) => {
-            const copy = { ...prev };
-            delete copy[id];
-            return copy;
-        });
-    };
-
-    // clear the whole cart
-    const handleClearCart = () => {
-        setItems([]);
-        setQuantityErrors({});
-    };
-
-    const handleProceedToCheckout = () => {
-        // check if any item has incompatibilities
-        const hasAnyIncompatibility = items.some((item) => {
-            const inc = item.incompatibilities || {};
-            return (
-                (inc.medications &&
-                    inc.medications.length > 0) ||
-                (inc.allergies &&
-                    inc.allergies.length > 0) ||
-                (inc.illnesses &&
-                    inc.illnesses.length > 0)
-            );
-        });
-
-        if (hasAnyIncompatibility) {
-            setShowProceedWarning(true);
-        } else {
-            navigate("/checkout", { state: { items } });
+            refreshCartCount?.();
+        } catch (e) {
+            console.error(e);
         }
     };
 
+    const handleClearCart = async () => {
+        if (!currentUserId) return;
+
+        try {
+            await fetch(`${API_BASE}/api/Cart/clear?userId=${currentUserId}`, {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+            });
+
+            setItems([]);
+            setQuantityErrors({});
+            refreshCartCount?.();
+        } catch (e) {
+            console.error("Failed to clear cart:", e);
+        }
+    };
+
+    /* =========================
+       Checkout
+       ========================= */
+    const handleProceedToCheckout = () => {
+        const hasInc = items.some((x) => {
+            const inc = x.incompatibilities || {};
+            return !!(inc.medications?.length || inc.allergies?.length || inc.illnesses?.length);
+        });
+
+        if (hasInc) {
+            setShowProceedWarning(true);
+            return;
+        }
+
+        navigate("/checkout", { state: { items } });
+    };
+
+    /* =========================
+       Render
+       ========================= */
     return (
         <div className="min-vh-100">
-            {/* top blue bar */}
             <PageHeader title="Shopping Cart" />
 
             <div className="container list-padding py-4">
-                {/* Order Summary card */}
+                {loading && <small className="text-muted d-block mb-2">Loading cart...</small>}
+                {loadError && <div className="alert alert-danger">{loadError}</div>}
+
+                {/* Order summary */}
                 <div className="d-flex justify-content-center mb-4">
                     <div
                         className="card shadow-sm"
@@ -230,204 +313,147 @@ export default function Cart() {
                         }}
                     >
                         <div className="card-body pt-3 pb-5">
-                            <h5 className="fw-bold text-center mb-3">
-                                Order Summary
-                            </h5>
+                            <h5 className="fw-bold text-center mb-3">Order Summary</h5>
 
                             <div className="order-summary-grid mb-5">
                                 <div className="fw-bold">Items</div>
                                 <div className="text-end fw-semibold">{itemsCount}</div>
 
                                 <div className="fw-bold">Subtotal</div>
-                                <div className="text-end fw-semibold">
-                                    {formatCurrency(totalWithoutShipping)}
-                                </div>
+                                <div className="text-end fw-semibold">{formatCurrency(subtotal)}</div>
                             </div>
 
-
-                            <div className="text-center ">
+                            <div className="text-center">
                                 <button
                                     type="button"
                                     className="btn qp-add-btn px-4"
                                     style={{ minWidth: "220px" }}
-                                    disabled={isCartEmpty}
+                                    disabled={isCartEmpty || !currentUserId}
                                     onClick={handleProceedToCheckout}
                                 >
                                     Proceed to Checkout
                                 </button>
                             </div>
-                        </div>
 
+                            {!currentUserId && (
+                                <div className="text-center mt-2">
+                                    <small className="text-muted">Login is required to checkout.</small>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                {/* Clear cart link */}
-                <div className="d-flex justify-content-end mb-2">
-                    {!isCartEmpty && (
-                        <button
-                            type="button"
-                            className="btn btn-link p-0"
-                            onClick={handleClearCart}
-                        >
+                {!isCartEmpty && (
+                    <div className="d-flex justify-content-end mb-2">
+                        <button type="button" className="btn btn-link p-0" onClick={handleClearCart}>
                             Clear Shopping Cart
                         </button>
-                    )}
-                </div>
+                    </div>
+                )}
 
                 {/* Cart table */}
                 <TableFormat
-                    headers={[
-                        "", // remove
-                        "Product",
-                        "Price",
-                        "Quantity",
-                        "Stock Status",
-                        "Subtotal",
-                    ]}
+                    headers={["", "Product", "Price", "Quantity", "Stock Status", "Subtotal"]}
                     headerBg="#54B2B5"
                 >
-                    {items.length === 0 ? (
+                    {isCartEmpty ? (
                         <tr>
-                            <td
-                                colSpan={6}
-                                className="text-center py-4 text-muted"
-                            >
-                                Your shopping cart is empty.
+                            <td colSpan={6} className="text-center py-4 text-muted">
+                                {currentUserId ? (
+                                    "Your shopping cart is empty."
+                                ) : (
+                                    <>
+                                        Please login to view your cart.{" "}
+                                        <Link to="/login" className="text-decoration-none">
+                                            Login
+                                        </Link>
+                                    </>
+                                )}
                             </td>
                         </tr>
                     ) : (
                         items.map((item) => {
-                            const incLines =
-                                buildIncompatibilityLines(
-                                    item.incompatibilities
-                                );
-                            const qtyError =
-                                quantityErrors[item.id];
-                            const outOfStock =
-                                item.stockStatus ===
-                                "OUT_OF_STOCK";
+                            const incLines = buildIncompatibilityLines(item.incompatibilities);
+                            const qtyError = quantityErrors[item.id];
+                            const outOfStock = (item.stockStatus || "").toUpperCase() === "OUT_OF_STOCK";
 
                             return (
                                 <tr key={item.id}>
-                                    {/* remove (X) column */}
+                                    {/* remove */}
                                     <td className="align-middle text-center">
                                         <button
                                             type="button"
                                             className="btn p-0"
-                                            onClick={() =>
-                                                handleRemoveItem(
-                                                    item.id
-                                                )
-                                            }
+                                            onClick={() => handleRemoveItem(item.id)}
+                                            aria-label="Remove from cart"
                                         >
                                             X
                                         </button>
                                     </td>
 
-                                    {/* product info cell (shared component) */}
+                                    {/* product info + clickable name */}
                                     <td className="align-middle text-start ps-4">
                                         <ProductInfoCell
-                                            imageSrc={
-                                                item.imageSrc
+                                            imageSrc={item.imageSrc}
+                                            name={
+                                                <Link
+                                                    to={`/productDetails/${item.productId}`}
+                                                    className="text-decoration-none text-dark"
+                                                    style={{ cursor: "pointer" }}
+                                                >
+                                                    {item.name}
+                                                </Link>
                                             }
-                                            name={item.name}
-                                            category={
-                                                item.category
-                                            }
+                                            category={item.category}
                                             type={item.type}
-                                            incompatibilityLines={
-                                                incLines
-                                            }
-                                            prescribed={
-                                                item.prescribed
-                                            }
+                                            incompatibilityLines={incLines}
+                                            prescribed={item.prescribed}
                                         />
                                     </td>
 
                                     {/* price */}
-                                    <td className="align-middle">
-                                        {formatCurrency(
-                                            item.price || 0
-                                        )}
-                                    </td>
+                                    <td className="align-middle">{formatCurrency(item.price || 0)}</td>
 
-                                    {/* quantity controls + error */}
+                                    {/* quantity */}
                                     <td className="align-middle">
                                         <div className="d-flex flex-column align-items-center">
                                             <div className="d-inline-flex align-items-center border rounded-pill px-2 py-1">
                                                 <button
                                                     type="button"
                                                     className="btn btn-sm border-0"
-                                                    style={{
-                                                        boxShadow:
-                                                            "none",
-                                                        padding:
-                                                            "0 6px",
-                                                    }}
-                                                    onClick={() =>
-                                                        handleChangeQuantity(
-                                                            item.id,
-                                                            -1
-                                                        )
-                                                    }
-                                                    disabled={
-                                                        outOfStock
-                                                    }
+                                                    style={{ boxShadow: "none", padding: "0 6px" }}
+                                                    onClick={() => handleChangeQuantity(item.id, -1)}
+                                                    disabled={outOfStock || item.quantity <= 1}
                                                 >
                                                     -
                                                 </button>
-                                                <span className="mx-2">
-                                                    {
-                                                        item.quantity
-                                                    }
-                                                </span>
+
+                                                <span className="mx-2">{item.quantity}</span>
+
                                                 <button
                                                     type="button"
                                                     className="btn btn-sm border-0"
-                                                    style={{
-                                                        boxShadow:
-                                                            "none",
-                                                        padding:
-                                                            "0 6px",
-                                                    }}
-                                                    onClick={() =>
-                                                        handleChangeQuantity(
-                                                            item.id,
-                                                            1
-                                                        )
-                                                    }
-                                                    disabled={
-                                                        outOfStock
-                                                    }
+                                                    style={{ boxShadow: "none", padding: "0 6px" }}
+                                                    onClick={() => handleChangeQuantity(item.id, 1)}
+                                                    disabled={outOfStock || item.quantity >= item.stockAvailable}
                                                 >
                                                     +
                                                 </button>
                                             </div>
 
-                                            {qtyError && (
-                                                <div className="text-danger small mt-1">
-                                                    {qtyError}
-                                                </div>
-                                            )}
+                                            {qtyError && <div className="text-danger small mt-1">{qtyError}</div>}
                                         </div>
                                     </td>
 
                                     {/* stock status */}
                                     <td className="align-middle">
-                                        <StockStatus
-                                            status={
-                                                item.stockStatus
-                                            }
-                                        />
+                                        <StockStatus status={item.stockStatus} />
                                     </td>
 
                                     {/* subtotal */}
                                     <td className="align-middle">
-                                        {formatCurrency(
-                                            (item.price || 0) *
-                                            (item.quantity ||
-                                                0)
-                                        )}
+                                        {formatCurrency((item.price || 0) * (item.quantity || 0))}
                                     </td>
                                 </tr>
                             );
@@ -435,19 +461,17 @@ export default function Cart() {
                     )}
                 </TableFormat>
             </div>
+
+            {/* incompatibility proceed warning */}
             <DialogModal
                 show={showProceedWarning}
                 title="Incompatibility Detected"
                 body={
                     <>
-                        <p className="fw-bold">
-                            Are you sure you want to proceed to checkout?
+                        <p className="fw-bold">Are you sure you want to proceed to checkout?</p>
+                        <p className="mb-0">
+                            Some medications in your cart are incompatible with your health profile or other medications.
                         </p>
-                        <p>
-                            Some medications in your cart are incompatible with your
-                            health profile or other medications.
-                        </p>
-                        
                     </>
                 }
                 confirmLabel="Proceed Anyway"
@@ -458,8 +482,6 @@ export default function Cart() {
                     navigate("/checkout", { state: { items } });
                 }}
             />
-
         </div>
-
     );
 }

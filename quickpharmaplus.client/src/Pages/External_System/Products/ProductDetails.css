@@ -121,3 +121,14 @@
     width: 100%;
     max-width: 1600px; /* keep it tidy in the right column */
 }
+
+/* Green "Added" state like ProductCard */
+.qp-added-btn {
+    background: #16a34a !important;
+    border-color: #16a34a !important;
+}
+
+    .qp-added-btn:hover {
+        background: #12813a !important;
+        border-color: #12813a !important;
+    }
