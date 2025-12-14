@@ -10,6 +10,7 @@ namespace QuickPharmaPlus.Server.Models;
 [Index("ProductId", Name = "IXFK_Reorder_Product")]
 [Index("SupplierId", Name = "IXFK_Reorder_Supplier")]
 [Index("UserId", Name = "IXFK_Reorder_User")]
+[Index("BranchId", Name = "IX_Reorder_Branch_id")]
 public partial class Reorder
 {
     [Key]
@@ -27,6 +28,13 @@ public partial class Reorder
 
     [Column("User_id")]
     public int? UserId { get; set; }
+
+    [Column("Branch_id")]
+    public int BranchId { get; set; }
+
+    [ForeignKey("BranchId")]
+    [InverseProperty("Reorders")]
+    public virtual Branch Branch { get; set; } = null!;
 
     [ForeignKey("ProductId")]
     [InverseProperty("Reorders")]

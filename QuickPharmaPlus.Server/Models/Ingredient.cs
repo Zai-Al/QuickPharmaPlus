@@ -18,6 +18,12 @@ public partial class Ingredient
     public string? IngredientName { get; set; }
 
     [InverseProperty("Ingredient")]
+    public virtual ICollection<AllergyIngredientInteraction> AllergyIngredientInteractions { get; set; } = new List<AllergyIngredientInteraction>();
+
+    [InverseProperty("Ingredient")]
+    public virtual ICollection<IllnessIngredientInteraction> IllnessIngredientInteractions { get; set; } = new List<IllnessIngredientInteraction>();
+
+    [InverseProperty("Ingredient")]
     public virtual ICollection<IngredientProduct> IngredientProducts { get; set; } = new List<IngredientProduct>();
 
     [InverseProperty("IngredientA")]

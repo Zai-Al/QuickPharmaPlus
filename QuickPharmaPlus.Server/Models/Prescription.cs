@@ -25,8 +25,8 @@ public partial class Prescription
     [Column("Prescription_Status_id")]
     public int? PrescriptionStatusId { get; set; }
 
-    [Column("Prescription_expiry_date")]
-    public DateOnly? PrescriptionExpiryDate { get; set; }
+    [Column("Prescription_creation_date")]
+    public DateOnly? PrescriptionCreationDate { get; set; }
 
     [Column("User_id")]
     public int? UserId { get; set; }
@@ -34,6 +34,9 @@ public partial class Prescription
     [Column("Prescription_name")]
     [StringLength(200)]
     public string? PrescriptionName { get; set; }
+
+    [Column("isHealthPerscription")]
+    public bool? IsHealthPerscription { get; set; }
 
     [InverseProperty("Prescription")]
     public virtual ICollection<Approval> Approvals { get; set; } = new List<Approval>();

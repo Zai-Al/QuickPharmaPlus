@@ -17,8 +17,8 @@ public partial class Payment
     [Column("Payment_timestamp")]
     public DateTime? PaymentTimestamp { get; set; }
 
-    [Column("Payment_amount")]
-    public int? PaymentAmount { get; set; }
+    [Column("Payment_amount", TypeName = "decimal(6, 3)")]
+    public decimal? PaymentAmount { get; set; }
 
     [Column("Payment_isSuccessful")]
     public bool? PaymentIsSuccessful { get; set; }

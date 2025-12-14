@@ -11,6 +11,7 @@ namespace QuickPharmaPlus.Server.Models;
 [Index("SupplierId", Name = "IXFK_Supplier_Order_Supplier")]
 [Index("SupplierOrderStatusId", Name = "IXFK_Supplier_Order_Supplier_Order_Status")]
 [Index("EmployeeId", Name = "IXFK_Supplier_Order_User")]
+[Index("BranchId", Name = "IX_Supplier_Order_Branch_id")]
 public partial class SupplierOrder
 {
     [Key]
@@ -37,6 +38,13 @@ public partial class SupplierOrder
 
     [Column("Supplier_Order_Type_id")]
     public int? SupplierOrderTypeId { get; set; }
+
+    [Column("Branch_id")]
+    public int BranchId { get; set; }
+
+    [ForeignKey("BranchId")]
+    [InverseProperty("SupplierOrders")]
+    public virtual Branch Branch { get; set; } = null!;
 
     [ForeignKey("EmployeeId")]
     [InverseProperty("SupplierOrders")]

@@ -29,6 +29,9 @@ public partial class Address
     [Column("City_id")]
     public int? CityId { get; set; }
 
+    [Column("isProfileAdress")]
+    public bool? IsProfileAdress { get; set; }
+
     [InverseProperty("Address")]
     public virtual ICollection<Branch> Branches { get; set; } = new List<Branch>();
 

@@ -21,6 +21,9 @@ public partial class HealthProfileAllergy
     [Column("Health_Profile_id")]
     public int? HealthProfileId { get; set; }
 
+    [Column("Severity_id")]
+    public int? SeverityId { get; set; }
+
     [ForeignKey("AllergyId")]
     [InverseProperty("HealthProfileAllergies")]
     public virtual Allergy? Allergy { get; set; }
@@ -28,4 +31,8 @@ public partial class HealthProfileAllergy
     [ForeignKey("HealthProfileId")]
     [InverseProperty("HealthProfileAllergies")]
     public virtual HealthProfile? HealthProfile { get; set; }
+
+    [ForeignKey("SeverityId")]
+    [InverseProperty("HealthProfileAllergies")]
+    public virtual Severity? Severity { get; set; }
 }
