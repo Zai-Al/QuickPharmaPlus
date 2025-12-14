@@ -137,6 +137,7 @@ export default function OrdersList() {
         { key: "supplier", label: "Supplier Name" },
         { key: "product", label: "Product Name" },
         { key: "employee", label: "Employee Name" },
+        { key: "branch", label: "Branch" },
         { key: "date", label: "Order Date" },
         { key: "quantity", label: "Quantity" },
         { key: "type", label: "Type" },
@@ -149,6 +150,7 @@ export default function OrdersList() {
         { key: "product", label: "Product Name" },
         { key: "supplier", label: "Supplier Name" },
         { key: "employee", label: "Employee Name" },
+        { key: "branch", label: "Branch" },
         { key: "threshold", label: "Threshold" },
         { key: "edit", label: "Edit" },
         { key: "delete", label: "Delete" }
@@ -272,7 +274,7 @@ export default function OrdersList() {
             })));
         } catch (err) {
             console.error("Error fetching suppliers:", err);
-            setError(`Failed to load suppliers: ${err.message}`);
+            setError(`An error occurred while loading suppliers: ${err.message}`);
         }
     }
 
@@ -288,7 +290,7 @@ export default function OrdersList() {
             })));
         } catch (err) {
             console.error("Error fetching products:", err);
-            setError(`Failed to load products: ${err.message}`);
+            setError(`An error occurred while loading products: ${err.message}`);
         }
     }
 
@@ -302,7 +304,10 @@ export default function OrdersList() {
                 employeeId: e.userId ?? null,
                 employeeFullName: `${e.firstName ?? ""} ${e.lastName ?? ""}`.trim() || "—"
             })));
-        } catch { }
+        } catch (err) {
+            console.error("Error fetching employees:", err);
+            setError(`An error occurred while loading employees: ${err.message}`);
+        }
     }
 
     async function fetchStatusesForFilter() {
@@ -314,7 +319,10 @@ export default function OrdersList() {
                 statusId: s.statusId ?? null,
                 statusType: s.statusType ?? "—"
             })));
-        } catch { }
+        } catch (err) {
+            console.error("Error fetching statuses:", err);
+            setError(`An error occurred while loading statuses: ${err.message}`);
+        }
     }
 
     async function fetchTypesForFilter() {
@@ -326,7 +334,10 @@ export default function OrdersList() {
                 typeId: t.typeId ?? null,
                 typeName: t.typeName ?? "—"
             })));
-        } catch { }
+        } catch (err) {
+            console.error("Error fetching types:", err);
+            setError(`An error occurred while loading order types: ${err.message}`);
+        }
     }
 
     async function fetchSupplierOrders() {
@@ -361,6 +372,8 @@ export default function OrdersList() {
                 product: o.productName ?? "—",
                 employeeId: o.employeeId,
                 employee: o.employeeFullName ?? "—",
+                branchId: o.branchId,
+                branch: o.branchName ?? "—",
                 date: formatDate(o.supplierOrderDate),
                 quantity: o.supplierOrderQuantity ?? 0,
                 supplierOrderTypeId: o.supplierOrderTypeId,
@@ -371,8 +384,9 @@ export default function OrdersList() {
 
             setAllSupplierOrders(mapped);
 
-        } catch {
-            setError("Unable to load supplier orders.");
+        } catch (err) {
+            console.error("Error fetching supplier orders:", err);
+            setError(`An error occurred while loading supplier orders: ${err.message}`);
         } finally {
             setLoading(false);
         }
@@ -404,13 +418,16 @@ export default function OrdersList() {
                 supplier: r.supplierName ?? "—",
                 userId: r.userId,
                 employee: r.userFullName ?? "—",
+                branchId: r.branchId,
+                branch: r.branchName ?? "—",
                 threshold: r.reorderThreshold ?? 0
             }));
 
             setAllReorders(mapped);
 
-        } catch {
-            setError("Unable to load reorders.");
+        } catch (err) {
+            console.error("Error fetching reorders:", err);
+            setError(`An error occurred while loading reorders: ${err.message}`);
         } finally {
             setLoading(false);
         }
@@ -676,6 +693,7 @@ export default function OrdersList() {
             }
         } catch (err) {
             console.error("Delete error:", err);
+            setError(`An error occurred while deleting the record: ${err.message}`);
         } finally {
             setDeleteId(null);
             setShowModal(false);

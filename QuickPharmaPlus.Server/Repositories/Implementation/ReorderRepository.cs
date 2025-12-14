@@ -31,11 +31,14 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 1) pageSize = 10;
 
-            // Base query
+            // Base query including Branch → Address → City
             var query = _context.Reorders
                 .Include(r => r.Product)
                 .Include(r => r.Supplier)
                 .Include(r => r.User)
+                .Include(r => r.Branch)
+                    .ThenInclude(b => b.Address)
+                        .ThenInclude(a => a.City)
                 .AsQueryable();
 
             // =============================================================
@@ -96,6 +99,10 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     UserId = r.UserId,
                     UserFullName = r.User != null
                         ? (r.User.FirstName ?? "") + " " + (r.User.LastName ?? "")
+                        : null,
+                    BranchId = r.BranchId,
+                    BranchName = r.Branch != null && r.Branch.Address != null && r.Branch.Address.City != null
+                        ? r.Branch.Address.City.CityName
                         : null
                 })
                 .ToListAsync();
@@ -116,6 +123,9 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 .Include(r => r.Product)
                 .Include(r => r.Supplier)
                 .Include(r => r.User)
+                .Include(r => r.Branch)
+                    .ThenInclude(b => b.Address)
+                        .ThenInclude(a => a.City)
                 .FirstOrDefaultAsync(r => r.ReorderId == id);
 
             if (reorder == null) return null;
@@ -135,7 +145,9 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 UserFullName = reorder.User != null
                     ? (reorder.User.FirstName ?? "") + " " + (reorder.User.LastName ?? "")
                     : null,
-                UserEmail = reorder.User?.EmailAddress
+                UserEmail = reorder.User?.EmailAddress,
+                BranchId = reorder.BranchId,
+                BranchName = reorder.Branch?.Address?.City?.CityName
             };
         }
 
@@ -163,6 +175,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             existing.ProductId = reorder.ProductId;
             existing.SupplierId = reorder.SupplierId;
             existing.UserId = reorder.UserId;
+            existing.BranchId = reorder.BranchId;
 
             await _context.SaveChangesAsync();
             return existing;
