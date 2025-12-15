@@ -27,11 +27,18 @@ export default function DropDown({
             >
                 <option value="" disabled hidden>{placeholder}</option>
 
-                {options.map((opt, idx) => (
-                    <option key={idx} value={opt}>
-                        {opt}
-                    </option>
-                ))}
+                {options.map((opt, idx) => {
+                    const optValue = typeof opt === "object" ? opt.value : opt;
+                    const optLabel = typeof opt === "object" ? opt.label : opt;
+
+                    return (
+                        <option key={idx} value={optValue}>
+                            {optLabel}
+                        </option>
+                    );
+                })}
+
+
             </select>
 
             {error && (
