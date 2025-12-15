@@ -12,6 +12,8 @@ import "./ProductDetails.css";
 import { AuthContext } from "../../../Context/AuthContext.jsx";
 import { WishlistContext } from "../../../Context/WishlistContext";
 import { CartContext } from "../../../Context/CartContext";
+import { IncompatibilityPill } from "../Shared_Components/MedicationPills";
+import { dialogCopy } from "../Shared_Components/dialogCopy";
 
 // ---------- helper to build messages like in Home / WishList ----------
 const buildInteractionMessages = (inc) => {
@@ -19,24 +21,99 @@ const buildInteractionMessages = (inc) => {
     if (Array.isArray(inc)) return inc;
 
     const msgs = [];
-    if (inc.medications && inc.medications.length > 0) {
-        msgs.push("This medication may interact with other medications you are taking.");
-    }
-    if (inc.allergies && inc.allergies.length > 0) {
-        msgs.push("This product may not be suitable due to your allergies.");
-    }
-    if (inc.illnesses && inc.illnesses.length > 0) {
-        msgs.push("This product may be incompatible with your recorded illnesses.");
-    }
+    if (inc.medications?.length) msgs.push(dialogCopy.cartMedicationInteraction.leadLine);
+    if (inc.allergies?.length) msgs.push(dialogCopy.cartHealthWarning.allergyLine);
+    if (inc.illnesses?.length) msgs.push(dialogCopy.cartHealthWarning.illnessLine);
     return msgs;
 };
 
+// ? normalize incompatibilities (array OR object) into lines for the pill popover + modals
+const normalizeIncToLines = (inc) => {
+    if (!inc) return [];
+    if (Array.isArray(inc)) return inc.filter(Boolean);
+
+    const lines = [];
+
+    (inc.medications || []).forEach((m) => {
+        if (!m) return;
+        if (typeof m === "string") lines.push(m);
+        else
+            lines.push(
+                m.message ||
+                (m.otherProductName
+                    ? `Not compatible with: ${m.otherProductName}`
+                    : "Medication interaction detected.")
+            );
+    });
+
+    (inc.allergies || []).forEach((a) => {
+        if (!a) return;
+        if (typeof a === "string") lines.push(a);
+        else lines.push(a.allergyName || a.name || JSON.stringify(a));
+    });
+
+    (inc.illnesses || []).forEach((i) => {
+        if (!i) return;
+        if (typeof i === "string") lines.push(i);
+        else lines.push(i.illnessName || i.name || JSON.stringify(i));
+    });
+
+    return lines.filter(Boolean);
+};
+
+// build nicer wishlist modal content from incompatibilities object
+const buildFavLines = (inc) => {
+    if (!inc) return [];
+    const lines = [];
+
+    if (Array.isArray(inc.medications) && inc.medications.length) {
+        inc.medications.forEach((m) => {
+            if (!m) return;
+            if (typeof m === "string") lines.push(m);
+            else if (typeof m === "object")
+                lines.push(
+                    m.message ||
+                    (m.otherProductName
+                        ? `Not compatible with: ${m.otherProductName}`
+                        : "Medication interaction detected.")
+                );
+        });
+    }
+
+    if (Array.isArray(inc.allergies) && inc.allergies.length) {
+        lines.push("Allergy conflict: " + inc.allergies.join(", "));
+    }
+
+    if (Array.isArray(inc.illnesses) && inc.illnesses.length) {
+        lines.push("Illness conflict: " + inc.illnesses.join(", "));
+    }
+
+    return lines.filter(Boolean);
+};
+
+const buildFavSummary = (inc) => {
+    const hasMed = Array.isArray(inc?.medications) && inc.medications.length > 0;
+    const hasAll = Array.isArray(inc?.allergies) && inc.allergies.length > 0;
+    const hasIll = Array.isArray(inc?.illnesses) && inc.illnesses.length > 0;
+
+    const types = [];
+    if (hasMed) types.push("your other wishlist items");
+    if (hasAll) types.push("your recorded allergies");
+    if (hasIll) types.push("your recorded illnesses");
+
+    if (types.length === 0) return "";
+    if (types.length === 1) return `This product may be incompatible with ${types[0]}.`;
+    if (types.length === 2) return `This product may be incompatible with ${types[0]} and ${types[1]}.`;
+    return "This product may be incompatible with your wishlist items, allergies, and illnesses.";
+};
+
+// local UI-only check (health-based)
 const mockCheckInteractions = (_currentCart, productToAdd) => {
     const inc = productToAdd?.incompatibilities;
     return buildInteractionMessages(inc);
 };
 
-// map API list item -> ProductRowSection card shape (IMPORTANT: include stock fields)
+// map API list item -> ProductRowSection card shape
 const mapListItemToCard = (dto, API_BASE) => ({
     id: dto.id,
     name: dto.name,
@@ -44,38 +121,39 @@ const mapListItemToCard = (dto, API_BASE) => ({
     imageUrl: dto.id ? `${API_BASE}/api/ExternalProducts/${dto.id}/image` : null,
     isFavorite: false,
     requiresPrescription: dto.requiresPrescription ?? false,
-    incompatibilities: dto.incompatibilities ?? [],
+    incompatibilities: dto.incompatibilities ?? { medications: [], allergies: [], illnesses: [] },
     categoryName: dto.categoryName ?? "",
     productType: dto.productTypeName ?? "",
-
-    
     inventoryCount: dto.inventoryCount ?? 0,
-    stockStatus:
-        dto.stockStatus ??
-        ((dto.inventoryCount ?? 0) <= 0 ? "OUT_OF_STOCK" : "IN_STOCK"),
+    stockStatus: dto.stockStatus ?? ((dto.inventoryCount ?? 0) <= 0 ? "OUT_OF_STOCK" : "IN_STOCK"),
 });
 
 export default function ProductDetails() {
     const { id } = useParams();
-
     const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
 
     const { refreshWishlistCount } = useContext(WishlistContext);
-    const { refreshCartCount } = useContext(CartContext);
+
+    // safety: CartProvider may not exist in some pages
+    const cartCtx = useContext(CartContext);
+    const refreshCartCount = cartCtx?.refreshCartCount;
 
     const { user } = useContext(AuthContext);
     const currentUserId = user?.userId ?? user?.id ?? user?.UserId ?? null;
 
-    
+    // ? main add button visual state (ONLY after proceed + success)
     const [isAdded, setIsAdded] = useState(false);
     const addedTimerRef = useRef(null);
+
+    const [quantity, setQuantity] = useState(1);
+    const [uiWarning, setUiWarning] = useState("");
 
     const flashAdded = () => {
         setIsAdded(true);
         if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
         addedTimerRef.current = setTimeout(() => {
             setIsAdded(false);
-            setQuantity(1); 
+            setQuantity(1); // ? reset qty back to 1
         }, 1400);
     };
 
@@ -85,11 +163,11 @@ export default function ProductDetails() {
         };
     }, []);
 
-    // ? wishlist ids (for hearts everywhere)
+    // wishlist ids (for hearts everywhere)
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [wishlistLoading, setWishlistLoading] = useState(false);
 
-    // ? limit quantity to highest stock in a single city row
+    // limit quantity to highest stock in a single city row
     const [maxQty, setMaxQty] = useState(0);
 
     // product state from API
@@ -97,15 +175,36 @@ export default function ProductDetails() {
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
 
-    const [quantity, setQuantity] = useState(1);
-
-    // local cart mock (kept for interaction logic — you can later replace with real cart fetch)
+    // local cart mock (for health-only modal; medication-vs-cart is server-side)
     const [cartItems, setCartItems] = useState([]);
 
-    // dialogs
+    // cart incompatibility dialog (used for BOTH health and drug-drug conflict)
     const [pendingItem, setPendingItem] = useState(null);
     const [interactionMessages, setInteractionMessages] = useState([]);
     const [showInteractionDialog, setShowInteractionDialog] = useState(false);
+
+    // ? wishlist confirmation dialog
+    const [favDialog, setFavDialog] = useState({
+        show: false,
+        product: null,
+        summary: "",
+        detailLines: [],
+        step: "health", // "health" | "medication"
+    });
+
+    const openFavDialog = (prod, inc, step) => {
+        setFavDialog({
+            show: true,
+            product: prod,
+            summary: buildFavSummary(inc),
+            detailLines: buildFavLines(inc),
+            step,
+        });
+    };
+
+    const closeFavDialog = () => {
+        setFavDialog({ show: false, product: null, summary: "", detailLines: [], step: "health" });
+    };
 
     const [showAvailabilityDialog, setShowAvailabilityDialog] = useState(false);
 
@@ -121,8 +220,7 @@ export default function ProductDetails() {
     const [loadingBrand, setLoadingBrand] = useState(false);
 
     // =========================
-    // Load wishlist IDs (for hearts)
-    // GET: /api/Wishlist/ids?userId=37
+    // Load wishlist IDs
     // =========================
     useEffect(() => {
         if (!currentUserId) {
@@ -162,11 +260,21 @@ export default function ProductDetails() {
     }, [API_BASE, currentUserId]);
 
     // ----------------------------
-    // helper: compute maxQty from availability items
+    // helper: compute maxQty
     // ----------------------------
+    const getBranchStock = (b) =>
+        Number(
+            b?.stock ??
+            b?.Stock ??
+            b?.stockAvailable ??
+            b?.StockAvailable ??
+            b?.inventoryCount ??
+            b?.InventoryCount ??
+            0
+        ) || 0;
+
     const computeAndSetMaxQtyFromItems = (items) => {
-        const highestStock =
-            items && items.length > 0 ? Math.max(...items.map((b) => b.stock ?? 0)) : 0;
+        const highestStock = items && items.length > 0 ? Math.max(...items.map(getBranchStock)) : 0;
 
         setMaxQty(highestStock);
 
@@ -178,7 +286,6 @@ export default function ProductDetails() {
         });
     };
 
-    // preload branchesCount + maxQty
     const preloadAvailabilityCount = async (productId) => {
         try {
             const res = await fetch(`${API_BASE}/api/ExternalProducts/${productId}/availability`);
@@ -188,7 +295,6 @@ export default function ProductDetails() {
             const items = data.items || [];
 
             setProduct((prev) => (prev ? { ...prev, branchesCount: data.branchesCount ?? 0 } : prev));
-
             computeAndSetMaxQtyFromItems(items);
         } catch {
             // silent
@@ -197,7 +303,6 @@ export default function ProductDetails() {
 
     // ==============================
     // Load product detail
-    // GET: /api/ExternalProducts/{id}
     // ==============================
     useEffect(() => {
         let cancelled = false;
@@ -206,18 +311,19 @@ export default function ProductDetails() {
             try {
                 setLoading(true);
                 setLoadError("");
+                setUiWarning("");
 
-                const res = await fetch(`${API_BASE}/api/ExternalProducts/${id}`);
+                const res = await fetch(
+                    `${API_BASE}/api/ExternalProducts/${id}${currentUserId ? `?userId=${currentUserId}` : ""}`
+                );
+
                 if (!res.ok) {
                     if (res.status === 404) throw new Error("Product not found.");
                     throw new Error("Failed to load product.");
                 }
 
                 const data = await res.json();
-
-                const imageUrl = data.productImageBase64
-                    ? `data:image/jpeg;base64,${data.productImageBase64}`
-                    : null;
+                const imageUrl = data.productImageBase64 ? `data:image/jpeg;base64,${data.productImageBase64}` : null;
 
                 if (cancelled) return;
 
@@ -233,8 +339,6 @@ export default function ProductDetails() {
 
                 setQuantity(1);
                 setMaxQty(0);
-
-                
                 setIsAdded(false);
 
                 setProduct({
@@ -255,7 +359,7 @@ export default function ProductDetails() {
                     stockStatus: data.stockStatus ?? "OUT_OF_STOCK",
                     branchesCount: 0,
                     imageUrl,
-                    incompatibilities: data.incompatibilities ?? null,
+                    incompatibilities: data.incompatibilities ?? { medications: [], allergies: [], illnesses: [] },
                 });
 
                 preloadAvailabilityCount(data.id);
@@ -277,13 +381,16 @@ export default function ProductDetails() {
         return () => {
             cancelled = true;
         };
-    }, [id, API_BASE]);
+    }, [id, API_BASE, currentUserId]);
 
-    // ? is main product currently in wishlist?
     const mainIsFavorite = !!product?.id && wishlistIds.has(product.id);
 
+    // ? main pill lines
+    const mainIncLines = normalizeIncToLines(product?.incompatibilities);
+    const mainHasInc = mainIncLines.length > 0;
+
     // ==============================
-    // Load Similar + Brand products (limit 10)
+    // Load Similar + Brand products
     // ==============================
     useEffect(() => {
         if (!product?.id) return;
@@ -301,6 +408,7 @@ export default function ProductDetails() {
                 qs.set("pageNumber", "1");
                 qs.set("pageSize", "10");
                 qs.append("productTypeIds", String(product.productTypeId));
+                if (currentUserId) qs.set("userId", String(currentUserId));
 
                 const res = await fetch(`${API_BASE}/api/ExternalProducts?${qs.toString()}`);
                 if (!res.ok) throw new Error("Failed to load similar products.");
@@ -332,6 +440,7 @@ export default function ProductDetails() {
                 qs.set("pageNumber", "1");
                 qs.set("pageSize", "10");
                 qs.append("supplierIds", String(product.supplierId));
+                if (currentUserId) qs.set("userId", String(currentUserId));
 
                 const res = await fetch(`${API_BASE}/api/ExternalProducts?${qs.toString()}`);
                 if (!res.ok) throw new Error("Failed to load brand products.");
@@ -352,9 +461,8 @@ export default function ProductDetails() {
 
         fetchSimilar();
         fetchBrand();
-    }, [product?.id, product?.productTypeId, product?.supplierId, API_BASE]);
+    }, [product?.id, product?.productTypeId, product?.supplierId, API_BASE, currentUserId]);
 
-    // ? apply favorite state from wishlistIds into carousels
     const similarWithFav = useMemo(
         () => similarProducts.map((p) => ({ ...p, isFavorite: wishlistIds.has(p.id) })),
         [similarProducts, wishlistIds]
@@ -366,7 +474,7 @@ export default function ProductDetails() {
     );
 
     // ==============================
-    // Quantity logic (limit by maxQty)
+    // Quantity logic
     // ==============================
     const handleQtyChange = (delta) => {
         setQuantity((prev) => {
@@ -378,27 +486,37 @@ export default function ProductDetails() {
         });
     };
 
+    // ? universal click guard
+    const eatClick = (e) => {
+        if (!e) return;
+        e.preventDefault?.();
+        e.stopPropagation?.();
+    };
+
     // ==============================
-    // REAL add-to-cart API
-    // POST: /api/Cart/{productId}?userId=...&qty=...
+    // REAL add-to-cart API (UPDATED)
     // ==============================
-    const addToCartApi = async (prod, qty) => {
+    const addToCartApi = async (prod, qty, forceAdd = false) => {
+        setUiWarning("");
+
         if (!currentUserId) {
-            console.warn("Login required to use cart.");
-            return false;
+            setUiWarning("Please log in to add items to your cart.");
+            return { ok: false };
         }
-        if (!prod?.id) return false;
+        if (!prod?.id) return { ok: false };
 
-        // hard guard: out of stock
         const outOfStock =
-            prod.stockStatus === "OUT_OF_STOCK" || (prod.id === product?.id && maxQty <= 0);
+            prod.stockStatus === "OUT_OF_STOCK" ||
+            (prod.id === product?.id && maxQty <= 0) ||
+            (typeof prod.inventoryCount === "number" && prod.inventoryCount <= 0);
 
-        if (outOfStock) return false;
+        if (outOfStock) return { ok: false };
 
         const safeQty = Math.max(1, Number(qty || 1));
 
         try {
-            const url = `${API_BASE}/api/Cart/${prod.id}?userId=${currentUserId}&qty=${safeQty}`;
+            const url = `${API_BASE}/api/Cart/${prod.id}?userId=${currentUserId}&qty=${safeQty}${forceAdd ? "&forceAdd=true" : ""
+                }`;
 
             const res = await fetch(url, {
                 method: "POST",
@@ -407,115 +525,258 @@ export default function ProductDetails() {
 
             if (res.status === 409) {
                 const data = await res.json().catch(() => null);
-                console.warn("Cart conflict:", data?.reason || "OUT_OF_STOCK");
-                return false;
+
+                // ? show dialog for drug-drug interaction (server side)
+                if (data?.reason === "MEDICATION_INTERACTION") {
+                    return {
+                        ok: false,
+                        conflict: true,
+                        incompatibilities: data?.incompatibilities ?? null,
+                    };
+                }
+
+                // stock conflicts etc.
+                setUiWarning(data?.reason ? String(data.reason) : "Unable to add item (conflict).");
+                return { ok: false };
             }
 
             if (!res.ok) {
                 const body = await res.text();
                 console.error("Add to cart failed:", res.status, body);
-                return false;
+                setUiWarning("Failed to add to cart.");
+                return { ok: false };
             }
 
             refreshCartCount?.();
-            return true;
+            return { ok: true };
         } catch (e) {
             console.error("Failed to add to cart:", e);
-            return false;
+            setUiWarning("Network error while adding to cart.");
+            return { ok: false };
         }
     };
 
-    // (optional) still keep local cart list for incompatibility mock
     const addToLocalCartForMock = (prod, qty) => {
         setCartItems((prev) => [...prev, { ...prod, quantity: qty }]);
     };
 
-    const handleAddToCartClick = async () => {
+    // ? MAIN add-to-cart
+    const handleAddToCartClick = async (e) => {
+        eatClick(e);
+
         if (!product) return;
         if (maxQty <= 0) return;
 
         const safeQty = Math.min(Math.max(quantity, 1), maxQty);
-        const messages = mockCheckInteractions(cartItems, product);
 
-        if (messages.length === 0) {
-            const ok = await addToCartApi(product, safeQty);
-            if (ok) {
-                addToLocalCartForMock(product, safeQty);
-                flashAdded(); 
-            }
+        // 1) health-based modal (client-side)
+        const messages = mockCheckInteractions(cartItems, product);
+        if (messages.length > 0) {
+            setPendingItem({
+                product,
+                quantity: safeQty,
+                forceAdd: false,
+                mode: "health",
+            });
+            setInteractionMessages(messages);
+            setShowInteractionDialog(true);
             return;
         }
 
-        setPendingItem({ product, quantity: safeQty });
-        setInteractionMessages(messages);
-        setShowInteractionDialog(true);
+        // 2) try add (server may return drug-drug conflict)
+        const result = await addToCartApi(product, safeQty, false);
+
+        if (result?.conflict) {
+            const lines = normalizeIncToLines(result.incompatibilities);
+            setPendingItem({
+                product,
+                quantity: safeQty,
+                forceAdd: true, // next confirm will force add
+                mode: "medication",
+                incompatibilities: result.incompatibilities,
+            });
+            setInteractionMessages(lines.length ? lines : ["Medication interaction detected."]);
+            setShowInteractionDialog(true);
+            return;
+        }
+
+        if (result?.ok) {
+            addToLocalCartForMock(product, safeQty);
+            flashAdded();
+        }
     };
 
-    const handleCarouselAddToCart = async (p) => {
-        const outOfStock =
-            p?.stockStatus === "OUT_OF_STOCK" ||
-            (typeof p?.inventoryCount === "number" && p.inventoryCount <= 0);
+    // ? CAROUSEL add-to-cart
+    const handleCarouselAddToCart = async (p, e) => {
+        eatClick(e);
 
+        const outOfStock =
+            p?.stockStatus === "OUT_OF_STOCK" || (typeof p?.inventoryCount === "number" && p.inventoryCount <= 0);
         if (outOfStock) return;
 
+        // 1) health-based modal (client-side)
         const messages = mockCheckInteractions(cartItems, p);
-
-        if (messages.length === 0) {
-            const ok = await addToCartApi(p, 1);
-            if (ok) addToLocalCartForMock(p, 1);
+        if (messages.length > 0) {
+            setPendingItem({
+                product: p,
+                quantity: 1,
+                forceAdd: false,
+                mode: "health",
+            });
+            setInteractionMessages(messages);
+            setShowInteractionDialog(true);
             return;
         }
 
-        setPendingItem({ product: p, quantity: 1 });
-        setInteractionMessages(messages);
-        setShowInteractionDialog(true);
+        // 2) try add (server may return drug-drug conflict)
+        const result = await addToCartApi(p, 1, false);
+
+        if (result?.conflict) {
+            const lines = normalizeIncToLines(result.incompatibilities);
+            setPendingItem({
+                product: p,
+                quantity: 1,
+                forceAdd: true,
+                mode: "medication",
+                incompatibilities: result.incompatibilities,
+            });
+            setInteractionMessages(lines.length ? lines : ["Medication interaction detected."]);
+            setShowInteractionDialog(true);
+            return;
+        }
+
+        if (result?.ok) {
+            addToLocalCartForMock(p, 1);
+        }
     };
 
-    // ? ROBUST wishlist toggle:
-    // supports: onToggleFavorite(productObj) OR onToggleFavorite(id, isFavorite)
-    const handleToggleFavorite = async (arg1, arg2) => {
+    // =========================================================
+    // Wishlist: confirmation-first (health + server 409 medication)
+    // =========================================================
+    const removeFromWishlistApi = async (productId) => {
+        const url = `${API_BASE}/api/Wishlist/${productId}?userId=${currentUserId}`;
+        const res = await fetch(url, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+        });
+
+        if (!res.ok) {
+            const body = await res.text().catch(() => "");
+            throw new Error(body || "Failed to remove from wishlist.");
+        }
+        return true;
+    };
+
+    const addToWishlistApi = async (productId, forceAdd = false) => {
+        const url = `${API_BASE}/api/Wishlist/${productId}?userId=${currentUserId}${forceAdd ? "&forceAdd=true" : ""}`;
+
+        const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+        });
+
+        if (res.status === 409) {
+            const data = await res.json().catch(() => null);
+            return { ok: false, conflict: true, data };
+        }
+
+        if (!res.ok) {
+            const body = await res.text().catch(() => "");
+            return { ok: false, conflict: false, error: body || "FAILED" };
+        }
+
+        const data = await res.json().catch(() => null);
+        return { ok: true, data };
+    };
+
+    const tryAddWishlist = async (prod, forceAdd = false) => {
+        const productId = Number(prod?.id);
+        if (!productId || Number.isNaN(productId)) return;
+
+        const result = await addToWishlistApi(productId, forceAdd);
+
+        if (!result.ok && result.conflict) {
+            const inc = result?.data?.incompatibilities ?? { medications: [], allergies: [], illnesses: [] };
+            openFavDialog(prod, inc, "medication");
+            return;
+        }
+
+        if (!result.ok) {
+            console.error("Wishlist add failed:", result.error);
+            return;
+        }
+
+        setWishlistIds((prev) => {
+            const next = new Set(prev);
+            next.add(productId);
+            return next;
+        });
+        refreshWishlistCount?.();
+    };
+
+    const requestToggleFavorite = async (arg1, arg2, arg3) => {
         if (!currentUserId) {
             console.warn("Login required to use wishlist.");
             return;
         }
 
-        const productId =
-            typeof arg1 === "object" && arg1 !== null ? (arg1.id ?? arg1.productId) : arg1;
+        const prodObj = typeof arg1 === "object" && arg1 !== null ? arg1 : typeof arg3 === "object" ? arg3 : null;
 
-        if (!productId) return;
+        const productId = typeof arg1 === "object" && arg1 !== null ? Number(arg1.id ?? arg1.productId) : Number(arg1);
+        if (!productId || Number.isNaN(productId)) return;
 
-        const isFav = typeof arg2 === "boolean" ? arg2 : wishlistIds.has(Number(productId));
+        const isFavNow = typeof arg2 === "boolean" ? arg2 : wishlistIds.has(productId);
 
-        try {
-            const url = `${API_BASE}/api/Wishlist/${productId}?userId=${currentUserId}`;
-
-            const res = await fetch(url, {
-                method: isFav ? "DELETE" : "POST",
-                headers: { "Content-Type": "application/json" },
-            });
-
-            if (!res.ok) {
-                const body = await res.text();
-                console.error("Wishlist request failed:", res.status, body);
-                return;
+        if (isFavNow) {
+            try {
+                await removeFromWishlistApi(productId);
+                setWishlistIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete(productId);
+                    return next;
+                });
+                refreshWishlistCount?.();
+            } catch (e) {
+                console.error("Failed to remove from wishlist:", e);
             }
+            return;
+        }
 
-            setWishlistIds((prev) => {
-                const next = new Set(prev);
-                if (isFav) next.delete(Number(productId));
-                else next.add(Number(productId));
-                return next;
-            });
+        const inc = prodObj?.incompatibilities ?? { medications: [], allergies: [], illnesses: [] };
+        const hasHealth =
+            (Array.isArray(inc.allergies) && inc.allergies.length > 0) ||
+            (Array.isArray(inc.illnesses) && inc.illnesses.length > 0);
 
-            refreshWishlistCount();
-        } catch (e) {
-            console.error("Failed to toggle wishlist:", e);
+        if (hasHealth) {
+            openFavDialog(prodObj ?? { id: productId, name: "This product" }, inc, "health");
+            return;
+        }
+
+        await tryAddWishlist(prodObj ?? { id: productId, name: "This product" }, false);
+    };
+
+    const handleConfirmFav = async () => {
+        const prod = favDialog.product;
+        if (!prod?.id) {
+            closeFavDialog();
+            return;
+        }
+
+        if (favDialog.step === "health") {
+            closeFavDialog();
+            await tryAddWishlist(prod, false);
+            return;
+        }
+
+        if (favDialog.step === "medication") {
+            closeFavDialog();
+            await tryAddWishlist(prod, true);
         }
     };
 
     const handleMainToggleFavorite = () => {
         if (!product?.id) return;
-        handleToggleFavorite(product.id, mainIsFavorite);
+        requestToggleFavorite(product, mainIsFavorite);
     };
 
     // availability modal fetch
@@ -537,9 +798,7 @@ export default function ProductDetails() {
             const items = data.items || [];
 
             setBranchAvailability(items);
-
             setProduct((prev) => (prev ? { ...prev, branchesCount: data.branchesCount ?? 0 } : prev));
-
             computeAndSetMaxQtyFromItems(items);
         } catch (e) {
             setAvailabilityError(e?.message || "Error loading availability.");
@@ -549,32 +808,47 @@ export default function ProductDetails() {
         }
     };
 
-    const handleCancelAdd = () => {
+    const handleCancelAdd = (e) => {
+        eatClick(e);
         setShowInteractionDialog(false);
         setPendingItem(null);
         setInteractionMessages([]);
     };
 
-    const handleConfirmAdd = async () => {
-        if (pendingItem) {
-            const ok = await addToCartApi(pendingItem.product, pendingItem.quantity);
-            if (ok) {
+    // ? confirm: if pendingItem.forceAdd => retry with forceAdd=true
+    const handleConfirmAdd = async (e) => {
+        eatClick(e);
+
+        if (pendingItem?.product) {
+            const result = await addToCartApi(pendingItem.product, pendingItem.quantity, !!pendingItem.forceAdd);
+
+            if (result?.ok) {
                 addToLocalCartForMock(pendingItem.product, pendingItem.quantity);
-                // if the dialog was for the MAIN product, show Added on the main button too
-                if (pendingItem.product?.id === product?.id) flashAdded();
+
+                if (pendingItem.product?.id === product?.id) {
+                    flashAdded();
+                }
             }
         }
+
         handleCancelAdd();
     };
+
+    // ? copy selectors
+    const availabilityCopy = dialogCopy.branchAvailability;
+    const cartCopy =
+        pendingItem?.mode === "medication" ? dialogCopy.cartMedicationInteraction : dialogCopy.cartHealthWarning;
+    const wishlistCopy =
+        favDialog.step === "medication" ? dialogCopy.wishlistMedicationInteraction : dialogCopy.wishlistHealthWarning;
 
     return (
         <div className="min-vh-100">
             <PageHeader title="Product Details" />
 
             <div className="container list-padding py-4 product-details-page">
-                {wishlistLoading && currentUserId && (
-                    <small className="text-muted d-block mb-2">Loading wishlist...</small>
-                )}
+                {wishlistLoading && currentUserId && <small className="text-muted d-block mb-2">Loading wishlist...</small>}
+
+                {uiWarning && <div className="alert alert-warning py-2 mb-3">{uiWarning}</div>}
 
                 {loading && (
                     <div className="py-4">
@@ -594,11 +868,7 @@ export default function ProductDetails() {
                             <div className="col-md-5">
                                 <div className="product-main-image-box">
                                     {product.imageUrl ? (
-                                        <img
-                                            src={product.imageUrl}
-                                            alt={product.name}
-                                            className="product-main-image"
-                                        />
+                                        <img src={product.imageUrl} alt={product.name} className="product-main-image" />
                                     ) : (
                                         <div className="product-main-image-placeholder">
                                             <span>No image</span>
@@ -609,12 +879,12 @@ export default function ProductDetails() {
 
                             <div className="col-md-7">
                                 <div className="d-flex justify-content-between align-items-start mb-2">
-                                    <div>
+                                    {/* ? pills */}
+                                    <div className="d-flex gap-2 align-items-center flex-wrap">
                                         {product.isPrescribed && (
-                                            <span className="product-pill product-pill-prescribed">
-                                                Prescribed
-                                            </span>
+                                            <span className="product-pill product-pill-prescribed">Prescribed</span>
                                         )}
+                                        {mainHasInc && <IncompatibilityPill popoverLines={mainIncLines} />}
                                     </div>
 
                                     <button
@@ -623,11 +893,7 @@ export default function ProductDetails() {
                                         onClick={handleMainToggleFavorite}
                                         aria-label="Toggle wishlist"
                                     >
-                                        <img
-                                            src={mainIsFavorite ? HeartFilled : Heart}
-                                            alt="Favorite"
-                                            className="product-fav-icon"
-                                        />
+                                        <img src={mainIsFavorite ? HeartFilled : Heart} alt="Favorite" className="product-fav-icon" />
                                     </button>
                                 </div>
 
@@ -638,17 +904,11 @@ export default function ProductDetails() {
                                     {product.productType ? `, ${product.productType}` : ""}
                                 </p>
 
-                                <p className="product-price mb-3">
-                                    {formatCurrency(product.price || 0, "BHD")}
-                                </p>
+                                <p className="product-price mb-3">{formatCurrency(product.price || 0, "BHD")}</p>
 
                                 <div className="mb-2">
                                     <span className="fw-bold">Availability: </span>
-                                    <button
-                                        type="button"
-                                        className="btn btn-link p-0 product-branches-link"
-                                        onClick={handleAvailability}
-                                    >
+                                    <button type="button" className="btn btn-link p-0 product-branches-link" onClick={handleAvailability}>
                                         Available at {product.branchesCount} branches
                                     </button>
                                 </div>
@@ -687,16 +947,14 @@ export default function ProductDetails() {
                                         type="button"
                                         className={`btn qp-add-btn px-4 ${isAdded ? "qp-added-btn" : ""}`}
                                         onClick={handleAddToCartClick}
-                                        disabled={maxQty <= 0} // ? disabled only when out of stock
+                                        disabled={maxQty <= 0}
                                         title={maxQty <= 0 ? "Out of stock in all branches" : "Add to cart"}
                                     >
                                         {maxQty <= 0 ? "Out of Stock" : isAdded ? "Added" : "Add to Cart"}
                                     </button>
                                 </div>
 
-                                <div className="text-muted small">
-                                    {maxQty <= 0 ? "Out of stock in all branches" : null}
-                                </div>
+                                <div className="text-muted small">{maxQty <= 0 ? "Out of stock in all branches" : null}</div>
                             </div>
                         </div>
 
@@ -713,7 +971,7 @@ export default function ProductDetails() {
                                 title={loadingSimilar ? "Similar Products (Loading...)" : "Similar Products"}
                                 products={similarWithFav}
                                 onAddToCart={handleCarouselAddToCart}
-                                onToggleFavorite={handleToggleFavorite}
+                                onToggleFavorite={(a, b, c) => requestToggleFavorite(a, b, c)}
                             />
                         </div>
 
@@ -723,33 +981,31 @@ export default function ProductDetails() {
                                 title={loadingBrand ? "Other Products by Brand (Loading...)" : "Other Products by Brand"}
                                 products={brandWithFav}
                                 onAddToCart={handleCarouselAddToCart}
-                                onToggleFavorite={handleToggleFavorite}
+                                onToggleFavorite={(a, b, c) => requestToggleFavorite(a, b, c)}
                             />
                         </div>
                     </>
                 )}
             </div>
 
-            {/* Branch availability dialog */}
+            {/* Branch availability dialog (copy centralized) */}
             <DialogModal
                 show={showAvailabilityDialog}
-                title="Branch Availability"
+                title={availabilityCopy.title}
                 body={
                     <div>
                         <p className="mb-3">
-                            Stock availability for <strong>{product?.name}</strong> by branch:
+                            {availabilityCopy.introPrefix} <strong>{product?.name}</strong> {availabilityCopy.introSuffix}
                         </p>
 
-                        {availabilityError && (
-                            <div className="alert alert-danger py-2">{availabilityError}</div>
-                        )}
+                        {availabilityError && <div className="alert alert-danger py-2">{availabilityError}</div>}
 
                         <div className="table-responsive">
                             <table className="table align-middle text-center mb-0">
                                 <thead className="table-light">
                                     <tr>
-                                        <th>City</th>
-                                        <th>Stock Available</th>
+                                        <th>{availabilityCopy.tableCityHeader}</th>
+                                        <th>{availabilityCopy.tableStockHeader}</th>
                                     </tr>
                                 </thead>
 
@@ -757,13 +1013,13 @@ export default function ProductDetails() {
                                     {loadingAvailability ? (
                                         <tr>
                                             <td colSpan="2" className="text-muted py-4">
-                                                Loading...
+                                                {availabilityCopy.loading}
                                             </td>
                                         </tr>
                                     ) : branchAvailability.length === 0 ? (
                                         <tr>
                                             <td colSpan="2" className="text-muted py-4">
-                                                No branches found.
+                                                {availabilityCopy.empty}
                                             </td>
                                         </tr>
                                     ) : (
@@ -771,10 +1027,12 @@ export default function ProductDetails() {
                                             <tr key={idx}>
                                                 <td>{b.cityName}</td>
                                                 <td>
-                                                    {b.stock > 0 ? (
-                                                        <span className="fw-semibold">{b.stock} units</span>
+                                                    {getBranchStock(b) > 0 ? (
+                                                        <span className="fw-semibold">
+                                                            {getBranchStock(b)} {availabilityCopy.units}
+                                                        </span>
                                                     ) : (
-                                                        <span className="text-danger fw-semibold">Out of stock</span>
+                                                        <span className="text-danger fw-semibold">{availabilityCopy.outOfStock}</span>
                                                     )}
                                                 </td>
                                             </tr>
@@ -785,34 +1043,64 @@ export default function ProductDetails() {
                         </div>
                     </div>
                 }
-                confirmLabel="Close"
-                cancelLabel="Cancel"
+                confirmLabel={availabilityCopy.confirm}
+                cancelLabel={availabilityCopy.cancel}
                 onConfirm={() => setShowAvailabilityDialog(false)}
                 onCancel={() => setShowAvailabilityDialog(false)}
             />
 
-            {/* Interaction warning dialog */}
+            {/* Cart Interaction warning dialog (copy centralized) */}
             <DialogModal
                 show={showInteractionDialog}
-                title="Medication Interaction Warning"
+                title={cartCopy.title}
                 body={
                     <div>
                         <p className="fw-bold">
-                            We found possible interactions when adding{" "}
-                            <strong>{pendingItem?.product?.name}</strong>:
+                            {cartCopy.introPrefix} <strong>{pendingItem?.product?.name}</strong>{cartCopy.introSuffix}
                         </p>
+
                         <ul>
-                            {interactionMessages.map((msg, idx) => (
+                            {(interactionMessages || []).map((msg, idx) => (
                                 <li key={idx}>{msg}</li>
                             ))}
                         </ul>
-                        <p className="mb-0">Do you still want to add this product to your cart?</p>
+
+                        <p className="mb-0">{cartCopy.question}</p>
                     </div>
                 }
-                confirmLabel="Proceed and Add"
-                cancelLabel="Cancel"
+                confirmLabel={cartCopy.confirm}
+                cancelLabel={cartCopy.cancel}
                 onConfirm={handleConfirmAdd}
                 onCancel={handleCancelAdd}
+            />
+
+            {/* Wishlist confirmation dialog (copy centralized) */}
+            <DialogModal
+                show={favDialog.show}
+                title={wishlistCopy.title}
+                body={
+                    <div>
+                        <p>
+                            <strong>{favDialog.product?.name}</strong> {wishlistCopy.leadTextSuffix}
+                        </p>
+
+                        {favDialog.summary && <p>{favDialog.summary}</p>}
+
+                        {favDialog.detailLines?.length > 0 && (
+                            <ul className="mb-0">
+                                {favDialog.detailLines.map((msg, idx) => (
+                                    <li key={idx}>{msg}</li>
+                                ))}
+                            </ul>
+                        )}
+
+                        <p className="mt-3 mb-0">{wishlistCopy.question}</p>
+                    </div>
+                }
+                confirmLabel={wishlistCopy.confirm}
+                cancelLabel={wishlistCopy.cancel}
+                onConfirm={handleConfirmFav}
+                onCancel={closeFavDialog}
             />
         </div>
     );

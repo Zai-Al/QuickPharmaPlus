@@ -12,12 +12,28 @@ import { AuthContext } from "../../../Context/AuthContext";
 import { CartContext } from "../../../Context/CartContext";
 
 /* ---------------- helpers ---------------- */
-const buildIncompatibilityLines = (inc = {}) => {
+
+// ? normalize (supports camelCase OR PascalCase)
+const normalizeInc = (incRaw) => {
+    const obj = incRaw || {};
+    return {
+        medications: obj.medications ?? obj.Medications ?? [],
+        allergies: obj.allergies ?? obj.Allergies ?? [],
+        illnesses: obj.illnesses ?? obj.Illnesses ?? [],
+    };
+};
+
+// build lines shown inside the incompatibility popover (for ProductInfoCell)
+const buildIncompatibilityLines = (incRaw = {}) => {
+    const inc = normalizeInc(incRaw);
     const lines = [];
 
     if (inc.medications?.length) {
         lines.push(
-            "Not compatible with: " + inc.medications.map((m) => m.otherProductName).join(", ")
+            "Not compatible with: " +
+            inc.medications
+                .map((m) => m?.otherProductName ?? m?.OtherProductName ?? "Unknown")
+                .join(", ")
         );
     }
     if (inc.allergies?.length) {
@@ -76,7 +92,6 @@ export default function Cart() {
                 const data = await res.json();
                 const apiItems = Array.isArray(data?.items) ? data.items : [];
 
-                
                 const mapped = apiItems.map((x, idx) => {
                     const productId = x.productId ?? x.ProductId;
 
@@ -100,6 +115,9 @@ export default function Cart() {
                         x.StockStatus ??
                         (inv <= 0 ? "OUT_OF_STOCK" : inv <= 5 ? "LOW_STOCK" : "IN_STOCK");
 
+                    // ? normalize incompatibilities coming from API
+                    const inc = normalizeInc(x.incompatibilities ?? x.Incompatibilities ?? null);
+
                     return {
                         // keep row key stable (prefer cartItemId if backend returns it)
                         id: x.cartItemId ?? x.CartItemId ?? x.id ?? idx + 1,
@@ -119,8 +137,7 @@ export default function Cart() {
 
                         imageSrc: productId ? `${API_BASE}/api/ExternalProducts/${productId}/image` : "",
 
-                        incompatibilities:
-                            x.incompatibilities ?? { medications: [], allergies: [], illnesses: [] },
+                        incompatibilities: inc,
                     };
                 });
 
@@ -278,8 +295,8 @@ export default function Cart() {
        ========================= */
     const handleProceedToCheckout = () => {
         const hasInc = items.some((x) => {
-            const inc = x.incompatibilities || {};
-            return !!(inc.medications?.length || inc.allergies?.length || inc.illnesses?.length);
+            const inc = normalizeInc(x.incompatibilities);
+            return !!(inc.medications.length || inc.allergies.length || inc.illnesses.length);
         });
 
         if (hasInc) {
@@ -346,17 +363,14 @@ export default function Cart() {
 
                 {!isCartEmpty && (
                     <div className="d-flex justify-content-end mb-2">
-                        <button type="button" className="btn btn-link p-0" onClick={handleClearCart}>
+                        <button type="button" className="btn qp-outline-btn" onClick={handleClearCart}>
                             Clear Shopping Cart
                         </button>
                     </div>
                 )}
 
                 {/* Cart table */}
-                <TableFormat
-                    headers={["", "Product", "Price", "Quantity", "Stock Status", "Subtotal"]}
-                    headerBg="#54B2B5"
-                >
+                <TableFormat headers={["", "Product", "Price", "Quantity", "Stock Status", "Subtotal"]} headerBg="#54B2B5">
                     {isCartEmpty ? (
                         <tr>
                             <td colSpan={6} className="text-center py-4 text-muted">
@@ -376,7 +390,9 @@ export default function Cart() {
                         items.map((item) => {
                             const incLines = buildIncompatibilityLines(item.incompatibilities);
                             const qtyError = quantityErrors[item.id];
-                            const outOfStock = (item.stockStatus || "").toUpperCase() === "OUT_OF_STOCK";
+                            const outOfStock =
+                                (item.stockStatus || "").toUpperCase() === "OUT_OF_STOCK" ||
+                                Number(item.stockAvailable || 0) <= 0;
 
                             return (
                                 <tr key={item.id}>
@@ -384,9 +400,10 @@ export default function Cart() {
                                     <td className="align-middle text-center">
                                         <button
                                             type="button"
-                                            className="btn p-0"
+                                            className="btn qp-icon-btn"
                                             onClick={() => handleRemoveItem(item.id)}
                                             aria-label="Remove from cart"
+                                            title="Remove"
                                         >
                                             X
                                         </button>
