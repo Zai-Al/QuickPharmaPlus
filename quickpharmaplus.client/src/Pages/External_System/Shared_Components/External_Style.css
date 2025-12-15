@@ -178,3 +178,30 @@ body {
 .card {
     padding: 1.25rem; /* default 2rem is too big */
 }
+
+.qp-outline-btn {
+    border: 1px solid #54B2B5;
+    color: #54B2B5;
+    background: #fff;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-weight: 600;
+}
+
+    .qp-outline-btn:hover {
+        background: rgba(84,178,181,0.08);
+    }
+
+
+.qp-icon-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1px solid #E5E7EB;
+    background: #fff;
+    line-height: 1;
+}
+
+    .qp-icon-btn:hover {
+        background: #F9FAFB;
+    }

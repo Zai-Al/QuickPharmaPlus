@@ -12,33 +12,49 @@ import { AuthContext } from "../../../Context/AuthContext";
 import { Link } from "react-router-dom";
 import { WishlistContext } from "../../../Context/WishlistContext";
 import { CartContext } from "../../../Context/CartContext";
+import { dialogCopy } from "../Shared_Components/dialogCopy";
+
+// normalize (supports camelCase OR PascalCase)
+const normalizeInc = (incRaw) => {
+    const obj = incRaw || {};
+    return {
+        medications: obj.medications ?? obj.Medications ?? [],
+        allergies: obj.allergies ?? obj.Allergies ?? [],
+        illnesses: obj.illnesses ?? obj.Illnesses ?? [],
+    };
+};
 
 // build lines shown inside the incompatibility popover (for ProductInfoCell)
-const buildIncompatibilityLines = (inc = {}) => {
+const buildIncompatibilityLines = (incRaw = {}) => {
+    const inc = normalizeInc(incRaw);
     const lines = [];
 
-    if (inc.medications && inc.medications.length) {
+    if (inc.medications?.length) {
         lines.push(
             "Not compatible with: " +
-            inc.medications.map((m) => m.otherProductName).join(", ")
+            inc.medications
+                .map((m) => m?.otherProductName ?? m?.OtherProductName ?? "Unknown")
+                .join(", ")
         );
     }
 
-    if (inc.allergies && inc.allergies.length) {
+    if (inc.allergies?.length) {
         lines.push("Allergy conflict: " + inc.allergies.join(", "));
     }
 
-    if (inc.illnesses && inc.illnesses.length) {
+    if (inc.illnesses?.length) {
         lines.push("Illness conflict: " + inc.illnesses.join(", "));
     }
 
     return lines;
 };
 
-const buildIncompatibilitySummary = (inc = {}) => {
-    const hasMed = inc.medications && inc.medications.length > 0;
-    const hasAll = inc.allergies && inc.allergies.length > 0;
-    const hasIll = inc.illnesses && inc.illnesses.length > 0;
+const buildIncompatibilitySummary = (incRaw = {}) => {
+    const inc = normalizeInc(incRaw);
+
+    const hasMed = inc.medications.length > 0;
+    const hasAll = inc.allergies.length > 0;
+    const hasIll = inc.illnesses.length > 0;
 
     const types = [];
     if (hasMed) types.push("your other medications");
@@ -52,13 +68,36 @@ const buildIncompatibilitySummary = (inc = {}) => {
     return "This product may be incompatible with your medications, allergies, and illnesses.";
 };
 
+// modal lines for server medication interaction objects
+const buildMedicationLines = (incRaw = {}) => {
+    const inc = normalizeInc(incRaw);
+    const lines = [];
+
+    (inc.medications || []).forEach((m) => {
+        if (!m) return;
+        if (typeof m === "string") lines.push(m);
+        else {
+            lines.push(
+                m.message ||
+                (m.otherProductName || m.OtherProductName
+                    ? `Not compatible with: ${m.otherProductName ?? m.OtherProductName}`
+                    : "Medication interaction detected.")
+            );
+        }
+    });
+
+    if (inc.allergies?.length) lines.push("Allergy conflict: " + inc.allergies.join(", "));
+    if (inc.illnesses?.length) lines.push("Illness conflict: " + inc.illnesses.join(", "));
+
+    return lines.filter(Boolean);
+};
+
 export default function WishList() {
     const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
 
     const { user } = useContext(AuthContext);
     const currentUserId = user?.userId ?? user?.id ?? user?.UserId ?? null;
 
-    // navbar badge refreshers
     const { refreshWishlistCount } = useContext(WishlistContext);
     const cartCtx = useContext(CartContext);
     const refreshCartCount = cartCtx?.refreshCartCount;
@@ -66,10 +105,10 @@ export default function WishList() {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [loadError, setLoadError] = useState("");
+    const [rowBusy, setRowBusy] = useState({});
+    const [actionError, setActionError] = useState("");
 
-    const [rowBusy, setRowBusy] = useState({}); // { [productId]: true }
-    const [actionError, setActionError] = useState(""); // optional visible error
-
+    // health modal (from wishlist item incompatibilities: allergy/illness)
     const [addDialog, setAddDialog] = useState({
         show: false,
         item: null,
@@ -77,11 +116,17 @@ export default function WishList() {
         detailLines: [],
     });
 
+    // medication modal (from server 409: MEDICATION_INTERACTION)
+    const [medDialog, setMedDialog] = useState({
+        show: false,
+        item: null,
+        detailLines: [],
+    });
+
     const isEmpty = items.length === 0;
 
     // =========================
-    // Load wishlist from API
-    // GET: /api/Wishlist?userId=...
+    // Load wishlist
     // =========================
     useEffect(() => {
         if (!currentUserId) {
@@ -114,16 +159,14 @@ export default function WishList() {
                     const productId = x.productId ?? x.ProductId ?? null;
 
                     const inv =
-                        x.inventoryCount ??
-                        x.InventoryCount ??
-                        x.stockAvailable ??
-                        x.StockAvailable ??
-                        0;
+                        x.inventoryCount ?? x.InventoryCount ?? x.stockAvailable ?? x.StockAvailable ?? 0;
 
                     const stockStatus =
                         x.stockStatus ??
                         x.StockStatus ??
                         (inv <= 0 ? "OUT_OF_STOCK" : inv <= 5 ? "LOW_STOCK" : "IN_STOCK");
+
+                    const inc = normalizeInc(x.incompatibilities ?? x.Incompatibilities ?? null);
 
                     return {
                         id: productId ?? idx + 1,
@@ -139,13 +182,11 @@ export default function WishList() {
 
                         imageSrc: productId ? `${API_BASE}/api/ExternalProducts/${productId}/image` : "",
 
-                        // keep structure
-                        incompatibilities: x.incompatibilities ?? { medications: [], allergies: [], illnesses: [] },
+                        incompatibilities: inc,
                     };
                 });
 
                 setItems(mapped);
-
                 refreshWishlistCount?.();
             } catch (e) {
                 if (e.name !== "AbortError") {
@@ -162,8 +203,7 @@ export default function WishList() {
     }, [API_BASE, currentUserId, refreshWishlistCount]);
 
     // =========================
-    // Remove item from wishlist (API)
-    // DELETE: /api/Wishlist/{productId}?userId=...
+    // Remove item
     // =========================
     const removeFromWishlistApi = async (productId) => {
         const res = await fetch(`${API_BASE}/api/Wishlist/${productId}?userId=${currentUserId}`, {
@@ -194,7 +234,9 @@ export default function WishList() {
         }
     };
 
-    // Clear wishlist (no clear endpoint yet -> delete one by one)
+    // =========================
+    // Clear wishlist
+    // =========================
     const handleClearWishList = async () => {
         if (!currentUserId || items.length === 0) return;
 
@@ -215,35 +257,35 @@ export default function WishList() {
     };
 
     // =========================
-    // Add to cart (API)
-    // POST: /api/Cart/{productId}?userId=...&qty=1
+    // Add to cart (API) — IMPORTANT: keep the 409 body
     // =========================
-    const addToCartApi = async (productId, qty = 1) => {
-        const url = `${API_BASE}/api/Cart/${productId}?userId=${currentUserId}&qty=${qty}`;
+    const addToCartApi = async (productId, qty = 1, forceAdd = false) => {
+        const url = `${API_BASE}/api/Cart/${productId}?userId=${currentUserId}&qty=${qty}${forceAdd ? "&forceAdd=true" : ""
+            }`;
 
         const res = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
         });
 
-        // if your backend uses 409 for stock conflict
         if (res.status === 409) {
             const data = await res.json().catch(() => null);
-            return { ok: false, reason: data?.reason || "OUT_OF_STOCK" };
+            return { ok: false, conflict: true, data };
         }
 
         if (!res.ok) {
             const body = await res.text().catch(() => "");
-            return { ok: false, reason: body || "FAILED" };
+            return { ok: false, conflict: false, error: body || "FAILED" };
         }
 
-        return { ok: true };
+        const data = await res.json().catch(() => null);
+        return { ok: true, data };
     };
 
     // =========================
-    // Add to cart + remove from wishlist (IMPORTANT FLOW)
+    // Add to cart + remove from wishlist
     // =========================
-    const addToCartThenRemoveFromWishlist = async (item) => {
+    const addToCartThenRemoveFromWishlist = async (item, forceAdd = false) => {
         if (!currentUserId) {
             setActionError("Please login to add items to cart.");
             return;
@@ -255,7 +297,6 @@ export default function WishList() {
             return;
         }
 
-        // guard: don’t call backend if out of stock
         const outOfStock =
             (item.stockStatus || "").toUpperCase() === "OUT_OF_STOCK" ||
             (typeof item.stockAvailable === "number" && item.stockAvailable <= 0);
@@ -267,15 +308,43 @@ export default function WishList() {
             setRowBusy((prev) => ({ ...prev, [productId]: true }));
 
             // 1) add to cart
-            const addRes = await addToCartApi(productId, 1);
+            const addRes = await addToCartApi(productId, 1, forceAdd);
+
+            // handle 409 properly
+            if (!addRes.ok && addRes.conflict) {
+                const reason = addRes?.data?.reason;
+
+                // stock conflicts
+                if (reason === "OUT_OF_STOCK") {
+                    setActionError("This product is out of stock.");
+                    return;
+                }
+                if (reason === "EXCEEDS_AVAILABLE_STOCK") {
+                    setActionError("Requested quantity exceeds available stock.");
+                    return;
+                }
+
+                // medication interaction -> show modal (instead of failed message)
+                if (reason === "MEDICATION_INTERACTION" && addRes?.data?.requiresConfirmation) {
+                    const inc = addRes?.data?.incompatibilities ?? { medications: [], allergies: [], illnesses: [] };
+                    const lines = buildMedicationLines(inc);
+
+                    setMedDialog({
+                        show: true,
+                        item,
+                        detailLines: lines,
+                    });
+
+                    return;
+                }
+
+                setActionError(`Failed to add to cart: ${reason || "CONFLICT"}`);
+                return;
+            }
 
             if (!addRes.ok) {
-                const msg =
-                    addRes.reason === "OUT_OF_STOCK"
-                        ? "This product is out of stock."
-                        : `Failed to add to cart: ${addRes.reason}`;
-                console.warn(msg);
-                setActionError(msg);
+                console.warn("Add to cart failed:", addRes.error);
+                setActionError(addRes.error || "Failed to add to cart.");
                 return;
             }
 
@@ -294,14 +363,13 @@ export default function WishList() {
         }
     };
 
-    // Add to cart click (with incompatibility dialog)
+    // Health dialog (from item incompatibilities)
     const handleAddToCart = (item) => {
-        const inc = item.incompatibilities || {};
+        const inc = normalizeInc(item.incompatibilities || {});
         const summary = buildIncompatibilitySummary(inc);
 
-        // no incompatibility -> do action immediately
         if (!summary) {
-            addToCartThenRemoveFromWishlist(item);
+            addToCartThenRemoveFromWishlist(item, false);
             return;
         }
 
@@ -317,23 +385,29 @@ export default function WishList() {
 
     const handleConfirmAdd = async () => {
         if (addDialog.item) {
-            await addToCartThenRemoveFromWishlist(addDialog.item);
+            await addToCartThenRemoveFromWishlist(addDialog.item, false);
         }
 
-        setAddDialog({
-            show: false,
-            item: null,
-            summary: "",
-            detailLines: [],
-        });
+        setAddDialog({ show: false, item: null, summary: "", detailLines: [] });
     };
 
     const handleCancelAdd = () => {
-        setAddDialog((prev) => ({
-            ...prev,
-            show: false,
-            item: null,
-        }));
+        setAddDialog({ show: false, item: null, summary: "", detailLines: [] });
+    };
+
+    // Medication interaction confirm -> retry with forceAdd=true
+    const handleConfirmMedicationAdd = async () => {
+        const item = medDialog.item;
+
+        setMedDialog({ show: false, item: null, detailLines: [] });
+
+        if (item) {
+            await addToCartThenRemoveFromWishlist(item, true);
+        }
+    };
+
+    const handleCancelMedicationAdd = () => {
+        setMedDialog({ show: false, item: null, detailLines: [] });
     };
 
     return (
@@ -341,16 +415,14 @@ export default function WishList() {
             <PageHeader title="Wish List" />
 
             <div className="container list-padding py-4">
-                {/* top right actions */}
                 <div className="d-flex justify-content-end mb-2">
                     {!isEmpty && (
-                        <button type="button" className="btn btn-link p-0" onClick={handleClearWishList}>
+                        <button type="button" className="btn qp-outline-btn" onClick={handleClearWishList}>
                             Clear Wish List
                         </button>
                     )}
                 </div>
 
-                {/* status messages */}
                 {loading && (
                     <div className="mb-2">
                         <small className="text-muted">Loading wishlist...</small>
@@ -360,7 +432,6 @@ export default function WishList() {
                 {loadError && <div className="alert alert-danger">{loadError}</div>}
                 {actionError && <div className="alert alert-warning">{actionError}</div>}
 
-                {/* table */}
                 <TableFormat headers={["", "Product", "Price", "Stock Status", ""]} headerBg="#54B2B5">
                     {isEmpty ? (
                         <tr>
@@ -380,7 +451,6 @@ export default function WishList() {
 
                             return (
                                 <tr key={item.productId}>
-                                    {/* remove */}
                                     <td className="align-middle text-center">
                                         <button
                                             type="button"
@@ -395,7 +465,6 @@ export default function WishList() {
                                         </button>
                                     </td>
 
-                                    {/* product info */}
                                     <td className="align-middle text-start ps-4">
                                         <ProductInfoCell
                                             imageSrc={item.imageSrc}
@@ -415,28 +484,19 @@ export default function WishList() {
                                         />
                                     </td>
 
-                                    {/* price */}
                                     <td className="align-middle">{formatCurrency(item.price || 0)}</td>
 
-                                    {/* stock status */}
                                     <td className="align-middle">
                                         <StockStatus status={item.stockStatus} />
                                     </td>
 
-                                    {/* add to cart */}
                                     <td className="align-middle text-end pe-4">
                                         <button
                                             type="button"
                                             className="btn qp-add-btn px-3"
                                             disabled={outOfStock || busy}
                                             onClick={() => handleAddToCart(item)}
-                                            title={
-                                                outOfStock
-                                                    ? "Out of stock"
-                                                    : busy
-                                                        ? "Please wait..."
-                                                        : "Add to Cart"
-                                            }
+                                            title={outOfStock ? "Out of stock" : busy ? "Please wait..." : "Add to Cart"}
                                         >
                                             {busy ? "Adding..." : "Add to Cart"}
                                         </button>
@@ -448,16 +508,16 @@ export default function WishList() {
                 </TableFormat>
             </div>
 
-            {/* incompatibility dialog */}
+            {/* Health modal (allergy/illness) */}
             <DialogModal
                 show={addDialog.show}
-                title="Possible Incompatibility"
+                title={dialogCopy.wishlistAddToCartHealth.title}
                 body={
                     <>
-                        <p className="fw-bold">Are you sure you want to add this product to your cart?</p>
+                        <p className="fw-bold">{dialogCopy.wishlistAddToCartHealth.heading}</p>
                         <p>{addDialog.summary}</p>
 
-                        {addDialog.detailLines && addDialog.detailLines.length > 0 && (
+                        {addDialog.detailLines?.length > 0 && (
                             <ul className="mb-0">
                                 {addDialog.detailLines.map((line, idx) => (
                                     <li key={idx}>{line}</li>
@@ -466,10 +526,38 @@ export default function WishList() {
                         )}
                     </>
                 }
-                confirmLabel="Add to Cart"
-                cancelLabel="Cancel"
+                confirmLabel={dialogCopy.wishlistAddToCartHealth.confirm}
+                cancelLabel={dialogCopy.wishlistAddToCartHealth.cancel}
                 onCancel={handleCancelAdd}
                 onConfirm={handleConfirmAdd}
+            />
+
+            {/* Medication interaction modal (server 409 MEDICATION_INTERACTION) */}
+            <DialogModal
+                show={medDialog.show}
+                title={dialogCopy.wishlistAddToCartMedication.title}
+                body={
+                    <>
+                        <p className="fw-bold mb-2">
+                            <strong>{medDialog.item?.name}</strong>
+                            {dialogCopy.wishlistAddToCartMedication.bodyTopSuffix}
+                        </p>
+
+                        {medDialog.detailLines?.length > 0 && (
+                            <ul className="mb-0">
+                                {medDialog.detailLines.map((line, idx) => (
+                                    <li key={idx}>{line}</li>
+                                ))}
+                            </ul>
+                        )}
+
+                        <p className="mt-3 mb-0">{dialogCopy.wishlistAddToCartMedication.question}</p>
+                    </>
+                }
+                confirmLabel={dialogCopy.wishlistAddToCartMedication.confirm}
+                cancelLabel={dialogCopy.wishlistAddToCartMedication.cancel}
+                onCancel={handleCancelMedicationAdd}
+                onConfirm={handleConfirmMedicationAdd}
             />
         </div>
     );

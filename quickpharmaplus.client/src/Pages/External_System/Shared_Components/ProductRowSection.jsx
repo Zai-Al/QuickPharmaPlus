@@ -1,9 +1,36 @@
 // src/Pages/External_System/Shared_Components/ProductCarouselSection.jsx
-
 import { useRef } from "react";
 import ProductCard from "./ProductCard";
 import { useNavigate } from "react-router-dom";
 import "../Home/Home.css";
+
+const normalizeToLines = (inc) => {
+    if (!inc) return [];
+    if (Array.isArray(inc)) return inc.filter(Boolean);
+
+    const toText = (x) => {
+        if (!x) return "";
+        if (typeof x === "string") return x;
+        if (typeof x === "object") {
+            return (
+                x.message ||
+                x.otherProductName ||
+                x.name ||
+                x.ingredientName ||
+                x.illnessName ||
+                x.allergyName ||
+                JSON.stringify(x)
+            );
+        }
+        return String(x);
+    };
+
+    const lines = [];
+    (inc.medications || []).forEach((m) => lines.push(toText(m)));
+    (inc.allergies || []).forEach((a) => lines.push(toText(a)));
+    (inc.illnesses || []).forEach((i) => lines.push(toText(i)));
+    return lines.filter(Boolean);
+};
 
 export default function ProductRowSection({
     title,
@@ -30,12 +57,10 @@ export default function ProductRowSection({
 
     const handleViewAll = () => {
         const params = new URLSearchParams();
-
         if (products.length > 0 && products[0].categoryName) {
             params.set("categoryId", products[0].categoryId ?? "");
             params.set("categoryName", products[0].categoryName ?? "");
         }
-
         navigate(`/productsPage?${params.toString()}`);
     };
 
@@ -44,53 +69,44 @@ export default function ProductRowSection({
             <div className="home-section-inner">
                 <div className="home-section-header">
                     <h3>{title}</h3>
-
                     <button className="view-all-btn" onClick={handleViewAll}>
                         View All Products
                     </button>
                 </div>
 
                 <div className="home-products-carousel">
-                    <button
-                        type="button"
-                        className="carousel-arrow"
-                        onClick={() => scroll("left")}
-                        aria-label="Scroll left"
-                    >
+                    <button type="button" className="carousel-arrow" onClick={() => scroll("left")} aria-label="Scroll left">
                         &lsaquo;
                     </button>
 
                     <div className="home-products-row" ref={rowRef}>
-                        {products.map((p) => (
-                            <ProductCard
-                                key={p.id}
-                                id={p.id}
-                                name={p.name}
-                                price={p.price}
-                                imageUrl={p.imageUrl}
-                                isFavorite={p.isFavorite}
-                                categoryName={p.categoryName}
-                                productType={p.productType}
-                                isPrescribed={p.requiresPrescription}
-                                hasIncompatibilities={p.incompatibilities?.length > 0}
-                                incompatibilityLines={p.incompatibilities}
+                        {products.map((p) => {
+                            const lines = normalizeToLines(p.incompatibilities);
 
-                                
-                                inventoryCount={p.inventoryCount}
-                                stockStatus={p.stockStatus}
-
-                                onToggleFavorite={() => onToggleFavorite?.(p)}
-                                onAddToCart={() => onAddToCart?.(p)}
-                            />
-                        ))}
+                            return (
+                                <ProductCard
+                                    key={p.id}
+                                    id={p.id}
+                                    name={p.name}
+                                    price={p.price}
+                                    imageUrl={p.imageUrl}
+                                    isFavorite={p.isFavorite}
+                                    isAdded={p.isAdded}
+                                    categoryName={p.categoryName}
+                                    productType={p.productType}
+                                    isPrescribed={p.requiresPrescription}
+                                    hasIncompatibilities={lines.length > 0}
+                                    incompatibilityLines={lines}
+                                    inventoryCount={p.inventoryCount}
+                                    stockStatus={p.stockStatus}
+                                    onToggleFavorite={() => onToggleFavorite?.(p)}
+                                    onAddToCart={() => onAddToCart?.(p)}
+                                />
+                            );
+                        })}
                     </div>
 
-                    <button
-                        type="button"
-                        className="carousel-arrow"
-                        onClick={() => scroll("right")}
-                        aria-label="Scroll right"
-                    >
+                    <button type="button" className="carousel-arrow" onClick={() => scroll("right")} aria-label="Scroll right">
                         &rsaquo;
                     </button>
                 </div>

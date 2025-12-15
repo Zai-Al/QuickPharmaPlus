@@ -31,6 +31,7 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             _logger = logger;
             _context = context;
         }
+
         [HttpGet("ping")]
         public IActionResult Ping() => Ok(new { ok = true, where = "ExternalProductsController" });
 
@@ -42,28 +43,34 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
         /// - categoryIds
         /// - supplierIds (brands)
         /// - productTypeIds
-        /// - priceRanges (e.g. 1-5)
+        /// - branchIds
+        /// - minPrice/maxPrice
         /// - sortBy (price-asc, price-desc, name-asc, name-desc)
+        /// - userId (optional): computes incompatibilities (illness + allergy)
         /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetExternalProducts(
-    int pageNumber = 1,
-    int pageSize = 12,
-    string? search = null,
+            int pageNumber = 1,
+            int pageSize = 12,
+            string? search = null,
 
-    [FromQuery] int[]? categoryIds = null,
-    [FromQuery] int[]? supplierIds = null,
-    [FromQuery] int[]? productTypeIds = null,
-    [FromQuery] int[]? branchIds = null,
+            [FromQuery] int[]? categoryIds = null,
+            [FromQuery] int[]? supplierIds = null,
+            [FromQuery] int[]? productTypeIds = null,
+            [FromQuery] int[]? branchIds = null,
 
-    decimal? minPrice = null,
-    decimal? maxPrice = null,
+            decimal? minPrice = null,
+            decimal? maxPrice = null,
 
-    string? sortBy = "price-asc")
+            string? sortBy = "price-asc",
+
+            // ✅ NEW (optional): only used to compute incompatibilities
+            [FromQuery] int? userId = null
+        )
         {
             try
             {
-                // IMPORTANT: Match repository signature order!
+                // Keep using the existing repository method as-is (teammate-safe)
                 var result = await _productRepository.GetExternalProductsAsync(
                     pageNumber,
                     pageSize,
@@ -106,6 +113,32 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                     })
                     .ToList();
 
+                // ✅ NEW: compute illness + allergy incompatibilities only if userId provided
+                if (userId.HasValue && userId.Value > 0 && items.Count > 0)
+                {
+                    var productIds = items.Select(x => x.Id).ToList();
+
+                    var illnessMap = await GetIllnessIncompatibilityMapAsync(userId.Value, productIds);
+                    var allergyMap = await GetAllergyIncompatibilityMapAsync(userId.Value, productIds);
+
+                    foreach (var it in items)
+                    {
+                        illnessMap.TryGetValue(it.Id, out var illNames);
+                        allergyMap.TryGetValue(it.Id, out var allNames);
+
+                        illNames ??= new List<string>();
+                        allNames ??= new List<string>();
+
+                        // structure matches your UI (expects object keys)
+                        it.Incompatibilities = new
+                        {
+                            medications = Array.Empty<string>(),
+                            allergies = allNames,
+                            illnesses = illNames
+                        };
+                    }
+                }
+
                 var totalCount = result?.TotalCount ?? 0;
                 var totalPages = pageSize > 0
                     ? (int)Math.Ceiling(totalCount / (double)pageSize)
@@ -141,17 +174,14 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             }
         }
 
-
-
         [HttpGet("{id:int}")]
-        public async Task<IActionResult> GetExternalProductById(int id)
+        public async Task<IActionResult> GetExternalProductById(int id, [FromQuery] int? userId = null)
         {
             if (id <= 0) return BadRequest(new { error = "Invalid id" });
 
             var dto = await _productRepository.GetProductByIdAsync(id);
             if (dto == null) return NotFound(new { error = "Product not found" });
 
-            // Sum total units (ignore expired + ignore 0)
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
             var inventoryCount = await _context.Inventories
@@ -189,9 +219,30 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                 Incompatibilities = null
             };
 
+            // ✅ NEW: illness + allergy incompatibilities for single product
+            if (userId.HasValue && userId.Value > 0)
+            {
+                var ids = new List<int> { id };
+
+                var illnessMap = await GetIllnessIncompatibilityMapAsync(userId.Value, ids);
+                var allergyMap = await GetAllergyIncompatibilityMapAsync(userId.Value, ids);
+
+                illnessMap.TryGetValue(id, out var illNames);
+                allergyMap.TryGetValue(id, out var allNames);
+
+                illNames ??= new List<string>();
+                allNames ??= new List<string>();
+
+                detail.Incompatibilities = new
+                {
+                    medications = Array.Empty<string>(),
+                    allergies = allNames,
+                    illnesses = illNames
+                };
+            }
+
             return Ok(detail);
         }
-
 
         [HttpGet("{id:int}/availability")]
         public async Task<IActionResult> GetProductAvailability(int id)
@@ -235,6 +286,114 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             });
         }
 
+        // =========================
+        // Helpers: Illness + Allergy
+        // =========================
 
+        private async Task<Dictionary<int, List<string>>> GetIllnessIncompatibilityMapAsync(int userId, List<int> productIds)
+        {
+            var result = new Dictionary<int, List<string>>();
+            if (productIds == null || productIds.Count == 0) return result;
+
+            var hpId = await _context.HealthProfiles
+                .Where(h => h.UserId == userId)
+                .Select(h => (int?)h.HealthProfileId)
+                .FirstOrDefaultAsync();
+
+            if (hpId == null) return result;
+
+            var illnessIds = await _context.HealthProfileIllnesses
+                .Where(hpi => hpi.HealthProfileId == hpId.Value)
+                .Select(hpi => hpi.IllnessId)
+                .Distinct()
+                .ToListAsync();
+
+            if (illnessIds.Count == 0) return result;
+
+            var rows = await (
+                from ip in _context.IngredientProducts
+                join iii in _context.IllnessIngredientInteractions
+                    on ip.IngredientId equals iii.IngredientId
+                join ill in _context.Illnesses
+                    on iii.IllnessId equals ill.IllnessId
+                join iname in _context.IllnessNames
+                    on ill.IllnessNameId equals iname.IllnessNameId
+                where ip.ProductId.HasValue
+                      && productIds.Contains(ip.ProductId.Value)
+                      && illnessIds.Contains(iii.IllnessId)
+                select new
+                {
+                    ProductId = ip.ProductId.Value,
+                    IllnessName = iname.IllnessName1
+                }
+            )
+            .AsNoTracking()
+            .ToListAsync();
+
+            foreach (var g in rows.GroupBy(x => x.ProductId))
+            {
+                result[g.Key] = g
+                    .Select(x => x.IllnessName)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct()
+                    .OrderBy(x => x)
+                    .ToList();
+            }
+
+            return result;
+        }
+
+        private async Task<Dictionary<int, List<string>>> GetAllergyIncompatibilityMapAsync(int userId, List<int> productIds)
+        {
+            var result = new Dictionary<int, List<string>>();
+            if (productIds == null || productIds.Count == 0) return result;
+
+            var hpId = await _context.HealthProfiles
+                .Where(h => h.UserId == userId)
+                .Select(h => (int?)h.HealthProfileId)
+                .FirstOrDefaultAsync();
+
+            if (hpId == null) return result;
+
+            var allergyIds = await _context.HealthProfileAllergies
+                .Where(hpa => hpa.HealthProfileId == hpId.Value)
+                .Select(hpa => hpa.AllergyId)
+                .Distinct()
+                .ToListAsync();
+
+            if (allergyIds.Count == 0) return result;
+
+            var rows = await (
+                from ip in _context.IngredientProducts
+                join aii in _context.AllergyIngredientInteractions
+                    on ip.IngredientId equals aii.IngredientId
+                join a in _context.Allergies
+                    on aii.AllergyId equals a.AllergyId
+                join an in _context.AllergyNames
+                    on a.AlleryNameId equals an.AlleryNameId
+                where ip.ProductId.HasValue
+                      && productIds.Contains(ip.ProductId.Value)
+                      && allergyIds.Contains(aii.AllergyId)
+                select new
+                {
+                    ProductId = ip.ProductId.Value,
+                    AllergyName = an.AllergyName1
+                }
+            )
+            .AsNoTracking()
+            .ToListAsync();
+
+            foreach (var g in rows.GroupBy(x => x.ProductId))
+            {
+                result[g.Key] = g
+                    .Select(x => x.AllergyName)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct()
+                    .OrderBy(x => x)
+                    .ToList();
+            }
+
+            return result;
+        }
     }
 }

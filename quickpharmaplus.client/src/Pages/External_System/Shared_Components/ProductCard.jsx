@@ -2,7 +2,6 @@
 import { useNavigate } from "react-router-dom";
 import { IncompatibilityPill, PrescribedPill } from "./MedicationPills";
 import "./ProductCard.css";
-import { useState, useEffect } from "react";
 import HeartFilled from "../../../assets/icons/heart-filled.svg";
 import Heart from "../../../assets/icons/heart.svg";
 
@@ -11,11 +10,12 @@ export default function ProductCard({
     name,
     price,
     imageUrl,
-    isFavorite: initialFavorite = false,
+    isFavorite = false,     // ? controlled by parent
+    isAdded = false,        // ? controlled by parent
     categoryName,
     productType,
-    onToggleFavorite = () => { },
-    onAddToCart = () => { },
+    onToggleFavorite = () => { }, // ? parent handles confirmation + API success
+    onAddToCart = () => { },      // ? parent handles confirmation + API success
     isPrescribed = false,
     hasIncompatibilities = false,
     incompatibilityLines = [],
@@ -24,13 +24,6 @@ export default function ProductCard({
 }) {
     const navigate = useNavigate();
     const goToDetails = () => navigate(`/productDetails/${id}`);
-
-    const [isFavorite, setIsFavorite] = useState(initialFavorite);
-    const [isAdded, setIsAdded] = useState(false); // visual only
-
-    useEffect(() => {
-        setIsFavorite(initialFavorite);
-    }, [initialFavorite]);
 
     const inv = typeof inventoryCount === "number" ? inventoryCount : null;
     const status = typeof stockStatus === "string" ? stockStatus : null;
@@ -41,15 +34,19 @@ export default function ProductCard({
 
     const handleAddClick = (e) => {
         e.stopPropagation();
-
         if (isOutOfStock) return;
 
-        // ? REAL add-to-cart call (THIS WAS NOT REMOVED)
+        // ? DO NOT set local "Added" here.
+        // Parent will only set isAdded after proceed + API success.
         onAddToCart();
+    };
 
-        // ? visual feedback only
-        setIsAdded(true);
-        setTimeout(() => setIsAdded(false), 1200);
+    const handleFavClick = (e) => {
+        e.stopPropagation();
+
+        // ? DO NOT flip local heart here.
+        // Parent will only set isFavorite after proceed + API success.
+        onToggleFavorite();
     };
 
     return (
@@ -64,11 +61,7 @@ export default function ProductCard({
             <button
                 type="button"
                 className="favorite-btn"
-                onClick={(e) => {
-                    e.stopPropagation();
-                    setIsFavorite((prev) => !prev);
-                    onToggleFavorite(id);
-                }}
+                onClick={handleFavClick}
             >
                 <img
                     src={isFavorite ? HeartFilled : Heart}
@@ -86,7 +79,7 @@ export default function ProductCard({
                 <p className="product-meta">
                     {categoryName}, {productType}
                 </p>
-                <p className="product-price">{price?.toFixed(2)} BHD</p>
+                <p className="product-price">{Number(price || 0).toFixed(2)} BHD</p>
             </div>
 
             <button
@@ -95,11 +88,7 @@ export default function ProductCard({
                 disabled={isOutOfStock}
                 onClick={handleAddClick}
             >
-                {isOutOfStock
-                    ? "Out of Stock"
-                    : isAdded
-                        ? "Added"
-                        : "Add to Cart"}
+                {isOutOfStock ? "Out of Stock" : isAdded ? "Added" : "Add to Cart"}
             </button>
         </div>
     );

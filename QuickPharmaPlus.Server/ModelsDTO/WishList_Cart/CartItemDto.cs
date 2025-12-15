@@ -1,4 +1,6 @@
-﻿namespace QuickPharmaPlus.Server.ModelsDTO.WishList_Cart
+﻿using QuickPharmaPlus.Server.ModelsDTO.Incompatibility;
+
+namespace QuickPharmaPlus.Server.ModelsDTO.WishList_Cart
 {
     public class CartItemDto
     {
@@ -15,5 +17,7 @@
         public int CartQuantity { get; set; }      // quantity in cart
         public int InventoryCount { get; set; }    // available stock
         public string StockStatus { get; set; } = "IN_STOCK";
+
+        public CustomerIncompatibilitiesDto Incompatibilities { get; set; } = new();
     }
 }
