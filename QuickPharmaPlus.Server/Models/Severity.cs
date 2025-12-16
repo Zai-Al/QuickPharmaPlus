@@ -19,14 +19,8 @@ public partial class Severity
     public string SeverityName { get; set; } = null!;
 
     [InverseProperty("Severity")]
-    public virtual ICollection<Allergy> Allergies { get; set; } = new List<Allergy>();
-
-    [InverseProperty("Severity")]
     public virtual ICollection<HealthProfileAllergy> HealthProfileAllergies { get; set; } = new List<HealthProfileAllergy>();
 
     [InverseProperty("Severity")]
     public virtual ICollection<HealthProfileIllness> HealthProfileIllnesses { get; set; } = new List<HealthProfileIllness>();
-
-    [InverseProperty("Severity")]
-    public virtual ICollection<Illness> Illnesses { get; set; } = new List<Illness>();
 }

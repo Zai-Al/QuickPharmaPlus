@@ -1,103 +1,232 @@
+import { useState, useEffect, useContext } from "react";
 import Highcharts from "highcharts";
 import HighchartsReact from "highcharts-react-official";
-import "./Dashboard.css";   // Reuse same styling
+import { AuthContext } from "../../../Context/AuthContext.jsx";
+import "./Dashboard.css";
 
 export default function ManagerDashboard() {
+    const baseURL = import.meta.env.VITE_API_BASE_URL;
+    const { user: ctxUser } = useContext(AuthContext);
 
-    // ===== SAMPLE PIE CHART DATA =====
+    // State for dashboard data
+    const [dashboardData, setDashboardData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    // Fetch dashboard data on component mount
+    useEffect(() => {
+        fetchDashboardData();
+    }, []);
+
+    const fetchDashboardData = async () => {
+        try {
+            setLoading(true);
+            const response = await fetch(`${baseURL}/api/ManagerDashboard`, {
+                method: "GET",
+                credentials: "include"
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch dashboard data (${response.status})`);
+            }
+
+            const data = await response.json();
+            setDashboardData(data);
+            setError(null);
+        } catch (err) {
+            console.error("Error fetching dashboard data:", err);
+            setError("Failed to load dashboard data. Please try again later.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Extract user name (same pattern as Profile_Internal)
+    const firstName = ctxUser?.firstName ?? ctxUser?.givenName ?? ctxUser?.name ?? ctxUser?.FirstName ?? "";
+
+    // Don't render charts until data is loaded
+    if (loading) {
+        return (
+            <div className="admin-container">
+                <div className="text-center my-5">
+                    <div className="spinner-border text-primary" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                    </div>
+                    <p className="mt-3">Loading dashboard data...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Error state
+    if (error) {
+        return (
+            <div className="admin-container">
+                <div className="alert alert-danger m-5" role="alert">
+                    <h4 className="alert-heading">Error!</h4>
+                    <p>{error}</p>
+                    <button className="btn btn-primary" onClick={fetchDashboardData}>
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // Return null if no data (safety check)
+    if (!dashboardData) {
+        return null;
+    }
+
+    // ==== CHART: SALES PER SUPPLIER (PIE) ====
     const supplierSalesChart = {
-        chart: { type: "pie" },
-        title: { text: "Supplier Sales Distribution" },
+        chart: {
+            type: "pie",
+            height: 400,
+            width: 750,
+            spacingTop: 30,
+            spacingBottom: 30,
+            spacingLeft: 20,
+            spacingRight: 20
+        },
+        title: { text: "" },
+        plotOptions: {
+            pie: {
+                dataLabels: {
+                    enabled: true,
+                    format: '<b>{point.name}</b>: {point.percentage:.1f} %',
+                    style: {
+                        fontSize: "16px",
+                        fontWeight: "500"
+                    }
+                }
+            }
+        },
         series: [
             {
                 name: "Sales",
-                colorByPoint: true,
-                data: [
-                    { name: "Supplier A", y: 35 },
-                    { name: "Supplier B", y: 25 },
-                    { name: "Supplier C", y: 20 },
-                    { name: "Supplier D", y: 10 },
-                    { name: "Supplier E", y: 10 }
-                ]
+                data: dashboardData.salesPerSupplier.map(item => ({
+                    name: item.supplierName,
+                    y: item.totalSales
+                }))
             }
         ]
     };
 
+    // ==== CHART: SALES PER CATEGORY (COLUMN) ====
     const categorySalesChart = {
-        chart: { type: "column" },  // BAR GRAPH
-        title: { text: "Category Sales Distribution" },
+        chart: {
+            type: "column",
+            height: 400,
+            width: 1000,
+            spacingTop: 30,
+            spacingBottom: 30,
+            spacingLeft: 20,
+            spacingRight: 20
+        },
+        title: { text: "" },
+        colors: ['#3AAFA9'],
         xAxis: {
-            categories: ["Medicine", "Supplements", "Cosmetics", "Personal Care"],
-            title: { text: "Category" }
+            categories: dashboardData.salesPerCategory.map(item => item.categoryName),
+            title: {
+                text: "Category",
+                style: {
+                    fontSize: "14px",
+                    fontWeight: "500"
+                }
+            },
+            labels: {
+                style: {
+                    fontSize: "13px"
+                }
+            }
         },
         yAxis: {
-            min: 0,
-            title: { text: "Total Sales" }
+            title: {
+                text: "Total Sales (BHD)",
+                style: {
+                    fontSize: "14px",
+                    fontWeight: "500"
+                }
+            },
+            labels: {
+                style: {
+                    fontSize: "12px"
+                }
+            }
         },
         series: [
             {
                 name: "Sales",
-                data: [45, 20, 15, 20],
-                color: "#1D7281"   // teal theme
+                data: dashboardData.salesPerCategory.map(item => item.totalSales)
             }
         ]
     };
 
-
-    // ===== METRIC BOXES =====
-    const metricTitles = [
-        "Total Branch Sales",
-        "Today Total Branch Sales",
-        "Total Number of Employees",
-        "Total Number of Prescriptions",
-        "Total Number of Deliveries",
-        "Total Number of Today Deliveries",
-        "Branch Total Products",
-        "Branch Total Orders"
-    ];
-
+    // ==== CHART: PRESCRIPTIONS APPROVED PER PHARMACIST (LINE) ====
     const pharmacistLineChart = {
-        chart: { type: "line" },
-        title: { text: "" },   // no default title, we use the card header
+        chart: {
+            type: "line",
+            height: 400,
+            width: 1000,
+            spacingTop: 30,
+            spacingBottom: 30,
+            spacingLeft: 20,
+            spacingRight: 20
+        },
+        title: { text: "" },
+        colors: ['#598199'],
         xAxis: {
-            categories: ["Fatima", "Ahmed", "Sara", "Hassan", "Maryam"],
-            title: { text: "Pharmacist" }
+            categories: dashboardData.prescriptionApprovalsPerPharmacist.map(item => item.pharmacistName),
+            title: {
+                text: "Pharmacist",
+                style: {
+                    fontSize: "14px",
+                    fontWeight: "500"
+                }
+            },
+            labels: {
+                style: {
+                    fontSize: "13px"
+                }
+            }
         },
         yAxis: {
-            title: { text: "Approved Prescriptions" }
+            title: {
+                text: "Approved Prescriptions",
+                style: {
+                    fontSize: "14px",
+                    fontWeight: "500"
+                }
+            },
+            labels: {
+                style: {
+                    fontSize: "12px"
+                }
+            }
         },
         series: [
             {
                 name: "Approvals",
-                data: [45, 60, 38, 52, 70],   // fake test data
-                color: "#1D7281",            // teal-ish line
-                lineWidth: 3,
-                marker: {
-                    radius: 5,
-                    fillColor: "#1D7281"
-                }
+                data: dashboardData.prescriptionApprovalsPerPharmacist.map(item => item.totalApprovals)
             }
         ]
     };
-
-    //constant for the current user 
-    const currentUser = "Manager";
 
     return (
         <div className="admin-container">
 
             <h2 className="dashboard-title text-center">Welcome {" "}
-                <span style={{ color: "#1D2D44" }}>{currentUser}</span>
+                <span style={{ color: "#1D2D44" }}>{firstName}</span>
+                !
             </h2>
 
-            {/* ===== CHARTS SECTION ===== */}
-            <div className="row justify-content-center mt-4 mb-5">
-
-                {/* Supplier Pie Chart */}
-                <div className="col-md-5">
+            {/* ==== SALES PER SUPPLIER (PIE) ==== */}
+            <div className="row justify-content-center mt-4 mb-4">
+                <div className="col-md-10">
                     <div className="card dashboard-card border-teal mb-4">
                         <div className="card-header teal-header">
-                            <h4 className="card-title">Pie Chart for Suppliers Sales</h4>
+                            <h4 className="card-title">Sales Per Supplier</h4>
                         </div>
                         <div className="card-body">
                             <HighchartsReact
@@ -107,12 +236,14 @@ export default function ManagerDashboard() {
                         </div>
                     </div>
                 </div>
+            </div>
 
-                {/* Category Pie Chart */}
-                <div className="col-md-5">
+            {/* ==== SALES PER CATEGORY (COLUMN) ==== */}
+            <div className="row justify-content-center mb-4">
+                <div className="col-md-10">
                     <div className="card dashboard-card border-teal mb-4">
                         <div className="card-header teal-header">
-                            <h4 className="card-title">Chart for Category Sales</h4>
+                            <h4 className="card-title">Sales Per Category</h4>
                         </div>
                         <div className="card-body">
                             <HighchartsReact
@@ -124,9 +255,9 @@ export default function ManagerDashboard() {
                 </div>
             </div>
 
-            {/* ===== LINE CHART: PRESCRIPTIONS APPROVED PER PHARMACIST ===== */}
-            <div className="row justify-content-center mt-4 mb-5">
-                <div className="col-md-10">   {/* Full width but centered */}
+            {/* ==== PRESCRIPTIONS APPROVED PER PHARMACIST (LINE) ==== */}
+            <div className="row justify-content-center mb-5">
+                <div className="col-md-10">
                     <div className="card dashboard-card border-teal mb-4">
                         <div className="card-header teal-header">
                             <h4 className="card-title">Prescriptions Approved Per Pharmacist</h4>
@@ -141,25 +272,122 @@ export default function ManagerDashboard() {
                 </div>
             </div>
 
-
-            {/* ===== METRIC CARDS ===== */}
+            {/* ==== METRIC CARDS ==== */}
             <div className="row justify-content-center">
-                {metricTitles.map((title, index) => (
-                    <div className="col-md-5" key={index}>
-                        <div className="card dashboard-card border-teal mb-4">
-                            <div className="card-header teal-header">
-                                <h4 className="card-title">{title}</h4>
-                            </div>
-                            <div className="card-body">
-                                <p className="card-text text-center placeholder-number">
-                                    {Math.floor(Math.random() * 300 + 50)}
-                                </p>
-                            </div>
+
+                {/* Total Branch Sales */}
+                <div className="col-md-5">
+                    <div className="card dashboard-card border-teal mb-4">
+                        <div className="card-header teal-header">
+                            <h4 className="card-title">Total Branch Sales</h4>
+                        </div>
+                        <div className="card-body">
+                            <p className="card-text text-center placeholder-number">
+                                BHD {dashboardData.metrics.totalBranchSales.toFixed(3)}
+                            </p>
                         </div>
                     </div>
-                ))}
-            </div>
+                </div>
 
+                {/* Today's Branch Sales */}
+                <div className="col-md-5">
+                    <div className="card dashboard-card border-teal mb-4">
+                        <div className="card-header teal-header">
+                            <h4 className="card-title">Today's Branch Sales</h4>
+                        </div>
+                        <div className="card-body">
+                            <p className="card-text text-center placeholder-number">
+                                BHD {dashboardData.metrics.todayBranchSales.toFixed(3)}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Total Branch Employees */}
+                <div className="col-md-5">
+                    <div className="card dashboard-card border-teal mb-4">
+                        <div className="card-header teal-header">
+                            <h4 className="card-title">Total Branch Employees</h4>
+                        </div>
+                        <div className="card-body">
+                            <p className="card-text text-center placeholder-number">
+                                {dashboardData.metrics.totalBranchEmployees}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Total Branch Prescriptions */}
+                <div className="col-md-5">
+                    <div className="card dashboard-card border-teal mb-4">
+                        <div className="card-header teal-header">
+                            <h4 className="card-title">Total Branch Prescriptions</h4>
+                        </div>
+                        <div className="card-body">
+                            <p className="card-text text-center placeholder-number">
+                                {dashboardData.metrics.totalBranchPrescriptions}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Total Branch Deliveries */}
+                <div className="col-md-5">
+                    <div className="card dashboard-card border-teal mb-4">
+                        <div className="card-header teal-header">
+                            <h4 className="card-title">Total Branch Deliveries</h4>
+                        </div>
+                        <div className="card-body">
+                            <p className="card-text text-center placeholder-number">
+                                {dashboardData.metrics.totalBranchDeliveries}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Today's Branch Deliveries */}
+                <div className="col-md-5">
+                    <div className="card dashboard-card border-teal mb-4">
+                        <div className="card-header teal-header">
+                            <h4 className="card-title">Today's Branch Deliveries</h4>
+                        </div>
+                        <div className="card-body">
+                            <p className="card-text text-center placeholder-number">
+                                {dashboardData.metrics.todayBranchDeliveries}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Total Branch Inventory */}
+                <div className="col-md-5">
+                    <div className="card dashboard-card border-teal mb-4">
+                        <div className="card-header teal-header">
+                            <h4 className="card-title">Total Branch Inventory</h4>
+                        </div>
+                        <div className="card-body">
+                            <p className="card-text text-center placeholder-number">
+                                {dashboardData.metrics.totalBranchInventory}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Total Branch Orders */}
+                <div className="col-md-5">
+                    <div className="card dashboard-card border-teal mb-4">
+                        <div className="card-header teal-header">
+                            <h4 className="card-title">Total Branch Orders</h4>
+                        </div>
+                        <div className="card-body">
+                            <p className="card-text text-center placeholder-number">
+                                {dashboardData.metrics.totalBranchOrders}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
         </div>
     );
 }
