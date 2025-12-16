@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import Highcharts from "highcharts";
 import HighchartsReact from "highcharts-react-official";
+import { AuthContext } from "../../../Context/AuthContext.jsx";
 import "./Dashboard.css";
 
 export default function AdminDashboard() {
     const baseURL = import.meta.env.VITE_API_BASE_URL;
+    const { user: ctxUser } = useContext(AuthContext);
 
     // State for dashboard data
     const [dashboardData, setDashboardData] = useState(null);
@@ -38,6 +40,9 @@ export default function AdminDashboard() {
             setLoading(false);
         }
     };
+
+    // Extract first name only (same pattern as Profile_Internal)
+    const firstName = ctxUser?.firstName ?? ctxUser?.givenName ?? ctxUser?.name ?? ctxUser?.FirstName ?? ctxUser?.username ?? "Admin";
 
     // ==== CHART: SALES PER BRANCH (PIE) ====
     const salesChartOptions = {
@@ -278,10 +283,6 @@ export default function AdminDashboard() {
         ]
     };
 
-
-    // Current user (you can get this from context or auth state later)
-    const currentUser = "Admin";
-
     // Loading state
     if (loading) {
         return (
@@ -315,7 +316,8 @@ export default function AdminDashboard() {
         <div className="admin-container">
 
             <h2 className="dashboard-title text-center">Welcome {" "}
-                <span style={{ color: "#1D2D44" }}>{currentUser}</span>
+                <span style={{ color: "#1D2D44" }}>{firstName}</span>
+                !
             </h2>
 
             {/* ==== SALES PER BRANCH (PIE) ==== */}

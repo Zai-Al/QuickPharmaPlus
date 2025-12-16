@@ -38,6 +38,12 @@ public partial class Prescription
     [Column("isHealthPerscription")]
     public bool? IsHealthPerscription { get; set; }
 
+    [StringLength(100)]
+    public string? PrescriptionDocumentContentType { get; set; }
+
+    [StringLength(100)]
+    public string? PrescriptionCprDocumentContentType { get; set; }
+
     [InverseProperty("Prescription")]
     public virtual ICollection<Approval> Approvals { get; set; } = new List<Approval>();
 

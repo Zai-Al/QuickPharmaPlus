@@ -38,6 +38,9 @@ public partial class Approval
     [Column("User_id")]
     public int? UserId { get; set; }
 
+    [Column("Approval_timestamp")]
+    public DateTime? ApprovalTimestamp { get; set; }
+
     [ForeignKey("PrescriptionId")]
     [InverseProperty("Approvals")]
     public virtual Prescription? Prescription { get; set; }

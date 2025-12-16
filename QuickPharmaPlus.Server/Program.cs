@@ -40,8 +40,7 @@ namespace QuickPharmaPlus.Server
                 opt.TokenLifespan = TimeSpan.FromHours(2);
             });
 
-
-
+ 
 
             // Add to service registration
             builder.Services.AddDistributedMemoryCache();
@@ -136,6 +135,12 @@ namespace QuickPharmaPlus.Server
             builder.Services.AddScoped<IHealthProfileIllnessRepository, HealthProfileIllnessRepository>();
             builder.Services.AddScoped<IHealthProfileLookupRepository, HealthProfileLookupRepository>();
             builder.Services.AddScoped<IHealthProfileAllergyRepository, HealthProfileAllergyRepository>();
+            builder.Services.AddScoped<IManagerDashboardRepository, ManagerDashboardRepository>();
+            builder.Services.AddScoped<IPharmacistDashboardRepository, PharmacistDashboardRepository>();
+            builder.Services.AddScoped<IDriverDashboardRepository, DriverDashboardRepository>();
+
+
+
 
 
             // 6) Stripe configuration (test secret key from appsettings.json)
@@ -252,6 +257,32 @@ namespace QuickPharmaPlus.Server
             await CreateUser(userManager, "arjun.nair@gmail.com", "Driver123!", "Driver");
             await CreateUser(userManager, "vijay.menon@gmail.com", "Driver123!", "Driver");
             await CreateUser(userManager, "deepak.singh@gmail.com", "Driver123!", "Driver");
+
+            // ===== BRANCH 1 =====
+            await CreateUser(userManager, "amit.sharma.b1@gmail.com", "Driver123!", "Driver");
+            await CreateUser(userManager, "rohit.verma.b1@gmail.com", "Driver123!", "Driver");
+            await CreateUser(userManager, "kunal.mehta.b1@gmail.com", "Driver123!", "Driver");
+
+            // ===== BRANCH 2 =====
+            await CreateUser(userManager, "sameer.khan.b2@gmail.com", "Driver123!", "Driver");
+            await CreateUser(userManager, "imran.ali.b2@gmail.com", "Driver123!", "Driver");
+            await CreateUser(userManager, "faisal.hassan.b2@gmail.com", "Driver123!", "Driver");
+
+            // ===== BRANCH 3 =====
+            await CreateUser(userManager, "adnan.saeed.b3@gmail.com", "Driver123!", "Driver");
+            await CreateUser(userManager, "yasir.malik.b3@gmail.com", "Driver123!", "Driver");
+            await CreateUser(userManager, "omar.farooq.b3@gmail.com", "Driver123!", "Driver");
+
+            // ===== BRANCH 4 =====
+            await CreateUser(userManager, "salman.nadeem.b4@gmail.com", "Driver123!", "Driver");
+            await CreateUser(userManager, "zubair.iqbal.b4@gmail.com", "Driver123!", "Driver");
+            await CreateUser(userManager, "tariq.aziz.b4@gmail.com", "Driver123!", "Driver");
+
+            // ===== BRANCH 5 =====
+            await CreateUser(userManager, "fahad.mansoor.b5@gmail.com", "Driver123!", "Driver");
+            await CreateUser(userManager, "adeel.butt.b5@gmail.com", "Driver123!", "Driver");
+            await CreateUser(userManager, "usman.sheikh.b5@gmail.com", "Driver123!", "Driver");
+
 
             // Customers seeding
             await CreateUser(userManager, "layla.hassan@gmail.com", "Customer123!", "Customer");

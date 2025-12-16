@@ -41,6 +41,9 @@ public partial class User
     [Column("Branch_id")]
     public int? BranchId { get; set; }
 
+    [Column("Slot_id")]
+    public int? SlotId { get; set; }
+
     [ForeignKey("AddressId")]
     [InverseProperty("Users")]
     public virtual Address? Address { get; set; }
@@ -82,6 +85,10 @@ public partial class User
 
     [InverseProperty("User")]
     public virtual ICollection<Shipping> Shippings { get; set; } = new List<Shipping>();
+
+    [ForeignKey("SlotId")]
+    [InverseProperty("Users")]
+    public virtual Slot? Slot { get; set; }
 
     [InverseProperty("Employee")]
     public virtual ICollection<SupplierOrder> SupplierOrders { get; set; } = new List<SupplierOrder>();
