@@ -40,6 +40,9 @@ public partial class Address
     public virtual City? City { get; set; }
 
     [InverseProperty("Address")]
+    public virtual ICollection<Prescription> Prescriptions { get; set; } = new List<Prescription>();
+
+    [InverseProperty("Address")]
     public virtual ICollection<Shipping> Shippings { get; set; } = new List<Shipping>();
 
     [InverseProperty("Address")]

@@ -264,7 +264,7 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
         modelBuilder.Entity<LogType>(entity =>
         {
-            entity.HasKey(e => e.LogTypeId).HasName("PK__Log_Type__92B17BDB63D98667");
+            entity.HasKey(e => e.LogTypeId).HasName("PK__Log_Type__92B17BDB2D84DD76");
         });
 
         modelBuilder.Entity<Order>(entity =>
@@ -290,6 +290,10 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
         modelBuilder.Entity<Prescription>(entity =>
         {
+            entity.HasOne(d => d.Address).WithMany(p => p.Prescriptions)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_Prescription_Address");
+
             entity.HasOne(d => d.PrescriptionStatus).WithMany(p => p.Prescriptions).HasConstraintName("FK_Prescription_Prescription_Status");
 
             entity.HasOne(d => d.User).WithMany(p => p.Prescriptions).HasConstraintName("FK_Prescription_Customer");
@@ -373,7 +377,7 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
         modelBuilder.Entity<Slot>(entity =>
         {
-            entity.HasKey(e => e.SlotId).HasName("PK__Slot__1AE5AEE6D44E0A8E");
+            entity.HasKey(e => e.SlotId).HasName("PK__Slot__1AE5AEE698713019");
         });
 
         modelBuilder.Entity<Supplier>(entity =>
@@ -403,7 +407,7 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
         modelBuilder.Entity<SupplierOrderType>(entity =>
         {
-            entity.HasKey(e => e.SupplierOrderTypeId).HasName("PK__Supplier__6B90B83F862CFC19");
+            entity.HasKey(e => e.SupplierOrderTypeId).HasName("PK__Supplier__6B90B83F1D1A74EF");
         });
 
         modelBuilder.Entity<User>(entity =>

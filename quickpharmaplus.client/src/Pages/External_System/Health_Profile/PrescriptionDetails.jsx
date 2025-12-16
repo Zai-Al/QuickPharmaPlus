@@ -255,12 +255,7 @@ export default function PrescriptionDetails() {
                                     </button>
                                     <button
                                         className="btn btn-sm btn-secondary"
-                                        onClick={() =>
-                                            handleDownload(
-                                                docUrls?.prescription,
-                                                `prescription_${prescriptionId}.pdf`
-                                            )
-                                        }
+                                        onClick={() => handleDownload(docUrls?.prescription, prescription.prescriptionFileName || `prescription_${prescriptionId}`)}
                                         disabled={loading || !hasPrescriptionDoc || !docUrls}
                                     >
                                         Download Document
@@ -293,12 +288,7 @@ export default function PrescriptionDetails() {
                                     </button>
                                     <button
                                         className="btn btn-sm btn-secondary"
-                                        onClick={() =>
-                                            handleDownload(
-                                                docUrls?.cpr,
-                                                `cpr_${prescriptionId}.pdf`
-                                            )
-                                        }
+                                        onClick={() => handleDownload(docUrls?.cpr, prescription.cprFileName || `cpr_${prescriptionId}`)}
                                         disabled={loading || !hasCprDoc || !docUrls}
                                     >
                                         Download Document

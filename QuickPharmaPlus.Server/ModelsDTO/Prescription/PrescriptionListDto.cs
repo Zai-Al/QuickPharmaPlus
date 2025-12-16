@@ -17,5 +17,19 @@
 
         // Useful for UI: latest expiry (from Approval table)
         public DateOnly? LatestApprovalExpiryDate { get; set; }
+
+        public int? AddressId { get; set; }
+        public int? CityId { get; set; }
+        public string? CityName { get; set; }
+        public string? Block { get; set; }
+        public string? Road { get; set; }              
+        public string? BuildingFloor { get; set; }      
+
+        
+        public string? PrescriptionDocumentContentType { get; set; }
+        public string? PrescriptionCprDocumentContentType { get; set; }
+        public string? PrescriptionFileName { get; set; }
+        public string? CprFileName { get; set; }
+
     }
 }
