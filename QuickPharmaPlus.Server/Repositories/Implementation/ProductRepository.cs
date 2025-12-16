@@ -132,7 +132,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     SupplierName = p.Supplier != null ? p.Supplier.SupplierName : null,
                     ProductTypeId = p.ProductTypeId,
                     ProductTypeName = p.ProductType != null ? p.ProductType.ProductTypeName : null,
-                    CategoryId = p.CategoryId,
+                    CategoryId = p.CategoryId ?? 0, // FIX: Handle nullable CategoryId
                     CategoryName = p.Category != null ? p.Category.CategoryName : null,
                     InventoryCount = _context.Inventories.Count(i => i.ProductId == p.ProductId)
                 })
@@ -166,7 +166,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 SupplierName = p.Supplier?.SupplierName,
                 ProductTypeId = p.ProductTypeId,
                 ProductTypeName = p.ProductType?.ProductTypeName,
-                CategoryId = p.CategoryId,
+                CategoryId = p.CategoryId ?? 0, // FIX: Handle nullable CategoryId
                 CategoryName = p.Category?.CategoryName,
                 ProductImage = p.ProductImage
             };
@@ -264,7 +264,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 query = query.Where(p => p.SupplierId.HasValue && supplierIds.Contains(p.SupplierId.Value));
 
             if (categoryIds != null && categoryIds.Length > 0)
-                query = query.Where(p => categoryIds.Contains(p.CategoryId));
+                query = query.Where(p => p.CategoryId.HasValue && categoryIds.Contains(p.CategoryId.Value)); // FIX: Handle nullable CategoryId
 
             if (productTypeIds != null && productTypeIds.Length > 0)
                 query = query.Where(p => p.ProductTypeId.HasValue && productTypeIds.Contains(p.ProductTypeId.Value));
@@ -336,7 +336,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                             )
                         )
 
-         
+
                     );
                 }
             }
@@ -367,7 +367,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     SupplierName = p.Supplier != null ? p.Supplier.SupplierName : null,
                     ProductTypeId = p.ProductTypeId,
                     ProductTypeName = p.ProductType != null ? p.ProductType.ProductTypeName : null,
-                    CategoryId = p.CategoryId,
+                    CategoryId = p.CategoryId ?? 0, // FIX: Handle nullable CategoryId
                     CategoryName = p.Category != null ? p.Category.CategoryName : null,
 
                     // UPDATED: SUM actual available stock quantity, ignore expired + ignore 0

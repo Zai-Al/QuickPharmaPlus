@@ -29,7 +29,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             // Base query
             var query = _context.Categories.AsQueryable();
 
-            // 🔍 Apply filtering
+            // Apply filtering
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var term = search.Trim().ToLower();
@@ -83,6 +83,44 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
         }
 
         // =============================================================
+        // CHECK FOR DUPLICATE CATEGORY NAME
+        // =============================================================
+        public async Task<bool> CategoryNameExistsAsync(string categoryName, int? excludeId = null)
+        {
+            var normalizedName = categoryName.Trim().ToLower();
+
+            var query = _context.Categories
+                .Where(c => c.CategoryName.ToLower() == normalizedName);
+
+            // Exclude current category when editing
+            if (excludeId.HasValue)
+            {
+                query = query.Where(c => c.CategoryId != excludeId.Value);
+            }
+
+            return await query.AnyAsync();
+        }
+
+        // =============================================================
+        // CHECK FOR DUPLICATE TYPE NAME (WITHIN SAME CATEGORY)
+        // =============================================================
+        public async Task<bool> TypeNameExistsAsync(string typeName, int categoryId, int? excludeTypeId = null)
+        {
+            var normalizedName = typeName.Trim().ToLower();
+
+            var query = _context.ProductTypes
+                .Where(pt => pt.CategoryId == categoryId && pt.ProductTypeName.ToLower() == normalizedName);
+
+            // Exclude current type when editing
+            if (excludeTypeId.HasValue)
+            {
+                query = query.Where(pt => pt.ProductTypeId != excludeTypeId.Value);
+            }
+
+            return await query.AnyAsync();
+        }
+
+        // =============================================================
         // CREATE NEW CATEGORY
         // =============================================================
         public async Task<Category> AddCategoryAsync(Category category)
@@ -111,7 +149,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
         }
 
         // =============================================================
-        // DELETE CATEGORY + RELATED PRODUCTS AND TYPES
+        // DELETE CATEGORY - SET PRODUCTS TO NULL, DELETE TYPES
         // =============================================================
         public async Task<bool> DeleteCategoryAsync(int id)
         {
@@ -121,12 +159,21 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             if (category == null)
                 return false;
 
+            // DELETE related product types
             var relatedTypes = _context.ProductTypes.Where(pt => pt.CategoryId == id);
             _context.ProductTypes.RemoveRange(relatedTypes);
 
-            var relatedProducts = _context.Products.Where(p => p.CategoryId == id);
-            _context.Products.RemoveRange(relatedProducts);
+            // SET products' CategoryId to NULL instead of deleting them
+            var relatedProducts = await _context.Products
+                .Where(p => p.CategoryId == id)
+                .ToListAsync();
 
+            foreach (var product in relatedProducts)
+            {
+                product.CategoryId = null; // Set to null (Not Defined)
+            }
+
+            // DELETE the category
             _context.Categories.Remove(category);
 
             await _context.SaveChangesAsync();
@@ -186,6 +233,24 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
         }
 
         // =============================================================
+        // GET TYPE DETAILS BY ID
+        // =============================================================
+        public async Task<ProductType?> GetTypeByIdAsync(int typeId)
+        {
+            return await _context.ProductTypes.FirstOrDefaultAsync(pt => pt.ProductTypeId == typeId);
+        }
+
+        // =============================================================
+        // GET PRODUCT COUNT FOR A SPECIFIC TYPE
+        // =============================================================
+        public async Task<int> GetProductCountByTypeIdAsync(int typeId)
+        {
+            return await _context.Products
+                .Where(p => p.ProductTypeId == typeId)
+                .CountAsync();
+        }
+
+        // =============================================================
         // ADD PRODUCT TYPE TO CATEGORY
         // =============================================================
         public async Task<ProductType> AddCategoryTypeAsync(ProductType type)
@@ -196,7 +261,24 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
         }
 
         // =============================================================
-        // DELETE PRODUCT TYPE
+        // UPDATE PRODUCT TYPE
+        // =============================================================
+        public async Task<ProductType?> UpdateCategoryTypeAsync(ProductType type)
+        {
+            var existing = await _context.ProductTypes
+                .FirstOrDefaultAsync(pt => pt.ProductTypeId == type.ProductTypeId);
+
+            if (existing == null)
+                return null;
+
+            existing.ProductTypeName = type.ProductTypeName;
+
+            await _context.SaveChangesAsync();
+            return existing;
+        }
+
+        // =============================================================
+        // DELETE PRODUCT TYPE - SET PRODUCTS' ProductTypeId TO NULL
         // =============================================================
         public async Task<bool> DeleteCategoryTypeAsync(int typeId)
         {
@@ -206,6 +288,17 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             if (type == null)
                 return false;
 
+            // SET products' ProductTypeId to NULL instead of deleting them
+            var relatedProducts = await _context.Products
+                .Where(p => p.ProductTypeId == typeId)
+                .ToListAsync();
+
+            foreach (var product in relatedProducts)
+            {
+                product.ProductTypeId = null; // Set to null (Not Defined)
+            }
+
+            // DELETE the product type
             _context.ProductTypes.Remove(type);
             await _context.SaveChangesAsync();
             return true;

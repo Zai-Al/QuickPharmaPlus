@@ -39,6 +39,7 @@ import AddProduct from "./Pages/Internal_System/Products/AddProduct.jsx";
 import ViewProduct from "./Pages/Internal_System/Products/ViewProductDetails.jsx";
 import CategoryList from "./Pages/Internal_System/Admin/Category/CategoryList.jsx";
 import AddCategory from "./Pages/Internal_System/Admin/Category/AddCategory.jsx";
+import EditCategory from "./Pages/Internal_System/Admin/Category/EditCategory.jsx";
 import CategoryType from "./Pages/Internal_System/Admin/Category/Types.jsx";
 import InventoryList from "./Pages/Internal_System/Admin/Inventory/InventoryList.jsx";
 import AddInventory from "./Pages/Internal_System/Admin/Inventory/AddInventory.jsx";
@@ -304,6 +305,15 @@ export default function AppRoutes() {
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin"]}>
                                         <AddCategory />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
+                                path="/categories/edit/:id"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin"]}>
+                                        <EditCategory />
                                     </ProtectedRoute>
                                 }
                             />
