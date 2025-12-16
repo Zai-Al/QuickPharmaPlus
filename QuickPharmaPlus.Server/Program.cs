@@ -136,6 +136,7 @@ namespace QuickPharmaPlus.Server
             builder.Services.AddScoped<IHealthProfileIllnessRepository, HealthProfileIllnessRepository>();
             builder.Services.AddScoped<IHealthProfileLookupRepository, HealthProfileLookupRepository>();
             builder.Services.AddScoped<IHealthProfileAllergyRepository, HealthProfileAllergyRepository>();
+            builder.Services.AddScoped<IPrescriptionRepository, PrescriptionRepository>();
 
 
             // 6) Stripe configuration (test secret key from appsettings.json)
