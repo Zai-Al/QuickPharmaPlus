@@ -101,6 +101,8 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
     public virtual DbSet<ShippingType> ShippingTypes { get; set; }
 
+    public virtual DbSet<Slot> Slots { get; set; }
+
     public virtual DbSet<Supplier> Suppliers { get; set; }
 
     public virtual DbSet<SupplierOrder> SupplierOrders { get; set; }
@@ -131,8 +133,6 @@ public partial class QuickPharmaPlusDbContext : DbContext
             entity.HasOne(d => d.AlleryName).WithMany(p => p.Allergies).HasConstraintName("FK_Allergy_Allergy_Name");
 
             entity.HasOne(d => d.AlleryType).WithMany(p => p.Allergies).HasConstraintName("FK_Allergies_Allergy_Type");
-
-            entity.HasOne(d => d.Severity).WithMany(p => p.Allergies).HasConstraintName("FK_Allergy_Severity");
         });
 
         modelBuilder.Entity<AllergyIngredientInteraction>(entity =>
@@ -158,6 +158,8 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
         modelBuilder.Entity<Approval>(entity =>
         {
+            entity.Property(e => e.ApprovalTimestamp).HasDefaultValueSql("(getdate())");
+
             entity.HasOne(d => d.Prescription).WithMany(p => p.Approvals).HasConstraintName("FK_Approval_Prescription");
 
             entity.HasOne(d => d.User).WithMany(p => p.Approvals).HasConstraintName("FK_Approval_User");
@@ -212,8 +214,6 @@ public partial class QuickPharmaPlusDbContext : DbContext
             entity.HasOne(d => d.IllnessName).WithMany(p => p.Illnesses).HasConstraintName("FK_Illness_Illness_Name");
 
             entity.HasOne(d => d.LllnessType).WithMany(p => p.Illnesses).HasConstraintName("FK_Illness_Illness_Type");
-
-            entity.HasOne(d => d.Severity).WithMany(p => p.Illnesses).HasConstraintName("FK_Illness_Severity");
         });
 
         modelBuilder.Entity<IllnessIngredientInteraction>(entity =>
@@ -308,9 +308,7 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
         modelBuilder.Entity<Product>(entity =>
         {
-            entity.HasOne(d => d.Category).WithMany(p => p.Products)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_Product_Category");
+            entity.HasOne(d => d.Category).WithMany(p => p.Products).HasConstraintName("FK_Product_Category");
 
             entity.HasOne(d => d.ProductType).WithMany(p => p.Products).HasConstraintName("FK_Product_Product_Type");
 
@@ -368,7 +366,14 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
             entity.HasOne(d => d.Branch).WithMany(p => p.Shippings).HasConstraintName("FK_Shipping_Branch");
 
+            entity.HasOne(d => d.ShippingSlot).WithMany(p => p.Shippings).HasConstraintName("FK_Shipping_Slot");
+
             entity.HasOne(d => d.User).WithMany(p => p.Shippings).HasConstraintName("FK_Shipping_User");
+        });
+
+        modelBuilder.Entity<Slot>(entity =>
+        {
+            entity.HasKey(e => e.SlotId).HasName("PK__Slot__1AE5AEE6D44E0A8E");
         });
 
         modelBuilder.Entity<Supplier>(entity =>
@@ -408,6 +413,8 @@ public partial class QuickPharmaPlusDbContext : DbContext
             entity.HasOne(d => d.Branch).WithMany(p => p.Users).HasConstraintName("FK_User_Branch");
 
             entity.HasOne(d => d.Role).WithMany(p => p.Users).HasConstraintName("FK_User_Role");
+
+            entity.HasOne(d => d.Slot).WithMany(p => p.Users).HasConstraintName("FK_User_Slot");
         });
 
         modelBuilder.Entity<WishList>(entity =>

@@ -9,7 +9,6 @@ namespace QuickPharmaPlus.Server.Models;
 [Table("Allergy")]
 [Index("AlleryTypeId", Name = "IXFK_Allergies_Allergy_Type")]
 [Index("AlleryNameId", Name = "IXFK_Allergy_Allergy_name")]
-[Index("SeverityId", Name = "IX_Allergy_Severity_id")]
 public partial class Allergy
 {
     [Key]
@@ -21,9 +20,6 @@ public partial class Allergy
 
     [Column("Allery_name_id")]
     public int? AlleryNameId { get; set; }
-
-    [Column("Severity_id")]
-    public int? SeverityId { get; set; }
 
     [InverseProperty("Allergy")]
     public virtual ICollection<AllergyIngredientInteraction> AllergyIngredientInteractions { get; set; } = new List<AllergyIngredientInteraction>();
@@ -38,8 +34,4 @@ public partial class Allergy
 
     [InverseProperty("Allergy")]
     public virtual ICollection<HealthProfileAllergy> HealthProfileAllergies { get; set; } = new List<HealthProfileAllergy>();
-
-    [ForeignKey("SeverityId")]
-    [InverseProperty("Allergies")]
-    public virtual Severity? Severity { get; set; }
 }

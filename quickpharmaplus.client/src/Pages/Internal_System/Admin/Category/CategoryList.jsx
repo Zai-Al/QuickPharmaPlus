@@ -40,7 +40,11 @@ export default function CategoryList() {
 
     // === DELETE MODAL STATE ===
     const [deleteId, setDeleteId] = useState(null);
+    const [deleteCategoryName, setDeleteCategoryName] = useState("");
     const [showModal, setShowModal] = useState(false);
+    const [typeCount, setTypeCount] = useState(0);
+    const [productCount, setProductCount] = useState(0);
+    const [loadingDeleteInfo, setLoadingDeleteInfo] = useState(false);
 
     // === PAGING ===
     const [currentPage, setCurrentPage] = useState(1);
@@ -99,6 +103,35 @@ export default function CategoryList() {
         }
     }
 
+    // === FETCH DELETE DETAILS ===
+    async function handleDeleteClick(categoryId, categoryName, productCount) {
+        setDeleteId(categoryId);
+        setDeleteCategoryName(categoryName);
+        setProductCount(productCount);
+        setShowModal(true);
+        setLoadingDeleteInfo(true);
+
+        try {
+            // Fetch types for this category
+            const res = await fetch(
+                `${baseURL}/api/category/types/${categoryId}?pageNumber=1&pageSize=1000`,
+                { method: "GET", credentials: "include" }
+            );
+
+            if (res.ok) {
+                const data = await res.json();
+                setTypeCount(data.totalCount || 0);
+            } else {
+                setTypeCount(0);
+            }
+        } catch (err) {
+            console.error("Failed to fetch category types:", err);
+            setTypeCount(0);
+        } finally {
+            setLoadingDeleteInfo(false);
+        }
+    }
+
     // === DELETE ===
     async function handleDeleteConfirm() {
         if (!deleteId) {
@@ -114,14 +147,28 @@ export default function CategoryList() {
 
             if (!res.ok) throw new Error("Deletion failed");
 
+            // Refresh the list
             fetchCategories();
 
         } catch (err) {
             console.error("Delete category error:", err);
+            setError("Failed to delete category. Please try again.");
         } finally {
             setDeleteId(null);
+            setDeleteCategoryName("");
+            setTypeCount(0);
+            setProductCount(0);
             setShowModal(false);
         }
+    }
+
+    // === CLOSE MODAL ===
+    function handleCloseModal() {
+        setShowModal(false);
+        setDeleteId(null);
+        setDeleteCategoryName("");
+        setTypeCount(0);
+        setProductCount(0);
     }
 
     // ============================
@@ -181,10 +228,7 @@ export default function CategoryList() {
         edit: (row) => <EditButton to={`/categories/edit/${row.id}`} />,
         delete: (row) => (
             <DeleteButton
-                onClick={() => {
-                    setDeleteId(row.id);
-                    setShowModal(true);
-                }}
+                onClick={() => handleDeleteClick(row.id, row.name, row.productCount)}
             />
         ),
     };
@@ -252,10 +296,37 @@ export default function CategoryList() {
             {/* DELETE MODAL */}
             <DeleteModal
                 show={showModal}
-                onClose={() => setShowModal(false)}
+                onClose={handleCloseModal}
                 onConfirm={handleDeleteConfirm}
-                message="Are you sure you want to delete this category?"
-            />
+                title="Confirm Category Deletion"
+                message={
+                    loadingDeleteInfo 
+                        ? "Loading category details..." 
+                        : `Are you sure you want to delete the category "${deleteCategoryName}"?`
+                }
+            >
+                {!loadingDeleteInfo && (typeCount > 0 || productCount > 0) && (
+                    <div className="delete-warning-info">
+                        <p className="fw-bold mb-2">
+                            <i className="bi bi-exclamation-circle me-1"></i>
+                            Warning: This action cannot be undone!
+                        </p>
+                        <p className="mb-2">Deleting this category will:</p>
+                        <ul className="mb-0">
+                            {typeCount > 0 && (
+                                <li>
+                                    Permanently delete <strong>{typeCount}</strong> category type{typeCount !== 1 ? 's' : ''}
+                                </li>
+                            )}
+                            {productCount > 0 && (
+                                <li>
+                                    Modify <strong>{productCount}</strong> product{productCount !== 1 ? 's' : ''} to "Not Defined" category
+                                </li>
+                            )}
+                        </ul>
+                    </div>
+                )}
+            </DeleteModal>
         </div>
     );
 }

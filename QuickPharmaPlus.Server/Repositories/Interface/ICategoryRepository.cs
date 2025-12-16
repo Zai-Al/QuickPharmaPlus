@@ -28,7 +28,22 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
         // CREATE TYPE
         Task<ProductType> AddCategoryTypeAsync(ProductType type);
 
+        // UPDATE TYPE
+        Task<ProductType?> UpdateCategoryTypeAsync(ProductType type);
+
         // DELETE TYPE
         Task<bool> DeleteCategoryTypeAsync(int typeId);
+
+        // CHECK FOR DUPLICATE CATEGORY NAME
+        Task<bool> CategoryNameExistsAsync(string categoryName, int? excludeId = null);
+
+        // CHECK FOR DUPLICATE TYPE NAME
+        Task<bool> TypeNameExistsAsync(string typeName, int categoryId, int? excludeTypeId = null);
+
+        // GET PRODUCT COUNT FOR A SPECIFIC TYPE
+        Task<int> GetProductCountByTypeIdAsync(int typeId);
+
+        // GET TYPE DETAILS BY ID
+        Task<ProductType?> GetTypeByIdAsync(int typeId);
     }
 }

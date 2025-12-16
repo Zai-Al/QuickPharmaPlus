@@ -22,10 +22,6 @@ public partial class Shipping
     [Column("Shipping_date", TypeName = "datetime")]
     public DateTime? ShippingDate { get; set; }
 
-    [Column("Shipping_slot")]
-    [StringLength(200)]
-    public string? ShippingSlot { get; set; }
-
     [Column("Shipping_isDelivery")]
     public bool? ShippingIsDelivery { get; set; }
 
@@ -37,6 +33,9 @@ public partial class Shipping
 
     [Column("Branch_id")]
     public int? BranchId { get; set; }
+
+    [Column("Shipping_Slot_id")]
+    public int? ShippingSlotId { get; set; }
 
     [ForeignKey("AddressId")]
     [InverseProperty("Shippings")]
@@ -51,6 +50,10 @@ public partial class Shipping
 
     [InverseProperty("Shipping")]
     public virtual ICollection<PrescriptionPlan> PrescriptionPlans { get; set; } = new List<PrescriptionPlan>();
+
+    [ForeignKey("ShippingSlotId")]
+    [InverseProperty("Shippings")]
+    public virtual Slot? ShippingSlot { get; set; }
 
     [ForeignKey("UserId")]
     [InverseProperty("Shippings")]

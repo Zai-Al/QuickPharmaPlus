@@ -38,14 +38,14 @@ public partial class Product
     public int? ProductTypeId { get; set; }
 
     [Column("Category_id")]
-    public int CategoryId { get; set; }
+    public int? CategoryId { get; set; }
 
     [InverseProperty("Product")]
     public virtual ICollection<Cart> Carts { get; set; } = new List<Cart>();
 
     [ForeignKey("CategoryId")]
     [InverseProperty("Products")]
-    public virtual Category Category { get; set; } = null!;
+    public virtual Category? Category { get; set; }
 
     [InverseProperty("Product")]
     public virtual ICollection<IngredientProduct> IngredientProducts { get; set; } = new List<IngredientProduct>();

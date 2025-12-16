@@ -1,13 +1,25 @@
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import "./Buttons.css";
 
-export default function EditButton({ to }) {
+export default function EditButton({ to, onClick }) {
+    const navigate = useNavigate();
+
+    const handleClick = () => {
+        if (onClick) {
+            onClick();
+        } else if (to) {
+            navigate(to);
+        }
+    };
+
     return (
-        <Link
-            to={to}
-            className="edit-btn btn w-100"
+        <button
+            type="button"
+            className="edit-btn"
+            onClick={handleClick}
         >
+            <i className="bi bi-pencil-square me-1"></i>
             Edit
-        </Link>
+        </button>
     );
 }

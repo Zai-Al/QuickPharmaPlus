@@ -317,8 +317,8 @@
 /* ==================== IMAGE PREVIEW ====================== */
 /* ========================================================= */
 .preview-img {
-    width: 120px;
-    height: 120px;
+    width: 400px;
+    height: 4000px;
     object-fit: cover;
     border-radius: 6px;
     margin-top: 15px;
