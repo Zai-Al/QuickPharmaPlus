@@ -135,6 +135,7 @@ namespace QuickPharmaPlus.Server
             builder.Services.AddScoped<IHealthProfileIllnessRepository, HealthProfileIllnessRepository>();
             builder.Services.AddScoped<IHealthProfileLookupRepository, HealthProfileLookupRepository>();
             builder.Services.AddScoped<IHealthProfileAllergyRepository, HealthProfileAllergyRepository>();
+            builder.Services.AddScoped<IPrescriptionRepository, PrescriptionRepository>();
             builder.Services.AddScoped<IManagerDashboardRepository, ManagerDashboardRepository>();
             builder.Services.AddScoped<IPharmacistDashboardRepository, PharmacistDashboardRepository>();
             builder.Services.AddScoped<IDriverDashboardRepository, DriverDashboardRepository>();

@@ -1,53 +1,95 @@
 // src/Pages/External_System/PrescriptionDetails.jsx
 import { useLocation, useNavigate } from "react-router-dom";
 import TableFormat from "../Shared_Components/TableFormat";
-import { useState } from "react";
+import { useContext, useMemo, useState } from "react";
 import DialogModal from "../Shared_Components/DialogModal.jsx";
-import "../Shared_Components/External_Style.css"; 
+import "../Shared_Components/External_Style.css";
+import { AuthContext } from "../../../Context/AuthContext.jsx";
 
 export default function PrescriptionDetails() {
     const location = useLocation();
     const navigate = useNavigate();
+    const { user } = useContext(AuthContext);
+
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
+
+    // Prefer userId from navigation state, fallback to auth
+    const userId = location.state?.userId || user?.userId || user?.id;
 
     const prescription = location.state?.prescription;
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-    if (!prescription) {
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [errorMsg, setErrorMsg] = useState("");
+
+    const prescriptionId = useMemo(() => {
+        if (!prescription) return null;
+        return prescription.id || prescription.prescriptionId || null;
+    }, [prescription]);
+
+    const docUrls = useMemo(() => {
+        if (!userId || !prescriptionId) return null;
+
+        return {
+            prescription: `${API_BASE}/api/Prescription/user/${userId}/${prescriptionId}/document`,
+            cpr: `${API_BASE}/api/Prescription/user/${userId}/${prescriptionId}/cpr`,
+        };
+    }, [API_BASE, userId, prescriptionId]);
+
+    if (!prescription || !prescriptionId) {
         return (
             <div className="container py-5">
                 <h2 className="mb-4">Prescription Details</h2>
                 <p>No prescription data found.</p>
-                <button
-                    className="btn qp-add-btn mt-3"
-                    onClick={() => navigate("/healthProfile")}
-                >
+                <button className="btn qp-add-btn mt-3" onClick={() => navigate("/healthProfile")}>
                     Back
                 </button>
             </div>
         );
     }
 
-    // when user clicks the delete button (open dialog)
-    const handleDeleteClick = () => {
-        setShowDeleteModal(true);
-    };
+    // -----------------------------
+    // Delete flow
+    // -----------------------------
+    const handleDeleteClick = () => setShowDeleteModal(true);
+    const handleCancelDelete = () => setShowDeleteModal(false);
 
-    // user cancels dialog
-    const handleCancelDelete = () => {
+    const handleConfirmDelete = async () => {
         setShowDeleteModal(false);
+        setErrorMsg("");
+
+        try {
+            setLoading(true);
+
+            const res = await fetch(
+                `${API_BASE}/api/Prescription/user/${userId}/${prescriptionId}`,
+                {
+                    method: "DELETE",
+                    credentials: "include",
+                }
+            );
+
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || "Failed to delete prescription.");
+            }
+
+            navigate("/healthProfile", {
+                state: {
+                    openPrescriptionTab: true,
+                    successMessage: "Prescription deleted successfully.",
+                },
+            });
+        } catch (err) {
+            setErrorMsg(err?.message || "Failed to delete prescription.");
+        } finally {
+            setLoading(false);
+        }
     };
 
-    // user confirms delete
-    const handleConfirmDelete = () => {
-        setShowDeleteModal(false);
-
-        // (real app: call API here)
-
-        navigate("/healthProfile", {
-            state: { successMessage: "Prescription deleted successfully." },
-        });
-    };
-
+    // -----------------------------
+    // Edit flow
+    // -----------------------------
     const handleEditClick = () => {
         navigate("/healthProfile", {
             state: {
@@ -57,19 +99,71 @@ export default function PrescriptionDetails() {
         });
     };
 
+    // -----------------------------
+    // View / Download
+    // View: open in new tab
+    // Download: force download via blob
+    // -----------------------------
+    const handleView = (url) => {
+        if (!url) return;
+        window.open(url, "_blank", "noopener,noreferrer");
+    };
+
+    const handleDownload = async (url, filename) => {
+        if (!url) return;
+
+        try {
+            setLoading(true);
+            setErrorMsg("");
+
+            const res = await fetch(url, { credentials: "include" });
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || "Failed to download document.");
+            }
+
+            const blob = await res.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = blobUrl;
+            a.download = filename || "document";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (err) {
+            setErrorMsg(err?.message || "Failed to download document.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Support both old mock fields and new flags
+    const hasPrescriptionDoc =
+        prescription.hasPrescriptionDocument ??
+        !!prescription.prescriptionFileName;
+
+    const hasCprDoc =
+        prescription.hasCprDocument ??
+        !!prescription.cprFileName;
+
+    const isPending = prescription.status === "Pending Approval";
+
     return (
         <div className="container py-5 plan-details-page">
-            {/* Page title */}
             <div className="text-center mb-4">
                 <h2 className="fw-bold">Prescription Details</h2>
             </div>
 
-            {/* Card */}
             <div className="card shadow-sm text-start order-summary-card">
                 <div className="card-body">
-                    {/* TOP ROW: left = details, right = buttons */}
+                    {errorMsg && (
+                        <div className="alert alert-danger text-start">{errorMsg}</div>
+                    )}
+
                     <div className="d-flex justify-content-between align-items-start mb-4 plan-details-header">
-                        {/* LEFT SIDE: all info */}
                         <div className="plan-details-info">
                             <h5 className="fw-bold mb-3">Prescription Details</h5>
 
@@ -86,7 +180,13 @@ export default function PrescriptionDetails() {
                                 {prescription.creationDate}
                             </p>
 
-                            {/* Registered Address */}
+                            {prescription.latestApprovalExpiryDate && (
+                                <p>
+                                    <strong>Expiry Date: </strong>
+                                    {prescription.latestApprovalExpiryDate}
+                                </p>
+                            )}
+
                             <div className="mt-3">
                                 <h6 className="fw-bold">Registered Address</h6>
                                 <p className="mb-1">
@@ -105,19 +205,20 @@ export default function PrescriptionDetails() {
                             </div>
                         </div>
 
-                        {/* RIGHT SIDE: buttons */}
                         <div className="d-flex flex-column gap-2 plan-details-actions">
                             <button
                                 className="btn btn-danger"
                                 onClick={handleDeleteClick}
+                                disabled={loading}
                             >
                                 Delete Prescription
                             </button>
 
-                            {prescription.status === "Pending Approval" && (
+                            {isPending && (
                                 <button
                                     className="btn qp-edit-btn"
                                     onClick={handleEditClick}
+                                    disabled={loading}
                                 >
                                     Edit Prescription
                                 </button>
@@ -125,7 +226,6 @@ export default function PrescriptionDetails() {
                         </div>
                     </div>
 
-                    {/* Documentation section */}
                     <div className="order-items-table">
                         <h6 className="fw-bold mb-3">Documentation</h6>
 
@@ -139,12 +239,30 @@ export default function PrescriptionDetails() {
                                             {prescription.prescriptionFileName}
                                         </span>
                                     )}
+                                    {!hasPrescriptionDoc && (
+                                        <span className="d-block text-muted small">
+                                            No file uploaded.
+                                        </span>
+                                    )}
                                 </td>
                                 <td>
-                                    <button className="btn btn-sm qp-edit-btn me-2">
+                                    <button
+                                        className="btn btn-sm qp-edit-btn me-2"
+                                        onClick={() => handleView(docUrls?.prescription)}
+                                        disabled={loading || !hasPrescriptionDoc || !docUrls}
+                                    >
                                         View Document
                                     </button>
-                                    <button className="btn btn-sm btn-secondary">
+                                    <button
+                                        className="btn btn-sm btn-secondary"
+                                        onClick={() =>
+                                            handleDownload(
+                                                docUrls?.prescription,
+                                                `prescription_${prescriptionId}.pdf`
+                                            )
+                                        }
+                                        disabled={loading || !hasPrescriptionDoc || !docUrls}
+                                    >
                                         Download Document
                                     </button>
                                 </td>
@@ -159,12 +277,30 @@ export default function PrescriptionDetails() {
                                             {prescription.cprFileName}
                                         </span>
                                     )}
+                                    {!hasCprDoc && (
+                                        <span className="d-block text-muted small">
+                                            No file uploaded.
+                                        </span>
+                                    )}
                                 </td>
                                 <td>
-                                    <button className="btn btn-sm qp-edit-btn me-2">
+                                    <button
+                                        className="btn btn-sm qp-edit-btn me-2"
+                                        onClick={() => handleView(docUrls?.cpr)}
+                                        disabled={loading || !hasCprDoc || !docUrls}
+                                    >
                                         View Document
                                     </button>
-                                    <button className="btn btn-sm btn-secondary">
+                                    <button
+                                        className="btn btn-sm btn-secondary"
+                                        onClick={() =>
+                                            handleDownload(
+                                                docUrls?.cpr,
+                                                `cpr_${prescriptionId}.pdf`
+                                            )
+                                        }
+                                        disabled={loading || !hasCprDoc || !docUrls}
+                                    >
                                         Download Document
                                     </button>
                                 </td>
@@ -172,7 +308,6 @@ export default function PrescriptionDetails() {
                         </TableFormat>
                     </div>
 
-                    {/* Back button (right side) */}
                     <div className="text-end mt-4">
                         <button
                             className="btn btn-outline-secondary"
@@ -181,6 +316,7 @@ export default function PrescriptionDetails() {
                                     state: { openPrescriptionTab: true },
                                 })
                             }
+                            disabled={loading}
                         >
                             Back to Health Profile
                         </button>
@@ -188,7 +324,6 @@ export default function PrescriptionDetails() {
                 </div>
             </div>
 
-            {/* DELETE CONFIRMATION DIALOG */}
             <DialogModal
                 show={showDeleteModal}
                 title="Delete Prescription?"
