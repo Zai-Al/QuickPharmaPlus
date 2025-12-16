@@ -10,6 +10,7 @@ namespace QuickPharmaPlus.Server.Models;
 [Index("PrescriptionStatusId", Name = "IXFK_Prescription_Prescription_Status")]
 [Index("UserId", Name = "IXFK_Prescription_User")]
 [Index("UserId", Name = "IXFK_Prescription_User_02")]
+[Index("AddressId", Name = "IX_Prescription_address_id")]
 public partial class Prescription
 {
     [Key]
@@ -43,6 +44,19 @@ public partial class Prescription
 
     [StringLength(100)]
     public string? PrescriptionCprDocumentContentType { get; set; }
+
+    [Column("address_id")]
+    public int? AddressId { get; set; }
+
+    [StringLength(255)]
+    public string? PrescriptionDocumentFileName { get; set; }
+
+    [StringLength(255)]
+    public string? PrescriptionCprDocumentFileName { get; set; }
+
+    [ForeignKey("AddressId")]
+    [InverseProperty("Prescriptions")]
+    public virtual Address? Address { get; set; }
 
     [InverseProperty("Prescription")]
     public virtual ICollection<Approval> Approvals { get; set; } = new List<Approval>();
