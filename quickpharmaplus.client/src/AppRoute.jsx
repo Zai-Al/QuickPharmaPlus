@@ -29,6 +29,7 @@ import ManagerDashboard from "./Pages/Internal_System/Dashboards/ManagerDashboar
 // Internal system pages
 import EmployeesList from "./Pages/Internal_System/Admin/Employee/EmployeesList.jsx";
 import AddEmployee from "./Pages/Internal_System/Admin/Employee/AddEmployee.jsx";
+import EditEmployee from "./Pages/Internal_System/Admin/Employee/EditEmployee.jsx";
 import SupplierList from "./Pages/Internal_System/Suppliers/SupplierList.jsx";
 import AddSupplier from "./Pages/Internal_System/Suppliers/AddSupplier.jsx";
 import OrdersList from "./Pages/Internal_System/Orders/OrdersList.jsx";
@@ -279,6 +280,15 @@ export default function AppRoutes() {
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin"]}>
                                         <EmployeesList />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
+                                path="/employees/edit/:id"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin"]}>
+                                        <EditEmployee />
                                     </ProtectedRoute>
                                 }
                             />

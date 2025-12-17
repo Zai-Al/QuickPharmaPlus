@@ -1,14 +1,17 @@
+﻿console.log("ENV API =", import.meta.env.VITE_API_URL);
+
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import "./EmployeesList.css";
 
 import FormWrapper from "../../../../Components/InternalSystem/GeneralComponents/Form";
 import AddButton from "../../../../Components/Form/FormAddButton";
 import FormHeader from "../../../../Components/InternalSystem/FormHeader";
 
-export default function AddEmployee() {
+export default function EditEmployee() {
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
+    const { id } = useParams();
+    const baseURL = import.meta.env.VITE_API_BASE_URL || "";  // Empty string to use proxy
 
     // =================== STATE ===================
     const [firstName, setFirstName] = useState("");
@@ -16,7 +19,6 @@ export default function AddEmployee() {
     const [role, setRole] = useState("");
     const [branchId, setBranchId] = useState("");
     const [email, setEmail] = useState("");
-    const [tempPassword, setTempPassword] = useState("");
     const [phone, setPhone] = useState("");
 
     const [city, setCity] = useState("");
@@ -26,6 +28,7 @@ export default function AddEmployee() {
 
     const [successMessage, setSuccessMessage] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
+    const [loadingEmployee, setLoadingEmployee] = useState(true);
 
     // =================== VALIDATION STATE ===================
     const [errors, setErrors] = useState({});
@@ -37,7 +40,6 @@ export default function AddEmployee() {
     const [isRoleValid, setIsRoleValid] = useState(false);
     const [isBranchValid, setIsBranchValid] = useState(false);
     const [isEmailValid, setIsEmailValid] = useState(false);
-    const [isPasswordValid, setIsPasswordValid] = useState(false);
     const [isPhoneValid, setIsPhoneValid] = useState(false);
     const [isCityValid, setIsCityValid] = useState(false);
     const [isBlockValid, setIsBlockValid] = useState(false);
@@ -63,7 +65,6 @@ export default function AddEmployee() {
     const namePattern = /^[A-Za-z\s.]+$/;  // Letters, spaces, and dots
     const lastNamePattern = /^[A-Za-z\s.-]+$/;  // Letters, spaces, dots, and dash
     const emailPattern = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.\-_,])[A-Za-z\d@$!%*?&.\-_,]{8,}$/;
     const phonePattern = /^[0-9+\s-]+$/;  // Numbers, +, spaces, and dash
     const blockPattern = /^[0-9]+$/;  // Numbers only
     const roadPattern = /^[A-Za-z0-9\s/.-]+$/;  // Letters, numbers, space, slash, dot, dash
@@ -71,10 +72,16 @@ export default function AddEmployee() {
 
     // =================== FETCH DATA ON MOUNT ===================
     useEffect(() => {
-        fetchRoles();
-        fetchCities();
-        fetchBranches();
-    }, []);
+        // Wait for backend to be ready when running as multiple startup projects
+        const timer = setTimeout(() => {
+            fetchRoles();
+            fetchCities();
+            fetchBranches();
+            fetchEmployeeData();
+        }, 1000); // 1 second delay
+
+        return () => clearTimeout(timer);
+    }, [id]);
 
     // Close city dropdown on outside click
     useEffect(() => {
@@ -87,6 +94,126 @@ export default function AddEmployee() {
         document.addEventListener("mousedown", onDocClick);
         return () => document.removeEventListener("mousedown", onDocClick);
     }, []);
+
+    // =================== FETCH EMPLOYEE DATA ===================
+    const fetchEmployeeData = async () => {
+        let mounted = true;
+
+        try {
+            setLoadingEmployee(true);
+            setErrorMessage("");
+
+            const url = `${baseURL}/api/Employees/${id}`;
+            console.log("FETCH EMPLOYEE URL:", url);
+
+            const response = await fetch(url, {
+                credentials: "include",
+            });
+
+            if (!response.ok) {
+                const txt = await response.text().catch(() => null);
+                throw new Error(txt || `Failed to load employee (${response.status})`);
+            }
+
+            const contentType = response.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                throw new Error("Server returned non-JSON response");
+            }
+
+            const data = await response.json();
+            console.log("PARSED EMPLOYEE DATA:", data);
+
+            if (!mounted) return;
+
+            // =================== POPULATE FORM WITH SAFE FALLBACKS ===================
+            setFirstName(data.firstName || "");
+            setLastName(data.lastName || "");
+
+            // Role mapping with multiple fallback options
+            setRole(
+                data.role?.name ||
+                data.role?.roleName ||
+                data.roleName ||
+                ""
+            );
+
+            // Branch mapping
+            setBranchId(
+                data.branchId ? String(data.branchId) :
+                    data.branch?.branchId ? String(data.branch.branchId) :
+                        ""
+            );
+
+            // Email mapping
+            setEmail(
+                data.emailAddress ||
+                data.email ||
+                ""
+            );
+
+            // Phone mapping
+            setPhone(
+                data.contactNumber ||
+                data.phoneNumber ||
+                data.phone ||
+                ""
+            );
+
+            // =================== ADDRESS MAPPING ===================
+            if (data.address) {
+                const cityName =
+                    data.address.city?.cityName ||
+                    data.address.city?.CityName ||
+                    data.address.cityName ||
+                    "";
+
+                setCity(cityName);
+                setCityQuery(cityName);
+
+                setBlock(
+                    data.address.block ? String(data.address.block) :
+                        ""
+                );
+
+                setRoad(
+                    data.address.street ||
+                    data.address.road ||
+                    data.address.streetName ||
+                    ""
+                );
+
+                setBuilding(
+                    data.address.buildingNumber ||
+                    data.address.building ||
+                    data.address.buildingNo ||
+                    ""
+                );
+            }
+
+            // =================== MARK ALL FIELDS AS VALID ===================
+            setIsFirstNameValid(!!data.firstName);
+            setIsLastNameValid(!!data.lastName);
+            setIsRoleValid(!!(data.role?.name || data.roleName));
+            setIsBranchValid(!!data.branchId);
+            setIsEmailValid(!!(data.emailAddress || data.email));
+            setIsPhoneValid(!!(data.contactNumber || data.phone));
+            setIsCityValid(!!(data.address?.city?.cityName || data.address?.cityName));
+            setIsBlockValid(!!data.address?.block);
+            setIsRoadValid(!!(data.address?.street || data.address?.road));
+            setIsBuildingValid(!!(data.address?.buildingNumber || data.address?.building));
+
+        } catch (err) {
+            console.error("Error fetching employee:", err);
+            if (mounted) {
+                setErrorMessage(err.message || "Failed to load employee data");
+            }
+        } finally {
+            if (mounted) {
+                setLoadingEmployee(false);
+            }
+        }
+    };
+
 
     // =================== FETCH FUNCTIONS ===================
     const fetchRoles = async () => {
@@ -174,7 +301,7 @@ export default function AddEmployee() {
     const validateLastName = (value) => {
         if (!value.trim()) return "Last name is required.";
         if (value.trim().length < 3) return "Last name must be at least 3 letters.";
-        if (!lastNamePattern.test(value.trim())) return "Last name can contain letters and dash (-) only.";
+        if (!lastNamePattern.test(value.trim())) return "Last name can contain letters, spaces, dots (.), and dash (-) only.";
         return "";
     };
 
@@ -196,14 +323,6 @@ export default function AddEmployee() {
         return "";
     };
 
-    const validatePassword = (value) => {
-        if (!value) return "Password is required.";
-        if (!passwordPattern.test(value)) {
-            return "Password must be at least 8 characters with uppercase, lowercase, number, and special character.";
-        }
-        return "";
-    };
-
     const validatePhone = (value) => {
         if (!value.trim()) return "Phone number is required.";
         if (!phonePattern.test(value.trim())) {
@@ -212,7 +331,7 @@ export default function AddEmployee() {
         if (value.trim().length < 6) {
             return "Phone number must be at least 6 characters.";
         }
-            return "";
+        return "";
     };
 
     const validateCity = (value) => {
@@ -309,16 +428,6 @@ export default function AddEmployee() {
         const error = validateEmail(value);
         setErrors(prev => ({ ...prev, email: error }));
         setIsEmailValid(!error);
-    };
-
-    const handlePasswordChange = (e) => {
-        const value = e.target.value;
-        setTempPassword(value);
-        setTouched(prev => ({ ...prev, password: true }));
-
-        const error = validatePassword(value);
-        setErrors(prev => ({ ...prev, password: error }));
-        setIsPasswordValid(!error);
     };
 
     const handlePhoneChange = (e) => {
@@ -454,7 +563,6 @@ export default function AddEmployee() {
             role: true,
             branch: true,
             email: true,
-            password: true,
             phone: true,
             city: true,
             block: true,
@@ -469,7 +577,6 @@ export default function AddEmployee() {
             role: validateRole(role),
             branch: validateBranch(branchId),
             email: validateEmail(email),
-            password: validatePassword(tempPassword),
             phone: validatePhone(phone),
             city: validateCity(city),
             block: validateBlock(block),
@@ -496,7 +603,6 @@ export default function AddEmployee() {
             lastName: lastName.trim(),
             role,
             email: email.trim(),
-            tempPassword,
             phone: phone.trim(),
             branchId: branchId ? parseInt(branchId, 10) : null,
             cityId: selectedCityOption ? selectedCityOption.value : null,
@@ -506,32 +612,41 @@ export default function AddEmployee() {
         };
 
         try {
-            const response = await fetch(`${baseURL}/api/Employees`, {
-                method: "POST",
+            const response = await fetch(`${baseURL}/api/Employees/${id}`, {
+                method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
                 body: JSON.stringify(payload),
             });
 
             if (response.ok) {
-                setSuccessMessage("Employee added successfully!");
+                setSuccessMessage("Employee updated successfully!");
                 setErrorMessage("");
                 setTimeout(() => navigate("/employees"), 1500);
             } else {
                 const errorText = await response.text();
-                setErrorMessage(errorText || "Failed to add employee.");
+                setErrorMessage(errorText || "Failed to update employee.");
                 setSuccessMessage("");
             }
         } catch (err) {
-            console.error("Error adding employee:", err);
+            console.error("Error updating employee:", err);
             setErrorMessage("Server error. Please try again.");
             setSuccessMessage("");
         }
     };
 
+    if (loadingEmployee) {
+        return (
+            <div className="add-employee-page">
+                <FormHeader title="Edit Employee Record" to="/employees" />
+                <div className="text-center text-muted my-5">Loading employee data...</div>
+            </div>
+        );
+    }
+
     return (
         <div className="add-employee-page">
-            <FormHeader title="Add New Employee Record" to="/employees" />
+            <FormHeader title="Edit Employee Record" to="/employees" />
 
             {successMessage && (
                 <div className="alert alert-success alert-dismissible">
@@ -547,7 +662,7 @@ export default function AddEmployee() {
                 </div>
             )}
 
-            <FormWrapper title="Enter New Employee Details:">
+            <FormWrapper title="Edit Employee Details:">
                 <form className="add-employee-form" onSubmit={handleSubmit}>
 
                     {/* FIRST NAME & LAST NAME ROW */}
@@ -621,18 +736,6 @@ export default function AddEmployee() {
                     />
                     {touched.email && errors.email && (
                         <div className="invalid-feedback d-block">{errors.email}</div>
-                    )}
-
-                    {/* PASSWORD */}
-                    <input
-                        type="password"
-                        className={`form-control form-text-input ${touched.password && errors.password ? "is-invalid" : ""}`}
-                        placeholder="Temporary Password"
-                        value={tempPassword}
-                        onChange={handlePasswordChange}
-                    />
-                    {touched.password && errors.password && (
-                        <div className="invalid-feedback d-block">{errors.password}</div>
                     )}
 
                     {/* PHONE NUMBER */}
@@ -726,7 +829,7 @@ export default function AddEmployee() {
                         </div>
                     </div>
 
-                    <AddButton text="Add New Employee" />
+                    <AddButton text="Save Changes" />
                 </form>
             </FormWrapper>
         </div>

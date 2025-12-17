@@ -29,6 +29,11 @@ export default function EmployeesList() {
     const [idSearch, setIdSearch] = useState("");
     const [roleOptions, setRoleOptions] = useState([]);
     const [selectedRole, setSelectedRole] = useState("");
+
+    // === NEW: BRANCH FILTER STATE ===
+    const [branchOptions, setBranchOptions] = useState([]);
+    const [selectedBranch, setSelectedBranch] = useState("");
+
     const searchDebounceRef = useRef(null);
 
     // === NEW VALIDATION STATES ===
@@ -44,14 +49,18 @@ export default function EmployeesList() {
     const [pageSize, setPageSize] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
 
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
+    const baseURL = import.meta.env.VITE_API_URL;
+    console.log("API BASE URL =", import.meta.env.VITE_API_URL);
 
     // === VALIDATION REGEX ===
     const validNamePattern = /^[A-Za-z .-]*$/;
     const validIdPattern = /^[0-9]*$/;
 
-    // === INITIAL: fetch roles once ===
-    useEffect(() => { fetchRoles(); }, []);
+    // === INITIAL: fetch roles and branches once ===
+    useEffect(() => {
+        fetchRoles();
+        fetchBranches();  // NEW: Fetch branches
+    }, []);
 
     async function fetchRoles() {
         try {
@@ -65,12 +74,35 @@ export default function EmployeesList() {
         }
     }
 
+    // === NEW: FETCH BRANCHES ===
+    async function fetchBranches() {
+        try {
+            const res = await fetch(`${baseURL}/api/Branch?pageNumber=1&pageSize=100`, {
+                credentials: "include"
+            });
+
+            if (!res.ok) return;
+
+            const data = await res.json();
+            const branches = data.items || [];
+
+            const opts = branches.map((b) => ({
+                value: b.branchId,
+                label: b.cityName ?? `Branch ${b.branchId}`
+            }));
+
+            setBranchOptions(opts);
+        } catch (err) {
+            console.error("Fetch branches error:", err);
+        }
+    }
+
     // === FETCH ON PAGE CHANGE ===
     useEffect(() => {
         fetchEmployees();
     }, [currentPage, pageSize]);
 
-    // === DEBOUNCED FILTER FETCH ===
+    // === DEBOUNCED FILTER FETCH (UPDATED: Add selectedBranch) ===
     useEffect(() => {
         if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
 
@@ -80,19 +112,20 @@ export default function EmployeesList() {
         }, 300);
 
         return () => clearTimeout(searchDebounceRef.current);
-    }, [nameSearch, idSearch, selectedRole]);
+    }, [nameSearch, idSearch, selectedRole, selectedBranch]);  // UPDATED: Added selectedBranch
 
-    // === FETCH EMPLOYEES ===
+    // === FETCH EMPLOYEES (UPDATED: Add branch filter) ===
     async function fetchEmployees() {
         setLoading(true);
         setError("");
 
         try {
-            let url = `${baseURL}/api/Employees/employees?pageNumber=${currentPage}&pageSize=${pageSize}`;
+            let url = `${baseURL}/api/Employees?pageNumber=${currentPage}&pageSize=${pageSize}`;
 
             if (nameSearch?.trim()) url += `&nameSearch=${encodeURIComponent(nameSearch)}`;
             if (idSearch?.trim()) url += `&idSearch=${encodeURIComponent(idSearch)}`;
             if (selectedRole?.trim()) url += `&role=${encodeURIComponent(selectedRole)}`;
+            if (selectedBranch?.trim()) url += `&branchId=${encodeURIComponent(selectedBranch)}`;  // NEW: Add branch filter
 
             const res = await fetch(url, {
                 method: "GET",
@@ -104,14 +137,14 @@ export default function EmployeesList() {
             const data = await res.json();
 
             const mapped = (data.items || []).map((u) => {
-                const address = u.address ?? null;
                 return {
                     id: u.userId ?? u.user_id ?? null,
                     name: `${u.firstName ?? ""}${u.firstName && u.lastName ? " " : ""}${u.lastName ?? ""}`.trim() || u.emailAddress || "—",
                     email: u.emailAddress ?? u.email ?? "",
                     phone: u.contactNumber ?? "",
                     role: (u.role && (u.role.roleName ?? u.role.role_name)) || u.roleName || "",
-                    address: formatAddress(address)
+                    address: formatAddress(u.address),
+                    branch: u.branchCity ?? "—"
                 };
             });
 
@@ -130,12 +163,15 @@ export default function EmployeesList() {
 
     function formatAddress(addr) {
         if (!addr || typeof addr !== "object") return "";
-        const cityName = addr.city?.cityName ?? addr.cityName ?? addr.city?.CityName ?? "";
+
+        const cityName = addr.city?.cityName ?? addr.city?.CityName ?? "";
+
         const parts = [];
         if (cityName) parts.push(cityName);
         if (addr.block) parts.push(`Block No. ${addr.block}`);
         if (addr.street) parts.push(`Road No. ${addr.street}`);
         if (addr.buildingNumber) parts.push(`Building No. ${addr.buildingNumber}`);
+
         return parts.join(" / ");
     }
 
@@ -191,6 +227,7 @@ export default function EmployeesList() {
         { key: "email", label: "Email" },
         { key: "phone", label: "Phone Number" },
         { key: "address", label: "Address" },
+        { key: "branch", label: "Branch" },
         { key: "role", label: "Role" },
         { key: "edit", label: "Edit" },
         { key: "delete", label: "Delete" }
@@ -244,12 +281,13 @@ export default function EmployeesList() {
 
                 <FilterRight>
                     <div className="d-flex gap-2">
-                        {/* CLEAR BUTTON */}
+                        {/* CLEAR BUTTON (UPDATED: Clear branch too) */}
                         <ClearButton
                             onClear={() => {
                                 setNameSearch("");
                                 setIdSearch("");
                                 setSelectedRole("");
+                                setSelectedBranch("");  // NEW: Clear branch
                                 setNameError("");
                                 setIdError("");
 
@@ -263,17 +301,31 @@ export default function EmployeesList() {
                 </FilterRight>
             </FilterSection>
 
-            {/* ROLE FILTER */}
+            {/* ROLE & BRANCH FILTERS (UPDATED: Side by side) */}
             <FilterSection>
                 <FilterLeft>
-                    <div className="mb-2">
-                        <div className="filter-label fst-italic small">Select role for automatic filter</div>
-                        <FilterDropDown
-                            placeholder="All roles"
-                            options={roleOptions}
-                            value={selectedRole}
-                            onChange={(e) => setSelectedRole(e.target.value)}
-                        />
+                    <div className="d-flex gap-3">
+                        {/* ROLE FILTER */}
+                        <div className="mb-2 flex-fill">
+                            <div className="filter-label fst-italic small">Select role for automatic filter</div>
+                            <FilterDropDown
+                                placeholder="All roles"
+                                options={roleOptions}
+                                value={selectedRole}
+                                onChange={(e) => setSelectedRole(e.target.value)}
+                            />
+                        </div>
+
+                        {/* NEW: BRANCH FILTER */}
+                        <div className="mb-2 flex-fill">
+                            <div className="filter-label fst-italic small">Select branch for automatic filter</div>
+                            <FilterDropDown
+                                placeholder="All branches"
+                                options={branchOptions}
+                                value={selectedBranch}
+                                onChange={(e) => setSelectedBranch(e.target.value)}
+                            />
+                        </div>
                     </div>
                 </FilterLeft>
             </FilterSection>
