@@ -43,9 +43,14 @@ export default function HealthProfile() {
     useEffect(() => {
         if (navSuccess) {
             handleSuccess(navSuccess);
-            setActiveTab("prescription");
+
+            if (openPrescriptionPlanTab || openPlanEditForm) setActiveTab("plan");
+            else if (openPrescriptionTab || openPrescriptionEditForm) setActiveTab("prescription");
+            else setActiveTab("illnesses");
+
             navigate(location.pathname, { replace: true, state: {} });
         }
+
         else if (openPrescriptionEditForm) {
             setActiveTab("prescription");
             navigate(location.pathname, { replace: true, state: {} });

@@ -139,6 +139,11 @@ namespace QuickPharmaPlus.Server
             builder.Services.AddScoped<IManagerDashboardRepository, ManagerDashboardRepository>();
             builder.Services.AddScoped<IPharmacistDashboardRepository, PharmacistDashboardRepository>();
             builder.Services.AddScoped<IDriverDashboardRepository, DriverDashboardRepository>();
+            builder.Services.AddScoped<IPrescriptionPlanRepository, PrescriptionPlanRepository>();
+            builder.Services.AddHostedService<QuickPharmaPlus.Server.Services.PrescriptionPlanEmailScheduler>();
+            builder.Services.AddScoped<IShippingRepository, ShippingRepository>();
+
+
 
 
 
