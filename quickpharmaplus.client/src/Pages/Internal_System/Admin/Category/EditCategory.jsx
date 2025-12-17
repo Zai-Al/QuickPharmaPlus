@@ -25,11 +25,11 @@ export default function EditCategory() {
     const [errorMessage, setErrorMessage] = useState("");
     const [loading, setLoading] = useState(true);
 
-    // SAME validation pattern as Employees List
     const [nameError, setNameError] = useState("");
+    const [isNameTouched, setIsNameTouched] = useState(false);
 
-    // SAME regex style + allow apostrophe
-    const validCategoryNamePattern = /^[A-Za-z .\-']*$/;
+    // Updated regex - includes ampersand (&)
+    const validCategoryNamePattern = /^[A-Za-z .'\-()&]*$/;
 
     /* ---------------- FETCH CATEGORY ---------------- */
     useEffect(() => {
@@ -69,10 +69,21 @@ export default function EditCategory() {
         }
     };
 
+    /* ---------------------- VALIDATION LOGIC ---------------------- */
+    const validateName = (value) => {
+        if (!value.trim()) return "Category name is required.";
+        if (value.trim().length < 3) return "Category name must be at least 3 characters.";
+        return "";
+    };
+
     /* ---------------- CHECK FOR DUPLICATE NAME ---------------- */
     const checkDuplicateName = async (name) => {
         // Don't check if name hasn't changed
         if (name.trim().toLowerCase() === originalCategoryName.trim().toLowerCase()) {
+            // Clear duplicate error if reverting to original name
+            if (nameError === "A category with this name already exists in the system.") {
+                setNameError("");
+            }
             return;
         }
 
@@ -95,37 +106,37 @@ export default function EditCategory() {
         }
     };
 
-    /* ---------------- LIVE VALIDATION (EMPLOYEE STYLE) ---------------- */
+    /* ---------------- LIVE VALIDATION ---------------- */
     function handleNameChange(e) {
         const value = e.target.value;
 
-        // BLOCK invalid input (same as EmployeesList)
+        // BLOCK invalid input and show error immediately
         if (!validCategoryNamePattern.test(value)) {
-            setNameError("Only letters, spaces, dash (-), dot (.), and ' allowed.");
+            setNameError("Only letters, spaces, dot (.), apostrophe ('), dash (-), parentheses (), and ampersand (&) allowed.");
+            setIsNameTouched(true);
             return;
         }
 
-        // Length rule (same logic style)
-        if (value.length > 0 && value.length < 3) {
-            setNameError("Category name must be at least 3 characters.");
-        } else {
-            setNameError("");
-        }
-
+        // Update value and validate
         setCategoryName(value);
+        setIsNameTouched(true);
+        
+        // Run validation
+        const error = validateName(value);
+        setNameError(error);
     }
 
     /* ---------------- SUBMIT ---------------- */
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (!categoryName.trim()) {
-            setNameError("Category name is required.");
-            return;
-        }
+        const error = validateName(categoryName);
+        setNameError(error);
+        setIsNameTouched(true);
 
-        if (categoryName.length < 3) {
-            setNameError("Category name must be at least 3 characters.");
+        if (error) {
+            setErrorMessage(error);
+            setSuccessMessage("");
             return;
         }
 
@@ -215,18 +226,21 @@ export default function EditCategory() {
                         )}
                     </div>
 
-                    {/* NAME INPUT — EXACT SAME VALIDATION UX */}
+                    {/* NAME INPUT — LIVE VALIDATION */}
                     <div className="mb-2 categor-input-container">
                         <input
                             type="text"
-                            className={`form-control category-name-input ${nameError ? "is-invalid" : ""}`}
+                            className={`form-control category-name-input ${nameError && isNameTouched ? "is-invalid" : ""}`}
                             placeholder="Enter Category Name"
                             value={categoryName}
                             onChange={handleNameChange}
-                            onBlur={() => checkDuplicateName(categoryName)}
+                            onBlur={() => {
+                                setIsNameTouched(true);
+                                checkDuplicateName(categoryName);
+                            }}
                         />
 
-                        {nameError && (
+                        {nameError && isNameTouched && (
                             <div className="invalid-feedback">
                                 {nameError}
                             </div>

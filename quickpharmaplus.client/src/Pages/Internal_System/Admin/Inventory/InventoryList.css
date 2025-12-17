@@ -72,48 +72,51 @@
 }
 
 /* Product searchable dropdown - positioning context */
-.product-search-dropdown {
-    position: relative; /* parent for absolute suggestions list */
-}
+/*.product-search-dropdown {
+    position: relative;*/ /* parent for absolute suggestions list */
+/*}*/
 
 /* Suggestions list (shows above the input, exactly the same width as the input) */
-.product-dropdown-list {
+/*.product-dropdown-list {
     position: absolute;
-    bottom: 100%;       /* shows above the input */
-    left: 0;
-    width: 100%;        /* matches input/dropdown width exactly */
-    z-index: 2000;
+    bottom: 100%;*/       /* shows above the input */
+    /*left: 0;
+    width: 100%;*/        /* matches input/dropdown width exactly */
+    /*z-index: 2000;*/
 
     /* visual */
-    background: #fff;
+    /*background: #fff;
     border: 1px solid #e0e0e0;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-    max-height: 240px;
+    height: 240px;
     overflow-y: auto;
     padding: 0;
     margin: 0;
-}
+}*/
 
 /* Bootstrap list-group item hover (keeps behaviour consistent with existing .city-dropdown) */
-.product-dropdown-list .list-group-item-action:hover {
-    background-color: #598199 !important;
-    border-color: #598199 !important;
-    color: white !important;
-}
+    /*.product-dropdown-list .list-group-item-action:hover {
+        background-color: #598199 !important;
+        border-color: #598199 !important;
+        color: white !important;
+        width: 100%;*/ /* matches input/dropdown width exactly */
+    /*}*/
 
 /* Selected item highlight (active) */
-.product-dropdown-list .active,
-.product-dropdown-list .list-group-item.active {
-    background-color: #598199 !important;
-    color: white !important;
-}
+    /*.product-dropdown-list .active,
+    .product-dropdown-list .list-group-item.active {
+        background-color: #598199 !important;
+        color: white !important;
+        width: 100%;*/ /* matches input/dropdown width exactly */
+    /*}*/
 
 /* Optional small tweak so items look identical to other dropdowns */
-.product-dropdown-list .list-group-item {
-    padding: 0.5rem 0.75rem;
-    cursor: pointer;
-    white-space: nowrap;
-}
+    /*.product-dropdown-list .list-group-item {
+        padding: 0.5rem 0.75rem;
+        cursor: pointer;
+        white-space: nowrap;
+        width: 100%;*/ /* matches input/dropdown width exactly */
+    /*}*/
 
 
 

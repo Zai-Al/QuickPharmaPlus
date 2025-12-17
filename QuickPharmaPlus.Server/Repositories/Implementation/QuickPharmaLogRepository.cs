@@ -90,7 +90,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
 
             // PAGE + MAP TO DTO
             var items = await query
-                .OrderBy(l => l.LogId) // CHANGED: Sort by LogId in ascending order
+                .OrderByDescending(l => l.LogTimestamp)
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
                 .Select(l => new QuickPharmaLogListDto
@@ -166,12 +166,18 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
         }
 
         // LOG TYPE 3: Add Record
-        public async Task CreateAddRecordLogAsync(int userId, string tableName)
+        public async Task CreateAddRecordLogAsync(int userId, string tableName, int recordId, string? details = null)
         {
             var user = await _context.Users.FindAsync(userId);
             var userName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : "Unknown User";
 
-            var description = $"{userName} added a record to {tableName}";
+            var description = $"{userName} added a record to {tableName} (Record ID: {recordId})";
+            
+            // Add details if provided
+            if (!string.IsNullOrWhiteSpace(details))
+            {
+                description += $" - {details}";
+            }
 
             var log = new Log
             {
@@ -186,12 +192,18 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
         }
 
         // LOG TYPE 4: Edit Record
-        public async Task CreateEditRecordLogAsync(int userId, string tableName)
+        public async Task CreateEditRecordLogAsync(int userId, string tableName, int recordId, string? details = null)
         {
             var user = await _context.Users.FindAsync(userId);
             var userName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : "Unknown User";
 
-            var description = $"{userName} edited a record in {tableName}";
+            var description = $"{userName} edited a record in {tableName} (Record ID: {recordId})";
+            
+            // Add details if provided
+            if (!string.IsNullOrWhiteSpace(details))
+            {
+                description += $" - {details}";
+            }
 
             var log = new Log
             {
@@ -206,12 +218,18 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
         }
 
         // LOG TYPE 5: Delete Record
-        public async Task CreateDeleteRecordLogAsync(int userId, string tableName)
+        public async Task CreateDeleteRecordLogAsync(int userId, string tableName, int recordId, string? details = null)
         {
             var user = await _context.Users.FindAsync(userId);
             var userName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : "Unknown User";
 
-            var description = $"{userName} deleted a record from {tableName}";
+            var description = $"{userName} deleted a record from {tableName} (Record ID: {recordId})";
+            
+            // Add details if provided
+            if (!string.IsNullOrWhiteSpace(details))
+            {
+                description += $" - {details}";
+            }
 
             var log = new Log
             {

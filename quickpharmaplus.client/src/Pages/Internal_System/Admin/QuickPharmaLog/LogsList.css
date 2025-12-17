@@ -75,6 +75,7 @@
         background-color: #598199 !important;
         border-color: #598199 !important;
         color: white !important;
+        width: 100%; /* matches input/dropdown width exactly */
     }
 
     /* Selected item highlight (active) */
@@ -82,6 +83,7 @@
     .searchable-dropdown .list-group-item.active {
         background-color: #598199 !important;
         color: white !important;
+        width: 100%; /* matches input/dropdown width exactly */
     }
 
     /* Individual list items */
@@ -101,7 +103,6 @@
 .log-type-filter-dropdown,
 .employee-filter-dropdown {
     width: 100%;
-    max-width: 340px;
 }
 
 /* ----------------------------------------- */

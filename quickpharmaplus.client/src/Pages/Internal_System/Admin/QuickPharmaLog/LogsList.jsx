@@ -102,8 +102,8 @@ export default function Logs() {
 
     async function fetchEmployees() {
         try {
-            // Use the /api/User endpoint which returns UserListDto (no circular references)
-            const res = await fetch(`${baseURL}/api/Employees/employees?pageNumber=1&pageSize=500`, {
+            // FIXED: Changed from /api/Employees/employees to /api/Employees
+            const res = await fetch(`${baseURL}/api/Employees?pageNumber=1&pageSize=500`, {
                 credentials: "include"
             });
             if (!res.ok) return;

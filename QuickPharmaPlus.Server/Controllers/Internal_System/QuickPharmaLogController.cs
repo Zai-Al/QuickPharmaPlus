@@ -132,11 +132,15 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
         /// </summary>
         [HttpPost("internal/add-record")]
         [AllowAnonymous] // Internal use
-        public async Task<IActionResult> LogAddRecord([FromQuery] int userId, [FromQuery] string tableName)
+        public async Task<IActionResult> LogAddRecord(
+            [FromQuery] int userId, 
+            [FromQuery] string tableName,
+            [FromQuery] int recordId,
+            [FromQuery] string? details = null)
         {
             try
             {
-                await _repo.CreateAddRecordLogAsync(userId, tableName);
+                await _repo.CreateAddRecordLogAsync(userId, tableName, recordId, details);
                 return Ok(new { logged = true });
             }
             catch (Exception ex)
@@ -151,11 +155,15 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
         /// </summary>
         [HttpPost("internal/edit-record")]
         [AllowAnonymous] // Internal use
-        public async Task<IActionResult> LogEditRecord([FromQuery] int userId, [FromQuery] string tableName)
+        public async Task<IActionResult> LogEditRecord(
+            [FromQuery] int userId, 
+            [FromQuery] string tableName,
+            [FromQuery] int recordId,
+            [FromQuery] string? details = null)
         {
             try
             {
-                await _repo.CreateEditRecordLogAsync(userId, tableName);
+                await _repo.CreateEditRecordLogAsync(userId, tableName, recordId, details);
                 return Ok(new { logged = true });
             }
             catch (Exception ex)
@@ -170,11 +178,15 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
         /// </summary>
         [HttpPost("internal/delete-record")]
         [AllowAnonymous] // Internal use
-        public async Task<IActionResult> LogDeleteRecord([FromQuery] int userId, [FromQuery] string tableName)
+        public async Task<IActionResult> LogDeleteRecord(
+            [FromQuery] int userId, 
+            [FromQuery] string tableName,
+            [FromQuery] int recordId,
+            [FromQuery] string? details = null)
         {
             try
             {
-                await _repo.CreateDeleteRecordLogAsync(userId, tableName);
+                await _repo.CreateDeleteRecordLogAsync(userId, tableName, recordId, details);
                 return Ok(new { logged = true });
             }
             catch (Exception ex)

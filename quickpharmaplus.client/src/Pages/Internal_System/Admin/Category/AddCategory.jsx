@@ -24,8 +24,8 @@ export default function AddCategory() {
     const navigate = useNavigate();
     const baseURL = import.meta.env.VITE_API_BASE_URL;
 
-    // SAME regex as Edit (with apostrophe)
-    const validCategoryNamePattern = /^[A-Za-z .\-']*$/;
+    // Updated regex - includes ampersand (&)
+    const validCategoryNamePattern = /^[A-Za-z .'\-()&]*$/;
 
     /* ---------------------- IMAGE UPLOAD ---------------------- */
     const handleUpload = (file) => {
@@ -132,11 +132,8 @@ export default function AddCategory() {
             <FormWrapper title="Enter New Category Details:">
                 <form className="add-category-form" onSubmit={handleSubmit}>
 
-
-
                     {/* NAME INPUT — LIVE VALIDATION MATCHES EDIT */}
                     <ImagePreview src={previewImage} />
-
 
                     <div className="mb-2 category-input-container" style={{ width: "80%" }}>
                         <input
@@ -148,7 +145,7 @@ export default function AddCategory() {
                                 const value = e.target.value;
 
                                 if (!validCategoryNamePattern.test(value)) {
-                                    setNameError("Only letters, spaces, dash (-), dot (.), and ' allowed.");
+                                    setNameError("Only letters, spaces, dot (.), apostrophe ('), dash (-), parentheses (), and ampersand (&) allowed.");
                                     setIsNameTouched(true);
                                     return;
                                 }
