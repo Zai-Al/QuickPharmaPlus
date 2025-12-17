@@ -30,25 +30,25 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             int pageSize,
             string? nameSearch,
             string? idSearch,
-            string? role
-        )
+            string? role,
+            int? branchId = null)  // NEW: Add branch filter parameter
         {
-            // Base query - unchanged
+            // Base query - already includes Branch.Address.City
             var query = _context.Users
                 .Include(u => u.Branch)
+                    .ThenInclude(b => b.Address)
+                        .ThenInclude(a => a.City)
                 .Include(u => u.Role)
-                .Include(u => u.Address).ThenInclude(a => a.City)
+                .Include(u => u.Address)
+                    .ThenInclude(a => a.City)
                 .Where(u => u.RoleId == 1 || u.RoleId == 2 || u.RoleId == 3 || u.RoleId == 4)
                 .AsQueryable();
 
-            // ---------- VALIDATION MATCHING FRONT-END RULES ----------
-
-            // Validate name allowed characters (letters, space, dot ., dash -)
+            // Name search validation
             if (!string.IsNullOrWhiteSpace(nameSearch))
             {
                 nameSearch = nameSearch.Trim();
 
-                // If invalid format, ignore filter instead of breaking query
                 if (System.Text.RegularExpressions.Regex.IsMatch(nameSearch, @"^[A-Za-z .-]+$"))
                 {
                     var term = nameSearch.ToLower();
@@ -61,7 +61,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 }
             }
 
-            // Validate numeric ID filter (digits only)
+            // ID search validation
             if (!string.IsNullOrWhiteSpace(idSearch))
             {
                 idSearch = idSearch.Trim();
@@ -72,11 +72,17 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 }
             }
 
-            // Filters employees by role name
+            // Role filter
             if (!string.IsNullOrWhiteSpace(role))
             {
                 var term = role.Trim().ToLower();
                 query = query.Where(u => (u.Role.RoleName ?? "").ToLower() == term);
+            }
+
+            // NEW: Branch filter
+            if (branchId.HasValue && branchId.Value > 0)
+            {
+                query = query.Where(u => u.BranchId == branchId.Value);
             }
 
             var filteredTotal = await query.CountAsync();
@@ -101,7 +107,9 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 .Include(u => u.Address).ThenInclude(a => a.City)
                 .Include(u => u.Role)
                 .Include(u => u.Branch)
-                .FirstOrDefaultAsync(u => u.UserId == id);
+                .FirstOrDefaultAsync(u => u.UserId == id);        
+
+
 
         // Retrieves a user record based on email address value
         public async Task<User?> GetUserByEmailAsync(string email) =>

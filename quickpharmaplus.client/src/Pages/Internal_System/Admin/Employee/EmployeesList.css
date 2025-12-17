@@ -1,4 +1,4 @@
-/* ----------------------------------------- */
+﻿/* ----------------------------------------- */
 /*                PAGE LAYOUT                */
 /* ----------------------------------------- */
 
@@ -44,7 +44,6 @@
     font-weight: 500;
 }
 
-
 /* ========================================================= */
 /* ===============  ADD EMPLOYEE PAGE STYLING  ============== */
 /* ========================================================= */
@@ -56,157 +55,166 @@
     padding-top: 30px;
 }
 
-.add-employee-header {
-    display: flex;
-    align-items: center;
-    justify-content: center; /* title centered */
-    position: relative; /* allows absolute cancel button */
-    width: 100%;
-}
-
-
-/* --- MAIN PAGE TITLE --- */
-.add-employee-title {
-    font-weight: 700;
-    text-align: center;
-    width: 100%;
-}
-
-.add-employee-header .internal-cancel-btn {
-    position: absolute;
-    right: 110px; /* match Edit Profile */
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-/* --- FORM CONTAINER PANEL --- */
-.add-employee-container {
-    width: 80%;             /* Same width as your screenshot */
-    min-height: 100%;         /* Taller because more fields */
-    background: white;
-    padding: 40px 50px;
-    margin-top: 10px;
-}
-
-/* --- SECTION TITLE INSIDE FORM (the black bold title) --- */
-.add-employee-header {
-    font-weight: 600;
-    margin-bottom: 10px;
-    text-align: center;
-    font-size: 22px;
-}
-
-/* --- FORM (centers fields vertically & horizontally) --- */
+/* --- FORM --- */
 .add-employee-form {
     width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap:1em;
+    gap: 2.5em; /* KEEP THIS */
 }
 
-/* --- FIXED WIDTH INPUTS (match screenshot) --- */
-.add-employee-input {
-    width: auto;  /* fields on the left before address section */
-    padding: 12px 14px;
-    font-size: 16px;
+/* ========================================================= */
+/* ===============  FULL-WIDTH INPUTS & DROPDOWNS  ========== */
+/* ========================================================= */
+
+/* Email, password, phone (standalone fields) */
+.add-employee-page .form-control.form-text-input {
+    width: 80% !important;
+    height: 40px;
+    padding: 8px 12px;
+    font-size: 14px;
     border-radius: 8px;
     border: 1px solid #ccc;
-    margin-bottom: 25px;
+    box-sizing: border-box;
+    align-self: center;
+    margin-left: auto;
+    margin-right: auto;
+    background-color: #fff;
+    display: block;
 }
 
-/* --- DROPDOWN (role select) --- */
-.add-employee-select {
-    width: 500px;
-    padding: 12px 14px;
+/* Role & branch dropdowns (your JSX uses form-control, not form-select) */
+.add-employee-page .form-control.form-dropdown {
+    width: 80% !important;
+    height: 40px;
+    padding: 8px 12px;
+    font-size: 14px;
     border-radius: 8px;
     border: 1px solid #ccc;
-    margin-bottom: 25px;
-    background-color: white;
+    box-sizing: border-box;
+    align-self: center;
+    margin-left: auto;
+    margin-right: auto;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-color: #fff;
+    padding-right: 35px;
+    display: block;
 }
 
-/* --- ADDRESS GRID (City + Block, Road + Building) --- */
-.add-employee-grid {
-    display: flex;
-    justify-content: center;
-    gap: 30px;
-    width: 100%;
-    margin-bottom: 25px;
-}
-
-/* --- SMALL INPUTS (City, Block, Road, Building) --- */
-.add-employee-small-input {
-    width: 230px;
-    padding: 12px 14px;
-    font-size: 16px;
-    border-radius: 8px;
-    border: 1px solid #ccc;
-}
-
-/* --- BUTTON WRAPPER (centers the Add button) --- */
-.add-employee-btn-wrapper {
-    margin-top: 25px;
-    width: 100%;     /* same width as text fields */
-    text-align: center;
-}
 /* ========================================================= */
 /* ===============  ADDRESS SECTION STYLING  ================ */
 /* ========================================================= */
 
-/* Two items per row */
-.address-row {
+/* Address rows (First/Last Name, City/Block, Road/Building) */
+.add-employee-page .address-row {
     display: flex;
     flex-direction: row;
-    justify-content: center;
-    gap: 1em;
-    margin-bottom: 1em;
+    justify-content: space-between;
+    gap: 1.5rem;
+    width: 80%;
+    margin-bottom: 0;
 }
 
+/* Each column is half the row */
+.add-employee-page .address-column {
+    flex: 1;
+    position: relative;
+    margin-bottom: 0;
+}
 
-/* Each Address Input (City, Block, Road, Building) */
-.address-input {
-    width: 150px !important;
-    height: 40px !important; 
-    padding: 8px 10px;
+/* Address inputs ONLY */
+.add-employee-page .form-control.address-input {
+    width: 100% !important;
+    height: 40px;
+    padding: 8px 12px;
     font-size: 14px;
     border-radius: 8px;
     border: 1px solid #ccc;
     box-sizing: border-box;
 }
 
+/* ========================================================= */
+/* ============ CITY DROPDOWN (Searchable)  ================= */
+/* ========================================================= */
 
-.address-row {
-    display: flex;
-    justify-content: center;
-    gap: 1.5rem; /* space between City and Block */
-    width: 80%;
+.add-employee-page .add-employee-city {
+    position: relative;
 }
 
-.address-column {
-    flex: 1; /* each item takes equal full space */
-    max-width: 500px; /* match your other large inputs */
-}
-
-    .address-column select,
-    .address-column input {
-        width: 100%; /* makes the field fill the whole column */
+    .add-employee-page .add-employee-city .city-dropdown {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        width: 100%;
+        height: 200px;
+        overflow-y: auto;
+        z-index: 1500;
+        background-color: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        list-style: none;
+        padding: 0;
+        margin: 0;
     }
 
+        .add-employee-page .add-employee-city .city-dropdown .list-group-item {
+            cursor: pointer;
+            font-size: 14px;
+            padding: 8px 12px;
+            border: none;
+            border-bottom: 1px solid #f0f0f0;
+            background-color: white;
+            transition: background-color 0.15s ease;
+        }
+
+            .add-employee-page .add-employee-city .city-dropdown .list-group-item:last-child {
+                border-bottom: none;
+            }
+
+            .add-employee-page .add-employee-city .city-dropdown .list-group-item.active,
+            .add-employee-page .add-employee-city .city-dropdown .list-group-item:hover {
+                background-color: #5f849a;
+                color: #fff;
+            }
+
+/* ========================================================= */
+/* ===============  VALIDATION ERROR STYLING  =============== */
+/* ========================================================= */
+
+.add-employee-page .invalid-feedback {
+    font-size: 0.85rem;
+    color: #dc3545;
+    text-align: left;
+    display: block;
+    min-height: 20px;
+}
+
+
+.add-employee-page .add-employee-form > .invalid-feedback {
+    width: 80%;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: calc(-2.5em + 0.25rem);
+    padding-left: 2px;
+}
+
+/* Red border for invalid inputs */
+.add-employee-page .is-invalid {
+    border-color: #dc3545 !important;
+}
+
+/* ========================================================= */
+/* ===============  FILTER SECTION (EmployeesList)  ========= */
+/* ========================================================= */
 
 .filter-label {
     width: 340px;
     text-align: left;
     margin-bottom: 7px;
     font-weight: 500;
-}
-
-
-/* ----------------------------------------- */
-/*        VALIDATION ERROR STYLING           */
-/* ----------------------------------------- */
-
-.invalid-feedback {
-    font-size: 0.85rem;
-    text-align: left;
-    margin-top: 2px;
 }

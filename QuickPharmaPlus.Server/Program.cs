@@ -20,29 +20,30 @@ namespace QuickPharmaPlus.Server
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // 1) MAIN DATABASE CONTEXT (Your scaffolded DB)
+            // =========================
+            // DATABASE CONTEXTS
+            // =========================
             builder.Services.AddDbContext<QuickPharmaPlusDbContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-            // 2) IDENTITY DATABASE CONTEXT
             builder.Services.AddDbContext<IdentityContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-
-            // 3) ADD IDENTITY
+            // =========================
+            // IDENTITY
+            // =========================
             builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
                 .AddEntityFrameworkStores<IdentityContext>()
                 .AddDefaultTokenProviders();
 
-            // Configure token lifespan for password reset and email confirmation
             builder.Services.Configure<DataProtectionTokenProviderOptions>(opt =>
             {
                 opt.TokenLifespan = TimeSpan.FromHours(2);
             });
 
- 
-
-            // Add to service registration
+            // =========================
+            // SESSION
+            // =========================
             builder.Services.AddDistributedMemoryCache();
             builder.Services.AddSession(options =>
             {
@@ -51,17 +52,21 @@ namespace QuickPharmaPlus.Server
                 options.Cookie.IsEssential = true;
             });
 
-
+            // =========================
+            // CONTROLLERS + JSON
+            // =========================
             builder.Services.AddControllers()
                 .AddJsonOptions(opts =>
                 {
-                    // Prevent System.Text.Json from throwing on entity navigation cycles
                     opts.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
-
-                    // Increase allowed depth for very deep graphs (optional)
                     opts.JsonSerializerOptions.MaxDepth = 64;
                 });
+
             builder.Services.AddEndpointsApiExplorer();
+
+            // =========================
+            // SWAGGER
+            // =========================
             builder.Services.AddSwaggerGen(c =>
             {
                 c.AddSecurityDefinition("cookieAuth", new OpenApiSecurityScheme
@@ -72,50 +77,77 @@ namespace QuickPharmaPlus.Server
                     Description = "Auth cookie for Swagger"
                 });
 
-                c.AddSecurityRequirement(new OpenApiSecurityRequirement {
-        {
-            new OpenApiSecurityScheme {
-                Reference = new OpenApiReference {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "cookieAuth"
-                }
-            },
-            new string[] {}
-        }
-    });
+                c.AddSecurityRequirement(new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "cookieAuth"
+                            }
+                        },
+                        Array.Empty<string>()
+                    }
+                });
             });
 
-
-            // 4) CORS FOR REACT
-            // Read allowed origin from configuration (appsettings or env). Example: "https://localhost:5173"
+            // =========================
+            // CORS (REACT)
+            // =========================
             var reactOrigin = builder.Configuration["ReactDevOrigin"] ?? "https://localhost:5173";
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowReactApp", policy =>
-                    policy.WithOrigins(reactOrigin)   // MUST be explicit when allowing credentials
+                    policy.WithOrigins("https://localhost:5173")
                           .AllowAnyHeader()
                           .AllowAnyMethod()
-                          .AllowCredentials()
-                );
+                          .AllowCredentials());
             });
 
-
-            // 5) COOKIES FOR REACT FRONTEND
-            //adding application cookies
+            // =========================
+            // COOKIE AUTH (CRITICAL FIX)
+            // =========================
             builder.Services.ConfigureApplicationCookie(options =>
             {
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.None;
                 options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-                // return 401 instead of redirect
-                options.Events.OnRedirectToLogin = ctx => { ctx.Response.StatusCode = 401; return Task.CompletedTask; };
+
+                options.Events.OnRedirectToLogin = ctx =>
+                {
+                    if (ctx.Request.Path.StartsWithSegments("/api"))
+                    {
+                        ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        return Task.CompletedTask;
+                    }
+
+                    ctx.Response.Redirect(ctx.RedirectUri);
+                    return Task.CompletedTask;
+                };
+
+                options.Events.OnRedirectToAccessDenied = ctx =>
+                {
+                    if (ctx.Request.Path.StartsWithSegments("/api"))
+                    {
+                        ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        return Task.CompletedTask;
+                    }
+
+                    ctx.Response.Redirect(ctx.RedirectUri);
+                    return Task.CompletedTask;
+                };
             });
 
-            // register email sender: use DevEmailSender in Development, SmtpEmailSender in Production
+            // =========================
+            // EMAIL
+            // =========================
             builder.Services.AddTransient<IEmailSender, SendGridEmailSender>();
 
-
-            //adding the repostries 
+            // =========================
+            // REPOSITORIES
+            // =========================
             builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
             builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<IRoleRepository, RoleRepository>();
@@ -140,30 +172,23 @@ namespace QuickPharmaPlus.Server
             builder.Services.AddScoped<IPharmacistDashboardRepository, PharmacistDashboardRepository>();
             builder.Services.AddScoped<IDriverDashboardRepository, DriverDashboardRepository>();
 
-
-
-
-
-            // 6) Stripe configuration (test secret key from appsettings.json)
+            // =========================
+            // STRIPE
+            // =========================
             var stripeSection = builder.Configuration.GetSection("Stripe");
             StripeConfiguration.ApiKey = stripeSection["SecretKey"];
 
-
-
-
             var app = builder.Build();
 
-            // continue with middleware pipeline
-            app.UseDefaultFiles();
-            app.UseStaticFiles();
-
-            // 6) SEED ROLES + USERS
+            // =========================
+            // SEEDING
+            // =========================
             await SeedRoles(app);
             await SeedTestUsers(app);
 
-            app.UseDefaultFiles();
-            app.UseStaticFiles();
-
+            // =========================
+            // MIDDLEWARE PIPELINE (FIXED ORDER)
+            // =========================
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
@@ -171,22 +196,26 @@ namespace QuickPharmaPlus.Server
             }
 
             app.UseHttpsRedirection();
-
-            // Apply CORS before authentication/authorization
             app.UseCors("AllowReactApp");
+
             app.UseRouting();
+
             app.UseSession();
             app.UseAuthentication();
             app.UseAuthorization();
 
             app.MapControllers();
+
+            app.UseDefaultFiles();
+            app.UseStaticFiles();
             app.MapFallbackToFile("index.html");
-            
 
             app.Run();
         }
 
+        // =========================
         // ROLE SEEDING
+        // =========================
         private static async Task SeedRoles(WebApplication app)
         {
             using var scope = app.Services.CreateScope();
@@ -199,17 +228,17 @@ namespace QuickPharmaPlus.Server
                 if (!await roleManager.RoleExistsAsync(roleName))
                 {
                     await roleManager.CreateAsync(new IdentityRole(roleName));
-                    Console.WriteLine($"Role created: {roleName}");
                 }
             }
         }
 
+        // =========================
         // USER SEEDING
+        // =========================
         private static async Task SeedTestUsers(WebApplication app)
         {
             using var scope = app.Services.CreateScope();
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-
 
             // Admin seeding  
             await CreateUser(userManager, "hassan.alkhalifa@gmail.com", "Admin123!", "Admin");
@@ -301,10 +330,8 @@ namespace QuickPharmaPlus.Server
             await CreateUser(userManager, "noura.alsaad@gmail.com", "Customer123!", "Customer");
             await CreateUser(userManager, "emily.johnson@gmail.com", "Customer123!", "Customer");
             await CreateUser(userManager, "ahmed.yousif@gmail.com", "Customer123!", "Customer");
-
         }
 
-        // HELPER METHOD FOR USER CREATION
         private static async Task CreateUser(UserManager<ApplicationUser> userManager, string email, string password, string role)
         {
             if (await userManager.FindByEmailAsync(email) == null)
@@ -320,15 +347,6 @@ namespace QuickPharmaPlus.Server
                 if (result.Succeeded)
                 {
                     await userManager.AddToRoleAsync(user, role);
-                    Console.WriteLine($"Seeded user: {email} ({role})");
-                }
-                else
-                {
-                    Console.WriteLine($"Failed to create {role} user {email}:");
-                    foreach (var error in result.Errors)
-                    {
-                        Console.WriteLine(error.Description);
-                    }
                 }
             }
         }
