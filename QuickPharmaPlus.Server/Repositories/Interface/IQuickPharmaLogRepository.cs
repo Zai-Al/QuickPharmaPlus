@@ -20,9 +20,12 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
         // Auto-generated log creation methods
         Task CreateInventoryChangeLogAsync(int? userId, string? productName, string? branchName);
         Task CreateLoginFailureLogAsync(string email);
-        Task CreateAddRecordLogAsync(int userId, string tableName);
-        Task CreateEditRecordLogAsync(int userId, string tableName);
-        Task CreateDeleteRecordLogAsync(int userId, string tableName);
+        
+        // ENHANCED: Added optional details parameter for rich descriptions
+        Task CreateAddRecordLogAsync(int userId, string tableName, int recordId, string? details = null);
+        Task CreateEditRecordLogAsync(int userId, string tableName, int recordId, string? details = null);
+        Task CreateDeleteRecordLogAsync(int userId, string tableName, int recordId, string? details = null);
+        
         Task CreatePrescriptionApprovalLogAsync(int userId, int prescriptionId);
         Task CreateControlledProductDispensedLogAsync(int userId, string productName, int prescriptionId);
     }

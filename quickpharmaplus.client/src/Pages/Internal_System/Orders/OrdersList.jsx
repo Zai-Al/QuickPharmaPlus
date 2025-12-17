@@ -73,8 +73,8 @@ export default function OrdersList() {
     const [selectedSupplier, setSelectedSupplier] = useState(null);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [selectedEmployee, setSelectedEmployee] = useState(null);
-    const [selectedStatus, setSelectedStatus] = useState(null);
-    const [selectedType, setSelectedType] = useState(null);
+    const [selectedStatus, setSelectedStatus] = useState("");
+    const [selectedType, setSelectedType] = useState("");
     const [filterDate, setFilterDate] = useState(null);
 
     // Dropdown options
@@ -101,18 +101,6 @@ export default function OrdersList() {
     const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
     const [employeeHighlightIndex, setEmployeeHighlightIndex] = useState(-1);
     const employeeRef = useRef(null);
-
-    // Searchable dropdown states - Status
-    const [statusQuery, setStatusQuery] = useState("");
-    const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-    const [statusHighlightIndex, setStatusHighlightIndex] = useState(-1);
-    const statusRef = useRef(null);
-
-    // Searchable dropdown states - Type
-    const [typeQuery, setTypeQuery] = useState("");
-    const [showTypeDropdown, setShowTypeDropdown] = useState(false);
-    const [typeHighlightIndex, setTypeHighlightIndex] = useState(-1);
-    const typeRef = useRef(null);
 
     // Validation errors
     const [idError, setIdError] = useState("");
@@ -221,14 +209,6 @@ export default function OrdersList() {
         setEmployeeQuery(selectedEmployee ? selectedEmployee.employeeFullName ?? "" : "");
     }, [selectedEmployee]);
 
-    useEffect(() => {
-        setStatusQuery(selectedStatus ? selectedStatus.statusType ?? "" : "");
-    }, [selectedStatus]);
-
-    useEffect(() => {
-        setTypeQuery(selectedType ? selectedType.typeName ?? "" : "");
-    }, [selectedType]);
-
     /* ----------------------------------------- */
     /*    CLOSE DROPDOWNS ON OUTSIDE CLICK       */
     /* ----------------------------------------- */
@@ -245,14 +225,6 @@ export default function OrdersList() {
             if (employeeRef.current && !employeeRef.current.contains(e.target)) {
                 setShowEmployeeDropdown(false);
                 setEmployeeHighlightIndex(-1);
-            }
-            if (statusRef.current && !statusRef.current.contains(e.target)) {
-                setShowStatusDropdown(false);
-                setStatusHighlightIndex(-1);
-            }
-            if (typeRef.current && !typeRef.current.contains(e.target)) {
-                setShowTypeDropdown(false);
-                setTypeHighlightIndex(-1);
             }
         };
         document.addEventListener("mousedown", handleClickOutside);
@@ -296,12 +268,13 @@ export default function OrdersList() {
 
     async function fetchEmployeesForFilter() {
         try {
-            const res = await fetch(`${baseURL}/api/Employees/employees?pageNumber=1&pageSize=200`, { credentials: "include" });
+            // FIXED: Changed from /api/Employees/employees to /api/Employees
+            const res = await fetch(`${baseURL}/api/Employees?pageNumber=1&pageSize=200`, { credentials: "include" });
             if (!res.ok) return;
             const data = await res.json();
             const items = data.items ?? [];
             setEmployeeOptions(items.map(e => ({
-                employeeId: e.userId ?? null,
+                employeeId: e.userId,  // Make sure this matches the DTO structure
                 employeeFullName: `${e.firstName ?? ""} ${e.lastName ?? ""}`.trim() || "—"
             })));
         } catch (err) {
@@ -316,8 +289,8 @@ export default function OrdersList() {
             if (!res.ok) return;
             const data = await res.json();
             setStatusOptions(data.map(s => ({
-                statusId: s.statusId ?? null,
-                statusType: s.statusType ?? "—"
+                value: s.statusId ?? null,
+                label: s.statusType ?? "—"
             })));
         } catch (err) {
             console.error("Error fetching statuses:", err);
@@ -331,8 +304,8 @@ export default function OrdersList() {
             if (!res.ok) return;
             const data = await res.json();
             setTypeOptions(data.map(t => ({
-                typeId: t.typeId ?? null,
-                typeName: t.typeName ?? "—"
+                value: t.typeId ?? null,
+                label: t.typeName ?? "—"
             })));
         } catch (err) {
             console.error("Error fetching types:", err);
@@ -464,10 +437,10 @@ export default function OrdersList() {
             );
         }
         if (!isReorderPage && selectedStatus) {
-            filtered = filtered.filter(item => item.supplierOrderStatusId === selectedStatus.statusId);
+            filtered = filtered.filter(item => item.supplierOrderStatusId == selectedStatus);
         }
         if (!isReorderPage && selectedType) {
-            filtered = filtered.filter(item => item.supplierOrderTypeId === selectedType.typeId);
+            filtered = filtered.filter(item => item.supplierOrderTypeId == selectedType);
         }
 
         // Calculate pagination based on filtered results
@@ -549,22 +522,6 @@ export default function OrdersList() {
         }
     };
 
-    const handleStatusInputChange = (e) => {
-        const val = e.target.value;
-        setStatusQuery(val);
-        setShowStatusDropdown(true);
-        setStatusHighlightIndex(-1);
-        if (!val) setSelectedStatus(null);
-    };
-
-    const handleTypeInputChange = (e) => {
-        const val = e.target.value;
-        setTypeQuery(val);
-        setShowTypeDropdown(true);
-        setTypeHighlightIndex(-1);
-        if (!val) setSelectedType(null);
-    };
-
     /* ----------------------------------------- */
     /*          FILTERED DROPDOWN LISTS          */
     /* ----------------------------------------- */
@@ -579,14 +536,6 @@ export default function OrdersList() {
     const filteredEmployees = employeeQuery
         ? employeeOptions.filter(e => e.employeeFullName.toLowerCase().startsWith(employeeQuery.toLowerCase()))
         : employeeOptions;
-
-    const filteredStatuses = statusQuery
-        ? statusOptions.filter(s => s.statusType.toLowerCase().includes(statusQuery.toLowerCase()))
-        : statusOptions;
-
-    const filteredTypes = typeQuery
-        ? typeOptions.filter(t => t.typeName.toLowerCase().includes(typeQuery.toLowerCase()))
-        : typeOptions;
 
     /* ----------------------------------------- */
     /*          SELECTION HANDLERS               */
@@ -615,19 +564,13 @@ export default function OrdersList() {
         setCurrentPage(1); // Reset to page 1
     };
 
-    const handleSelectStatus = (status) => {
-        setSelectedStatus(status);
-        setStatusQuery(status.statusType);
-        setShowStatusDropdown(false);
-        setStatusHighlightIndex(-1);
+    const handleStatusChange = (e) => {
+        setSelectedStatus(e.target.value);
         setCurrentPage(1); // Reset to page 1
     };
 
-    const handleSelectType = (type) => {
-        setSelectedType(type);
-        setTypeQuery(type.typeName);
-        setShowTypeDropdown(false);
-        setTypeHighlightIndex(-1);
+    const handleTypeChange = (e) => {
+        setSelectedType(e.target.value);
         setCurrentPage(1); // Reset to page 1
     };
 
@@ -639,15 +582,13 @@ export default function OrdersList() {
         setSelectedSupplier(null);
         setSelectedProduct(null);
         setSelectedEmployee(null);
-        setSelectedStatus(null);
-        setSelectedType(null);
+        setSelectedStatus("");
+        setSelectedType("");
         setFilterDate(null);
 
         setSupplierQuery("");
         setProductQuery("");
         setEmployeeQuery("");
-        setStatusQuery("");
-        setTypeQuery("");
 
         setIdError("");
         setSupplierError("");
@@ -851,64 +792,28 @@ export default function OrdersList() {
                 <FilterLeft>
 
                     {!isReorderPage && (
-                        <div className="mb-2" ref={statusRef} style={{ position: "relative" }}>
-                            <div className="filter-label fst-italic small">Search or select status for automatic search</div>
-                            <input
-                                type="text"
-                                className="form-control filter-text-input"
+                        <div className="mb-2">
+                            <div className="filter-label fst-italic small">Select status for automatic search</div>
+                            <FilterDropdown
                                 placeholder="Filter Orders by Status"
-                                value={statusQuery}
-                                onChange={handleStatusInputChange}
-                                onFocus={() => { setShowStatusDropdown(true); setStatusHighlightIndex(-1); }}
-                                autoComplete="off"
+                                options={statusOptions}
+                                value={selectedStatus}
+                                onChange={handleStatusChange}
                             />
                             <div style={{ height: "20px" }}></div>
-
-                            {showStatusDropdown && filteredStatuses.length > 0 && (
-                                <ul className="list-group position-absolute searchable-dropdown product-filter-dropdown" style={{ zIndex: 1500, maxHeight: 200, overflowY: "auto" }}>
-                                    {filteredStatuses.map((s, idx) => (
-                                        <li
-                                            key={s.statusId}
-                                            className={`list-group-item list-group-item-action ${idx === statusHighlightIndex ? "active" : ""}`}
-                                            onClick={() => handleSelectStatus(s)}
-                                            onMouseEnter={() => setStatusHighlightIndex(idx)}
-                                        >
-                                            {s.statusType}
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
                         </div>
                     )}
 
                     {!isReorderPage && (
-                        <div className="mb-2" ref={typeRef} style={{ position: "relative" }}>
-                            <div className="filter-label fst-italic small">Search or select type for automatic search</div>
-                            <input
-                                type="text"
-                                className="form-control filter-text-input"
+                        <div className="mb-2">
+                            <div className="filter-label fst-italic small">Select type for automatic search</div>
+                            <FilterDropdown
                                 placeholder="Filter Orders by Type"
-                                value={typeQuery}
-                                onChange={handleTypeInputChange}
-                                onFocus={() => { setShowTypeDropdown(true); setTypeHighlightIndex(-1); }}
-                                autoComplete="off"
+                                options={typeOptions}
+                                value={selectedType}
+                                onChange={handleTypeChange}
                             />
                             <div style={{ height: "20px" }}></div>
-
-                            {showTypeDropdown && filteredTypes.length > 0 && (
-                                <ul className="list-group position-absolute searchable-dropdown product-filter-dropdown" style={{ zIndex: 1500, maxHeight: 200, overflowY: "auto" }}>
-                                    {filteredTypes.map((t, idx) => (
-                                        <li
-                                            key={t.typeId}
-                                            className={`list-group-item list-group-item-action ${idx === typeHighlightIndex ? "active" : ""}`}
-                                            onClick={() => handleSelectType(t)}
-                                            onMouseEnter={() => setTypeHighlightIndex(idx)}
-                                        >
-                                            {t.typeName}
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
                         </div>
                     )}
 

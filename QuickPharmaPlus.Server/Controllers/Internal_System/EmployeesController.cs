@@ -15,6 +15,7 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
     public class EmployeesController : ControllerBase
     {
         private readonly IUserRepository _repo;
+        private readonly IQuickPharmaLogRepository _logger;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly QuickPharmaPlusDbContext _context;
@@ -31,11 +32,13 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
 
         public EmployeesController(
             IUserRepository repo,
+            IQuickPharmaLogRepository logger,
             UserManager<ApplicationUser> userManager,
             RoleManager<IdentityRole> roleManager,
             QuickPharmaPlusDbContext context)
         {
             _repo = repo;
+            _logger = logger;
             _userManager = userManager;
             _roleManager = roleManager;
             _context = context;
@@ -315,6 +318,21 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                 var created = await _repo.AddEmployeeAsync(user);
                 await _context.SaveChangesAsync();
 
+                // =================== CREATE DETAILED LOG ===================
+                var currentUserId = await GetCurrentUserIdAsync();
+                if (currentUserId.HasValue)
+                {
+                    var employeeName = $"{dto.FirstName.Trim()} {dto.LastName.Trim()}";
+                    var details = $"Employee Name: {employeeName}, Email: {dto.Email.Trim()}, Role: {dto.Role}, Phone: {dto.Phone.Trim()}";
+
+                    await _logger.CreateAddRecordLogAsync(
+                        userId: currentUserId.Value,
+                        tableName: "User (Employees)",
+                        recordId: created.UserId,
+                        details: details
+                    );
+                }
+
                 return Ok(new
                 {
                     userId = created.UserId,
@@ -404,6 +422,44 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                 if (existingEmployee == null)
                     return NotFound("Employee not found.");
 
+                // =================== TRACK CHANGES ===================
+                var changes = new List<string>();
+
+                if (existingEmployee.FirstName != dto.FirstName.Trim())
+                    changes.Add($"First Name: '{existingEmployee.FirstName}' → '{dto.FirstName.Trim()}'");
+
+                if (existingEmployee.LastName != dto.LastName.Trim())
+                    changes.Add($"Last Name: '{existingEmployee.LastName}' → '{dto.LastName.Trim()}'");
+
+                if (existingEmployee.EmailAddress != dto.Email.Trim())
+                    changes.Add($"Email: '{existingEmployee.EmailAddress}' → '{dto.Email.Trim()}'");
+
+                if (existingEmployee.ContactNumber != dto.Phone.Trim())
+                    changes.Add($"Phone: '{existingEmployee.ContactNumber}' → '{dto.Phone.Trim()}'");
+
+                var oldRoleName = existingEmployee.Role?.RoleName ?? "N/A";
+                if (oldRoleName != dto.Role)
+                    changes.Add($"Role: '{oldRoleName}' → '{dto.Role}'");
+
+                if (existingEmployee.BranchId != dto.BranchId.Value)
+                    changes.Add($"Branch ID: {existingEmployee.BranchId} → {dto.BranchId.Value}");
+
+                // Address changes
+                if (existingEmployee.Address != null)
+                {
+                    if (existingEmployee.Address.CityId != dto.CityId.Value)
+                        changes.Add($"City ID: {existingEmployee.Address.CityId} → {dto.CityId.Value}");
+
+                    if (existingEmployee.Address.Block != dto.Block.Trim())
+                        changes.Add($"Block: '{existingEmployee.Address.Block}' → '{dto.Block.Trim()}'");
+
+                    if (existingEmployee.Address.Street != dto.Road.Trim())
+                        changes.Add($"Road: '{existingEmployee.Address.Street}' → '{dto.Road.Trim()}'");
+
+                    if (existingEmployee.Address.BuildingNumber != dto.Building.Trim())
+                        changes.Add($"Building: '{existingEmployee.Address.BuildingNumber}' → '{dto.Building.Trim()}'");
+                }
+
                 // Check email uniqueness (if changed)
                 if (existingEmployee.EmailAddress != dto.Email.Trim())
                 {
@@ -483,6 +539,21 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                     }
                 }
 
+                // =================== CREATE DETAILED LOG ===================
+                var currentUserId = await GetCurrentUserIdAsync();
+                if (currentUserId.HasValue && changes.Any())
+                {
+                    var employeeName = $"{dto.FirstName.Trim()} {dto.LastName.Trim()}";
+                    var details = $"Employee: {employeeName} - Changes: {string.Join(", ", changes)}";
+
+                    await _logger.CreateEditRecordLogAsync(
+                        userId: currentUserId.Value,
+                        tableName: "User (Employees)",
+                        recordId: id,
+                        details: details
+                    );
+                }
+
                 return Ok(new { message = "Employee updated successfully." });
             }
             catch (Exception ex)
@@ -496,13 +567,59 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
         {
             try
             {
+                // =================== GET EMPLOYEE DETAILS BEFORE DELETION ===================
+                var employeeToDelete = await _repo.GetEmployeeByIdAsync(id);
+                string? deletedEmployeeName = null;
+
+                if (employeeToDelete != null)
+                {
+                    deletedEmployeeName = $"{employeeToDelete.FirstName} {employeeToDelete.LastName}".Trim();
+                }
+
+                var currentUserId = await GetCurrentUserIdAsync();
+
                 var result = await _repo.DeleteEmployeeAsync(id);
-                return result ? Ok() : NotFound();
+
+                if (!result)
+                    return NotFound();
+
+                // =================== CREATE DETAILED LOG ===================
+                if (currentUserId.HasValue)
+                {
+                    var details = !string.IsNullOrWhiteSpace(deletedEmployeeName)
+                        ? $"Deleted Employee: {deletedEmployeeName}"
+                        : "Employee name unavailable";
+
+                    await _logger.CreateDeleteRecordLogAsync(
+                        userId: currentUserId.Value,
+                        tableName: "User (Employees)",
+                        recordId: id,
+                        details: details
+                    );
+                }
+
+                return Ok();
             }
             catch (Exception)
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, new { error = "An unexpected error occurred." });
             }
+        }
+
+        private async Task<int?> GetCurrentUserIdAsync()
+        {
+            var userEmail = User?.Identity?.Name;
+            if (string.IsNullOrEmpty(userEmail))
+                return null;
+
+            var identityUser = await _userManager.FindByEmailAsync(userEmail);
+            if (identityUser == null)
+                return null;
+
+            var domainUser = await _context.Users
+                .FirstOrDefaultAsync(u => u.EmailAddress == userEmail);
+            
+            return domainUser?.UserId;
         }
     }
 }

@@ -1,5 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using QuickPharmaPlus.Server.Identity;
 using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.ModelsDTO;
 using QuickPharmaPlus.Server.ModelsDTO.Category;
@@ -13,17 +16,46 @@ namespace QuickPharmaPlus.Server.Controllers
     public class CategoryController : ControllerBase
     {
         private readonly ICategoryRepository _categoryRepository;
+        private readonly IQuickPharmaLogRepository _logger;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly QuickPharmaPlusDbContext _context;
 
-        public CategoryController(ICategoryRepository categoryRepository)
+        public CategoryController(
+            ICategoryRepository categoryRepository,
+            IQuickPharmaLogRepository logger,
+            UserManager<ApplicationUser> userManager,
+            QuickPharmaPlusDbContext context)
         {
-            _categoryRepository = categoryRepository;
+            _categoryRepository = categoryRepository;   
+            _logger = logger;
+            _userManager = userManager;
+            _context = context;
         }
 
         // ================================
         // VALIDATION PATTERNS (same as UI)
         // ================================
-        private static readonly Regex ValidNamePattern = new(@"^[A-Za-z\s\-'\.]*$");
+        private static readonly Regex ValidNamePattern = new(@"^[A-Za-z\s\-'\.()&]*$");
         private static readonly Regex ValidIdPattern = new(@"^[0-9]*$");
+
+        // ================================
+        // HELPER: GET CURRENT USER ID
+        // ================================
+        private async Task<int?> GetCurrentUserIdAsync()
+        {
+            var userEmail = User?.Identity?.Name;
+            if (string.IsNullOrEmpty(userEmail))
+                return null;
+
+            var identityUser = await _userManager.FindByEmailAsync(userEmail);
+            if (identityUser == null)
+                return null;
+
+            var domainUser = await _context.Users
+                .FirstOrDefaultAsync(u => u.EmailAddress == userEmail);
+
+            return domainUser?.UserId;
+        }
 
         // =====================================================
         // FETCH PAGED + FILTERED CATEGORY LIST
@@ -53,7 +85,7 @@ namespace QuickPharmaPlus.Server.Controllers
                 {
                     // Otherwise validate as name
                     if (!ValidNamePattern.IsMatch(trimmed))
-                        return BadRequest("Category name may only contain letters, spaces, dash (-), dot (.), and apostrophe (').");
+                        return BadRequest("Category name may only contain letters, spaces, dot (.), apostrophe ('), dash (-), parentheses (), and ampersand (&).");
                 }
             }
 
@@ -142,7 +174,7 @@ namespace QuickPharmaPlus.Server.Controllers
 
             // 3. Validate allowed characters FIRST (before duplicate check)
             if (!ValidNamePattern.IsMatch(trimmedName))
-                return BadRequest("Category name may only contain letters, spaces, dash (-), dot (.), and apostrophe (').");
+                return BadRequest("Category name may only contain letters, spaces, dot (.), apostrophe ('), dash (-), parentheses (), and ampersand (&).");
 
             // 4. Check for duplicate name (AFTER character validation passes)
             var nameExists = await _categoryRepository.CategoryNameExistsAsync(trimmedName);
@@ -151,12 +183,14 @@ namespace QuickPharmaPlus.Server.Controllers
 
             // 5. Process image
             byte[]? imageBytes = null;
+            string? imageFileName = null;
 
             if (model.CategoryImage != null)
             {
                 using var ms = new MemoryStream();
                 await model.CategoryImage.CopyToAsync(ms);
                 imageBytes = ms.ToArray();
+                imageFileName = model.CategoryImage.FileName;
             }
 
             // 6. Create category
@@ -167,6 +201,25 @@ namespace QuickPharmaPlus.Server.Controllers
             };
 
             var created = await _categoryRepository.AddCategoryAsync(category);
+
+            // =================== CREATE LOG ===================
+            var currentUserId = await GetCurrentUserIdAsync();
+            if (currentUserId.HasValue)
+            {
+                var details = $"Category Name: {trimmedName}";
+                
+                if (!string.IsNullOrWhiteSpace(imageFileName))
+                {
+                    details += $", Image: {imageFileName}";
+                }
+
+                await _logger.CreateAddRecordLogAsync(
+                    userId: currentUserId.Value,
+                    tableName: "Category",
+                    recordId: created.CategoryId,
+                    details: details
+                );
+            }
 
             return Ok(new
             {
@@ -186,36 +239,67 @@ namespace QuickPharmaPlus.Server.Controllers
             if (id <= 0)
                 return BadRequest("Invalid category ID.");
 
-            // 2. Validate name is not empty
+            // 2. Get existing category BEFORE changes
+            var existingCategory = await _categoryRepository.GetCategoryByIdAsync(id);
+            if (existingCategory == null)
+                return NotFound("Category not found.");
+
+            // 3. Validate name is not empty
             if (string.IsNullOrWhiteSpace(model.CategoryName))
                 return BadRequest("Category name is required.");
 
             var trimmedName = model.CategoryName.Trim();
 
-            // 3. Validate minimum length
+            // 4. Validate minimum length
             if (trimmedName.Length < 3)
                 return BadRequest("Category name must be at least 3 characters.");
 
-            // 4. Validate allowed characters FIRST (before duplicate check)
+            // 5. Validate allowed characters FIRST (before duplicate check)
             if (!ValidNamePattern.IsMatch(trimmedName))
-                return BadRequest("Category name may only contain letters, spaces, dash (-), dot (.), and apostrophe (').");
+                return BadRequest("Category name may only contain letters, spaces, dot (.), apostrophe ('), dash (-), parentheses (), and ampersand (&).");
 
-            // 5. Check for duplicate name (excluding current category)
+            // 6. Check for duplicate name (excluding current category)
             var nameExists = await _categoryRepository.CategoryNameExistsAsync(trimmedName, id);
             if (nameExists)
                 return Conflict("A category with this name already exists in the system.");
 
-            // 6. Process image
+            // =================== TRACK CHANGES ===================
+            var changes = new List<string>();
+            
+            // Track name change
+            if (existingCategory.CategoryName != trimmedName)
+                changes.Add($"Name: '{existingCategory.CategoryName}' → '{trimmedName}'");
+
+            // 7. Process image
             byte[]? imageBytes = null;
+            string? imageFileName = null;
+            bool imageChanged = false;
 
             if (model.CategoryImage != null)
             {
                 using var ms = new MemoryStream();
                 await model.CategoryImage.CopyToAsync(ms);
                 imageBytes = ms.ToArray();
+                imageFileName = model.CategoryImage.FileName;
+                imageChanged = true;
+
+                // Track image change (DO NOT log binary data)
+                if (existingCategory.CategoryImage == null)
+                {
+                    changes.Add($"Image Added: {imageFileName}");
+                }
+                else
+                {
+                    changes.Add($"Image Updated: {imageFileName}");
+                }
+            }
+            else
+            {
+                // Keep existing image if no new one provided
+                imageBytes = existingCategory.CategoryImage;
             }
 
-            // 7. Update category
+            // 8. Update category
             var updated = new Category
             {
                 CategoryId = id,
@@ -227,6 +311,20 @@ namespace QuickPharmaPlus.Server.Controllers
 
             if (result == null)
                 return NotFound("Category not found.");
+
+            // =================== CREATE LOG ===================
+            var currentUserId = await GetCurrentUserIdAsync();
+            if (currentUserId.HasValue && changes.Any())
+            {
+                var details = $"Category: {trimmedName} - Changes: {string.Join(", ", changes)}";
+
+                await _logger.CreateEditRecordLogAsync(
+                    userId: currentUserId.Value,
+                    tableName: "Category",
+                    recordId: id,
+                    details: details
+                );
+            }
 
             return Ok(result);
         }
@@ -241,10 +339,36 @@ namespace QuickPharmaPlus.Server.Controllers
             if (id <= 0)
                 return BadRequest("Invalid category ID.");
 
+            // =================== GET CATEGORY DETAILS BEFORE DELETION ===================
+            var categoryToDelete = await _categoryRepository.GetCategoryByIdAsync(id);
+            string? deletedCategoryName = null;
+
+            if (categoryToDelete != null)
+            {
+                deletedCategoryName = categoryToDelete.CategoryName;
+            }
+
+            var currentUserId = await GetCurrentUserIdAsync();
+
             var deleted = await _categoryRepository.DeleteCategoryAsync(id);
 
             if (!deleted)
                 return NotFound("Category not found or could not be deleted.");
+
+            // =================== CREATE LOG ===================
+            if (currentUserId.HasValue)
+            {
+                var details = !string.IsNullOrWhiteSpace(deletedCategoryName)
+                    ? $"Deleted Category: {deletedCategoryName}"
+                    : "Category name unavailable";
+
+                await _logger.CreateDeleteRecordLogAsync(
+                    userId: currentUserId.Value,
+                    tableName: "Category",
+                    recordId: id,
+                    details: details
+                );
+            }
 
             return Ok("Category deleted successfully.");
         }
@@ -277,8 +401,6 @@ namespace QuickPharmaPlus.Server.Controllers
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 5)
         {
-
-
             var result = await _categoryRepository.GetAllTypesPagedAsync(pageNumber, pageSize);
 
             return Ok(new
@@ -337,14 +459,18 @@ namespace QuickPharmaPlus.Server.Controllers
 
             // 4. Validate allowed characters FIRST (before duplicate check)
             if (!ValidNamePattern.IsMatch(trimmedName))
-                return BadRequest("Type name may only contain letters, spaces, dash (-), dot (.), and apostrophe (').");
+                return BadRequest("Type name may only contain letters, spaces, dot (.), apostrophe ('), dash (-), parentheses (), and ampersand (&).");
 
             // 5. Check for duplicate type name within the same category
             var typeExists = await _categoryRepository.TypeNameExistsAsync(trimmedName, categoryId);
             if (typeExists)
                 return Conflict("A type with this name already exists in this category.");
 
-            // 6. Create type
+            // 6. Get category name for logging
+            var category = await _categoryRepository.GetCategoryByIdAsync(categoryId);
+            var categoryName = category?.CategoryName ?? $"Category {categoryId}";
+
+            // 7. Create type
             var type = new ProductType
             {
                 CategoryId = categoryId,
@@ -352,6 +478,20 @@ namespace QuickPharmaPlus.Server.Controllers
             };
 
             var created = await _categoryRepository.AddCategoryTypeAsync(type);
+
+            // =================== CREATE LOG ===================
+            var currentUserId = await GetCurrentUserIdAsync();
+            if (currentUserId.HasValue)
+            {
+                var details = $"Type Name: {trimmedName}, Parent Category: {categoryName}";
+
+                await _logger.CreateAddRecordLogAsync(
+                    userId: currentUserId.Value,
+                    tableName: "ProductType",
+                    recordId: created.ProductTypeId,
+                    details: details
+                );
+            }
 
             return Ok(new
             {
@@ -371,7 +511,7 @@ namespace QuickPharmaPlus.Server.Controllers
             if (typeId <= 0)
                 return BadRequest("Invalid type ID.");
 
-            // 2. Get existing type
+            // 2. Get existing type BEFORE changes
             var existingType = await _categoryRepository.GetTypeByIdAsync(typeId);
             if (existingType == null)
                 return NotFound("Type not found.");
@@ -388,7 +528,7 @@ namespace QuickPharmaPlus.Server.Controllers
 
             // 5. Validate allowed characters FIRST (before duplicate check)
             if (!ValidNamePattern.IsMatch(trimmedName))
-                return BadRequest("Type name may only contain letters, spaces, dash (-), dot (.), and apostrophe (').");
+                return BadRequest("Type name may only contain letters, spaces, dot (.), apostrophe ('), dash (-), parentheses (), and ampersand (&).");
 
             // 6. Check for duplicate type name (excluding current type)
             var typeExists = await _categoryRepository.TypeNameExistsAsync(
@@ -398,6 +538,12 @@ namespace QuickPharmaPlus.Server.Controllers
             );
             if (typeExists)
                 return Conflict("A type with this name already exists in this category.");
+
+            // =================== TRACK CHANGES ===================
+            var changes = new List<string>();
+            
+            if (existingType.ProductTypeName != trimmedName)
+                changes.Add($"Name: '{existingType.ProductTypeName}' → '{trimmedName}'");
 
             // 7. Update type using the repository method
             var updatedType = new ProductType
@@ -411,6 +557,23 @@ namespace QuickPharmaPlus.Server.Controllers
 
             if (result == null)
                 return NotFound("Failed to update type.");
+
+            // =================== CREATE LOG ===================
+            var currentUserId = await GetCurrentUserIdAsync();
+            if (currentUserId.HasValue && changes.Any())
+            {
+                var category = await _categoryRepository.GetCategoryByIdAsync(existingType.CategoryId ?? 0);
+                var categoryName = category?.CategoryName ?? "Unknown";
+                
+                var details = $"Type: {trimmedName}, Parent Category: {categoryName} - Changes: {string.Join(", ", changes)}";
+
+                await _logger.CreateEditRecordLogAsync(
+                    userId: currentUserId.Value,
+                    tableName: "ProductType",
+                    recordId: typeId,
+                    details: details
+                );
+            }
 
             return Ok(new
             {
@@ -429,10 +592,40 @@ namespace QuickPharmaPlus.Server.Controllers
             if (typeId <= 0)
                 return BadRequest("Invalid type ID.");
 
+            // =================== GET TYPE DETAILS BEFORE DELETION ===================
+            var typeToDelete = await _categoryRepository.GetTypeByIdAsync(typeId);
+            string? deletedTypeName = null;
+            string? categoryName = null;
+
+            if (typeToDelete != null)
+            {
+                deletedTypeName = typeToDelete.ProductTypeName;
+                
+                var category = await _categoryRepository.GetCategoryByIdAsync(typeToDelete.CategoryId ?? 0);
+                categoryName = category?.CategoryName;
+            }
+
+            var currentUserId = await GetCurrentUserIdAsync();
+
             var deleted = await _categoryRepository.DeleteCategoryTypeAsync(typeId);
 
             if (!deleted)
                 return NotFound("Type not found.");
+
+            // =================== CREATE LOG ===================
+            if (currentUserId.HasValue)
+            {
+                var details = !string.IsNullOrWhiteSpace(deletedTypeName)
+                    ? $"Deleted Type: {deletedTypeName}, Parent Category: {categoryName ?? "Unknown"}"
+                    : "Type name unavailable";
+
+                await _logger.CreateDeleteRecordLogAsync(
+                    userId: currentUserId.Value,
+                    tableName: "ProductType",
+                    recordId: typeId,
+                    details: details
+                );
+            }
 
             return Ok("Type deleted successfully.");
         }
