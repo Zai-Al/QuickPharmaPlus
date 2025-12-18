@@ -1,5 +1,7 @@
 ﻿using QuickPharmaPlus.Server.ModelsDTO;
 using QuickPharmaPlus.Server.ModelsDTO.Prescription;
+using QuickPharmaPlus.Server.ModelsDTO.Prescription.Checkout;
+using QuickPharmaPlus.Server.ModelsDTO.WishList_Cart;
 
 namespace QuickPharmaPlus.Server.Repositories.Interface
 {
@@ -28,6 +30,13 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
         Task<(byte[] bytes, string contentType)?> GetCprDocumentAsync(int userId, int prescriptionId);
 
         Task<int> CreateCheckoutAsync(int userId, PrescriptionCreateDto dto);
+
+        Task<CheckoutPrescriptionValidateResponseDto> ValidateCheckoutPrescriptionAsync(
+    int userId,
+    int prescriptionId,
+    List<CartItemDto> cartItems,
+    bool isHealthProfile
+);
 
     }
 }

@@ -114,6 +114,7 @@ export default function CheckoutPrescriptionTab({
                 <PrescriptionItemSection
                     key={item.id}
                     item={item}
+                    userId={userId}
                     onStatusChange={handleStatusChange}
                     showErrors={showErrors}
                     approvedOptions={approvedOptions}

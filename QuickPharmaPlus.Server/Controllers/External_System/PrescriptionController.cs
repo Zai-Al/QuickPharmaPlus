@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.ModelsDTO.Prescription;
+using QuickPharmaPlus.Server.ModelsDTO.Prescription.Checkout;
 using QuickPharmaPlus.Server.Repositories.Interface;
 
 namespace QuickPharmaPlus.Server.Controllers.External_System
@@ -126,7 +127,22 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             return Ok(new { message = "Checkout prescription created successfully.", prescriptionId = newId });
         }
 
+        [HttpPost("checkout/validate")]
+        public async Task<IActionResult> ValidateCheckoutPrescription(
+            [FromBody] CheckoutPrescriptionValidateRequestDto dto
+        )
+        {
+            if (dto == null) return BadRequest("INVALID_BODY");
 
+            var result = await _repo.ValidateCheckoutPrescriptionAsync(
+                dto.UserId,
+                dto.PrescriptionId,
+                dto.CartItems,
+                dto.IsHealthProfile
+            );
+
+            return Ok(result);
+        }
 
 
         private static string GetExtensionFromContentType(string? ct)

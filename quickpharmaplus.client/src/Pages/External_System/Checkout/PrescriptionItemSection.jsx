@@ -1,6 +1,5 @@
 // src/Pages/External_System/PrescriptionItemSection.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
-import DropDown from "../Shared_Components/DropDown";
 import "./Checkout.css";
 
 let _citiesCache = null;
@@ -27,18 +26,104 @@ async function loadCitiesOnce(API_BASE) {
 
 export default function PrescriptionItemSection({
     item,
+    userId,
     onStatusChange,
     showErrors,
     approvedOptions = [],
 }) {
     const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
 
-    const [mode, setMode] = useState("");
+    const [mode, setMode] = useState(""); // "existing" | "code" | "new"
     const [selectedExisting, setSelectedExisting] = useState("");
+
+    // ? approval code mode
+    const [approvalCode, setApprovalCode] = useState("");
+
+    const [serverCheck, setServerCheck] = useState({
+        checked: false,
+        ok: false,
+        message: "",
+    });
+    const [checking, setChecking] = useState(false);
+
+    const validateWithServer = async (prescriptionId, isHealthProfile) => {
+        if (!userId) throw new Error("Missing user id.");
+        if (!prescriptionId) throw new Error("Missing prescription id.");
+
+        const payload = {
+            userId: Number(userId),
+            prescriptionId: Number(prescriptionId),
+            isHealthProfile: !!isHealthProfile,
+            cartItems: [
+                {
+                    productId: item.productId ?? item.id,
+                    name: item.name,
+                    requiresPrescription: true,
+                    cartQuantity: Number(item.quantity) || 1,
+                },
+            ],
+        };
+
+        const res = await fetch(`${API_BASE}/api/Prescription/checkout/validate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+            const txt = await res.text().catch(() => "");
+            throw new Error(txt || `Validation failed (${res.status})`);
+        }
+
+        return await res.json();
+    };
+
+    // auto-validate for health profile selection
+    useEffect(() => {
+        const run = async () => {
+            if (mode !== "existing") return;
+
+            if (!selectedExisting) {
+                setServerCheck({ checked: false, ok: false, message: "" });
+                return;
+            }
+
+            setChecking(true);
+            try {
+                const result = await validateWithServer(selectedExisting, true);
+
+                if (result?.isValid) {
+                    setServerCheck({
+                        checked: true,
+                        ok: true,
+                        message: "Prescription matched successfully.",
+                    });
+                } else {
+                    setServerCheck({
+                        checked: true,
+                        ok: false,
+                        message: "Prescription does not match this prescribed item.",
+                    });
+                }
+            } catch (e) {
+                setServerCheck({
+                    checked: true,
+                    ok: false,
+                    message: e?.message || "Validation failed.",
+                });
+            } finally {
+                setChecking(false);
+            }
+        };
+
+        run();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mode, selectedExisting]);
+
     const [prescriptionFile, setPrescriptionFile] = useState(null);
     const [cprFile, setCprFile] = useState(null);
 
-    
     const [formData, setFormData] = useState({
         cityId: "",
         block: "",
@@ -49,7 +134,7 @@ export default function PrescriptionItemSection({
     const [errors, setErrors] = useState({});
 
     // =========================
-    // CITY SEARCH DROPDOWN (same UX as PrescriptionTab.jsx)
+    // CITY SEARCH DROPDOWN
     // =========================
     const [cities, setCities] = useState([]);
     const [cityQuery, setCityQuery] = useState("");
@@ -59,6 +144,7 @@ export default function PrescriptionItemSection({
 
     useEffect(() => {
         let alive = true;
+
         loadCitiesOnce(API_BASE)
             .then((list) => {
                 if (!alive) return;
@@ -99,10 +185,9 @@ export default function PrescriptionItemSection({
         const val = e.target.value;
         setCityQuery(val);
 
-        // user typing -> clear selected cityId until they pick from list
         setFormData((prev) => ({ ...prev, cityId: "" }));
-
         setErrors((prev) => ({ ...prev, cityId: undefined, city: undefined }));
+
         setShowCityDropdown(true);
         setHighlightIndex(0);
     };
@@ -158,6 +243,33 @@ export default function PrescriptionItemSection({
         if (name === "cprFile") setCprFile(file);
     };
 
+    const handleApprovalCodeChange = (e) => {
+        const v = e.target.value;
+        setApprovalCode(v);
+        setErrors((prev) => ({ ...prev, approvalCode: undefined }));
+    };
+
+    // ? optional: when switching modes, clear irrelevant fields AND reset server check
+    useEffect(() => {
+        // reset server check whenever mode changes
+        setServerCheck({ checked: false, ok: false, message: "" });
+        setChecking(false);
+
+        if (mode !== "existing") setSelectedExisting("");
+        if (mode !== "code") setApprovalCode("");
+
+        if (mode !== "new") {
+            setPrescriptionFile(null);
+            setCprFile(null);
+            setFormData({ cityId: "", block: "", road: "", buildingFloor: "" });
+            setCityQuery("");
+            setShowCityDropdown(false);
+            setHighlightIndex(0);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mode]);
+
+    // VALIDATION + send status upward
     useEffect(() => {
         const allowedTypes = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
         const numberRegex = /^[0-9]+$/;
@@ -166,6 +278,29 @@ export default function PrescriptionItemSection({
 
         if (mode === "existing") {
             if (!selectedExisting) newErrors.existing = "Please choose a prescription.";
+
+            // server validation required to proceed
+            if (selectedExisting && (!serverCheck.checked || !serverCheck.ok)) {
+                newErrors.server = serverCheck.checked
+                    ? "Prescription does not match this prescribed item."
+                    : "Please wait for validation.";
+            }
+        } else if (mode === "code") {
+            if (!approvalCode.trim()) {
+                newErrors.approvalCode = "Please enter the approval code.";
+            } else {
+                const pid = Number.parseInt(approvalCode.trim(), 10);
+                if (!Number.isFinite(pid) || pid <= 0) {
+                    newErrors.approvalCode = "Approval code must be a valid number.";
+                }
+            }
+
+            // server validation required to proceed (after submit)
+            if (approvalCode.trim() && (!serverCheck.checked || !serverCheck.ok)) {
+                newErrors.server = serverCheck.checked
+                    ? "Prescription does not match this prescribed item."
+                    : "Please click Submit to validate the code.";
+            }
         } else if (mode === "new") {
             if (!prescriptionFile) {
                 newErrors.prescriptionFile = "Please upload your long-term prescription.";
@@ -177,11 +312,9 @@ export default function PrescriptionItemSection({
             if (!cprFile) {
                 newErrors.cprFile = "Please upload your CPR.";
             } else if (!allowedTypes.includes(cprFile.type)) {
-                newErrors.cprFile =
-                    "Invalid file type. Only PDF, JPG, or PNG files are allowed.";
+                newErrors.cprFile = "Invalid file type. Only PDF, JPG, or PNG files are allowed.";
             }
 
-            
             if (!formData.cityId) newErrors.cityId = "Please choose your city.";
 
             if (!formData.block.trim()) {
@@ -219,17 +352,41 @@ export default function PrescriptionItemSection({
             const payload = {
                 isValid,
                 mode,
+
+                // backend check state (used by Checkout.jsx)
+                backendChecked: serverCheck.checked,
+                backendValid: mode === "new" ? true : serverCheck.checked ? serverCheck.ok : false,
+                backendMessage: serverCheck.message,
+
+                // existing (health profile)
                 usesHealthProfile: mode === "existing",
                 selectedPrescriptionId: mode === "existing" ? selectedExisting : null,
+
+                // code mode
+                approvalCode: mode === "code" ? approvalCode.trim() : null,
+
+                // new upload
                 prescriptionFile: mode === "new" ? prescriptionFile : null,
                 cprFile: mode === "new" ? cprFile : null,
-                address: mode === "new" ? formData : null, 
+                address: mode === "new" ? formData : null,
             };
 
             onStatusChange(item.id, payload);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [mode, selectedExisting, prescriptionFile, cprFile, formData, showErrors, item.id]);
+    }, [
+        mode,
+        selectedExisting,
+        approvalCode,
+        prescriptionFile,
+        cprFile,
+        formData,
+        showErrors,
+        item.id,
+        serverCheck.checked,
+        serverCheck.ok,
+        serverCheck.message,
+    ]);
 
     return (
         <div className="prescription-container">
@@ -237,6 +394,7 @@ export default function PrescriptionItemSection({
                 Upload Prescription for <u>{item.name}</u>
             </h4>
 
+            {/* ===== Existing approved from health profile ===== */}
             <div className="prescription-option">
                 <input
                     className="form-check-input"
@@ -271,12 +429,122 @@ export default function PrescriptionItemSection({
                         ))}
                     </select>
 
-                    {errors.existing && <div className="invalid-feedback d-block">{errors.existing}</div>}
+                    {errors.existing && (
+                        <div className="invalid-feedback d-block">{errors.existing}</div>
+                    )}
+
+                    {checking && <div className="text-muted small mt-2">Checking...</div>}
+
+                    {serverCheck.checked && (
+                        <div className={`small mt-2 ${serverCheck.ok ? "text-success" : "text-danger"}`}>
+                            {serverCheck.message}
+                        </div>
+                    )}
+
+                    
                 </div>
             )}
 
+            {/* ===== Approved prescription code ===== */}
+            <div className="prescription-option mt-2">
+                <input
+                    className="form-check-input"
+                    type="radio"
+                    name={`prescriptionOption-${item.id}`}
+                    id={`code-${item.id}`}
+                    value="code"
+                    checked={mode === "code"}
+                    onChange={() => setMode("code")}
+                />
+                <label htmlFor={`code-${item.id}`}>Have an already approved prescription</label>
+            </div>
 
-            <div className="prescription-option">
+            {mode === "code" && (
+                <div className="prescription-subsection">
+                    <label className="form-label fw-bold mt-2">Prescription Approval Code</label>
+
+                    <div className="d-flex align-items-center gap-2">
+                        <input
+                            type="text"
+                            className={`form-control ${errors.approvalCode ? "is-invalid" : ""}`}
+                            placeholder="Enter approval code"
+                            value={approvalCode}
+                            onChange={handleApprovalCodeChange}
+                        />
+
+                        <button
+                            type="button"
+                            className="btn qp-add-btn align-self-stretch"
+                            disabled={checking}
+                            onClick={async () => {
+                                if (!approvalCode.trim()) {
+                                    setErrors((prev) => ({
+                                        ...prev,
+                                        approvalCode: "Please enter the approval code.",
+                                    }));
+                                    return;
+                                }
+
+                                const pid = Number.parseInt(approvalCode.trim(), 10);
+                                if (!Number.isFinite(pid) || pid <= 0) {
+                                    setErrors((prev) => ({
+                                        ...prev,
+                                        approvalCode: "Approval code must be a valid number.",
+                                    }));
+                                    return;
+                                }
+
+                                setErrors((prev) => ({ ...prev, approvalCode: undefined }));
+                                setChecking(true);
+
+                                try {
+                                    const result = await validateWithServer(pid, false);
+
+                                    if (result?.isValid) {
+                                        setServerCheck({
+                                            checked: true,
+                                            ok: true,
+                                            message: "Prescription matched successfully.",
+                                        });
+                                    } else {
+                                        setServerCheck({
+                                            checked: true,
+                                            ok: false,
+                                            message: "Prescription does not match this prescribed item.",
+                                        });
+                                    }
+                                } catch (e) {
+                                    setServerCheck({
+                                        checked: true,
+                                        ok: false,
+                                        message: e?.message || "Validation failed.",
+                                    });
+                                } finally {
+                                    setChecking(false);
+                                }
+                            }}
+                        >
+                            Submit
+                        </button>
+                    </div>
+
+                    {errors.approvalCode && (
+                        <div className="invalid-feedback d-block">{errors.approvalCode}</div>
+                    )}
+
+                    {checking && <div className="text-muted small mt-2">Checking...</div>}
+
+                    {serverCheck.checked && (
+                        <div className={`small mt-2 ${serverCheck.ok ? "text-success" : "text-danger"}`}>
+                            {serverCheck.message}
+                        </div>
+                    )}
+
+                </div>
+            )}
+
+            {/* ===== New upload ===== */}
+            <div className="prescription-option mt-2">
                 <input
                     className="form-check-input"
                     type="radio"
@@ -297,22 +565,17 @@ export default function PrescriptionItemSection({
                             <input
                                 type="file"
                                 name="prescriptionFile"
-                                className={`form-control ${errors.prescriptionFile ? "is-invalid" : ""
-                                    }`}
+                                className={`form-control ${errors.prescriptionFile ? "is-invalid" : ""}`}
                                 onChange={handleFileChange}
                                 accept=".pdf,.jpg,.jpeg,.png"
                             />
                             {errors.prescriptionFile && (
-                                <div className="invalid-feedback d-block">
-                                    {errors.prescriptionFile}
-                                </div>
+                                <div className="invalid-feedback d-block">{errors.prescriptionFile}</div>
                             )}
                         </div>
 
                         <div className="mb-4">
-                            <label className="form-label fw-bold">
-                                Upload a Picture of Your CPR
-                            </label>
+                            <label className="form-label fw-bold">Upload a Picture of Your CPR</label>
                             <input
                                 type="file"
                                 name="cprFile"
@@ -326,27 +589,29 @@ export default function PrescriptionItemSection({
                         </div>
                     </div>
 
-                    {/* Address (with searchable city dropdown) */}
+                    {/* Address */}
                     <div className="prescription-address text-start mt-3">
                         <h5 className="fw-bold mb-3">Registered Address</h5>
 
-                        {/* ROW 1: City + Block (side-by-side like PrescriptionTab) */}
                         <div className="row mb-3" ref={cityRef}>
-                            {/* City */}
                             <div className="col-md-6 text-start" style={{ position: "relative" }}>
                                 <label className="form-label fw-bold">City</label>
                                 <input
                                     type="text"
                                     className={`form-control ${errors.cityId ? "is-invalid" : ""}`}
                                     value={cityQuery}
-                                    placeholder={cities.length === 0 ? "Loading cities..." : "Select city or start typing"}
+                                    placeholder={
+                                        cities.length === 0 ? "Loading cities..." : "Select city or start typing"
+                                    }
                                     onChange={handleCityInputChange}
                                     onFocus={handleCityInputFocus}
                                     onKeyDown={handleCityKeyDown}
                                     disabled={cities.length === 0}
                                     autoComplete="off"
                                 />
-                                {errors.cityId && <div className="invalid-feedback d-block">{errors.cityId}</div>}
+                                {errors.cityId && (
+                                    <div className="invalid-feedback d-block">{errors.cityId}</div>
+                                )}
 
                                 {showCityDropdown && (filteredCities || []).length > 0 && (
                                     <ul
@@ -370,7 +635,6 @@ export default function PrescriptionItemSection({
                                 )}
                             </div>
 
-                            {/* Block */}
                             <div className="col-md-6 text-start">
                                 <label className="form-label fw-bold">Block</label>
                                 <input
@@ -385,7 +649,6 @@ export default function PrescriptionItemSection({
                             </div>
                         </div>
 
-                        {/* ROW 2: Road + Building/Floor (side-by-side) */}
                         <div className="row mb-3">
                             <div className="col-md-6 text-start">
                                 <label className="form-label fw-bold">Road / Street</label>
