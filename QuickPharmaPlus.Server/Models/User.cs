@@ -10,6 +10,7 @@ namespace QuickPharmaPlus.Server.Models;
 [Index("AddressId", Name = "IXFK_User_Address")]
 [Index("BranchId", Name = "IXFK_User_Branch")]
 [Index("RoleId", Name = "IXFK_User_Role")]
+[Index("IdentityUserId", Name = "IX_User_IdentityUserId")]
 public partial class User
 {
     [Column("first_name")]
@@ -43,6 +44,9 @@ public partial class User
 
     [Column("Slot_id")]
     public int? SlotId { get; set; }
+
+    [Column("Identity_user_id")]
+    public string? IdentityUserId { get; set; }
 
     [ForeignKey("AddressId")]
     [InverseProperty("Users")]
