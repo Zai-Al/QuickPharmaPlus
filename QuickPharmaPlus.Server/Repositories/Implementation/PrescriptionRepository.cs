@@ -237,6 +237,66 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             return true;
         }
 
+        public async Task<int> CreateCheckoutAsync(int userId, PrescriptionCreateDto dto)
+        {
+            if (userId <= 0 || dto == null) return 0;
+
+            var prescriptionName =
+                string.IsNullOrWhiteSpace(dto.PrescriptionName)
+                    ? $"Checkout Prescription - {DateTime.UtcNow:yyyyMMddHHmmss}"
+                    : dto.PrescriptionName.Trim();
+
+            if (dto.PrescriptionDocument == null) return 0;
+            if (dto.PrescriptionCprDocument == null) return 0;
+
+            // address REQUIRED for checkout upload (because your UI collects it)
+            if (!dto.CityId.HasValue || dto.CityId.Value <= 0) return 0;
+            if (string.IsNullOrWhiteSpace(dto.Block)) return 0;
+            if (string.IsNullOrWhiteSpace(dto.Road)) return 0;
+            if (string.IsNullOrWhiteSpace(dto.BuildingFloor)) return 0;
+
+            var cityExists = await _context.Cities.AnyAsync(c => c.CityId == dto.CityId.Value);
+            if (!cityExists) return 0;
+
+            // 1) create address row (not profile)
+            var address = new Address
+            {
+                CityId = dto.CityId.Value,
+                Block = dto.Block.Trim(),
+                Street = dto.Road.Trim(),
+                BuildingNumber = dto.BuildingFloor.Trim(),
+                IsProfileAdress = false
+            };
+            _context.Addresses.Add(address);
+            await _context.SaveChangesAsync();
+
+            // 2) create checkout prescription linked to that address
+            var entity = new Prescription
+            {
+                UserId = userId,
+                PrescriptionName = prescriptionName,
+                PrescriptionStatusId = PrescriptionStatusConstants.PendingApproval,
+                PrescriptionCreationDate = DateOnly.FromDateTime(DateTime.UtcNow),
+
+                IsHealthPerscription = false,
+                AddressId = address.AddressId,
+
+                PrescriptionDocument = await ToBytesAsync(dto.PrescriptionDocument),
+                PrescriptionCprDocument = await ToBytesAsync(dto.PrescriptionCprDocument),
+
+                PrescriptionDocumentContentType = NormalizeContentType(dto.PrescriptionDocument.ContentType),
+                PrescriptionCprDocumentContentType = NormalizeContentType(dto.PrescriptionCprDocument.ContentType),
+                PrescriptionDocumentFileName = dto.PrescriptionDocument.FileName,
+                PrescriptionCprDocumentFileName = dto.PrescriptionCprDocument.FileName
+            };
+
+            _context.Prescriptions.Add(entity);
+            await _context.SaveChangesAsync();
+            return entity.PrescriptionId;
+        }
+
+
+
 
         public async Task<(byte[] bytes, string contentType)?> GetPrescriptionDocumentAsync(int userId, int prescriptionId)
         {
