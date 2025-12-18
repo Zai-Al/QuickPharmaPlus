@@ -1,8 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using QuickPharmaPlus.Server.Repositories.Interface;
+using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.ModelsDTO.Prescription;
+using QuickPharmaPlus.Server.Repositories.Interface;
 
 namespace QuickPharmaPlus.Server.Controllers.External_System
 {
@@ -111,6 +112,21 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
 
             return File(doc.Value.bytes, doc.Value.contentType);
         }
+
+        // POST: /api/Prescription/checkout/5 (multipart/form-data)
+        [HttpPost("checkout/{userId:int}")]
+        [RequestSizeLimit(25_000_000)]
+        public async Task<IActionResult> CreateCheckout(int userId, [FromForm] PrescriptionCreateDto dto)
+        {
+            if (userId <= 0) return BadRequest(new { error = "Invalid userId" });
+
+            var newId = await _repo.CreateCheckoutAsync(userId, dto);
+            if (newId <= 0) return BadRequest(new { error = "Invalid prescription data" });
+
+            return Ok(new { message = "Checkout prescription created successfully.", prescriptionId = newId });
+        }
+
+
 
 
         private static string GetExtensionFromContentType(string? ct)

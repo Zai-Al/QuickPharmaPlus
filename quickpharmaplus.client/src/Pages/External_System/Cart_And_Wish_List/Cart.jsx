@@ -304,7 +304,7 @@ export default function Cart() {
             return;
         }
 
-        navigate("/checkout", { state: { items } });
+        navigate("/checkout");
     };
 
     /* =========================
@@ -496,7 +496,7 @@ export default function Cart() {
                 onCancel={() => setShowProceedWarning(false)}
                 onConfirm={() => {
                     setShowProceedWarning(false);
-                    navigate("/checkout", { state: { items } });
+                    navigate("/checkout");
                 }}
             />
         </div>

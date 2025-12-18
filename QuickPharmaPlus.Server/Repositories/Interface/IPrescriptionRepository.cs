@@ -5,7 +5,7 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
 {
     public interface IPrescriptionRepository
     {
-        // ✅ Health/Profile prescriptions only (NO pagination)
+        // Health/Profile prescriptions only (NO pagination)
         Task<List<PrescriptionListDto>> GetUserHealthPrescriptionsAsync(int userId);
 
         // (keep this if you want for internal/admin screens later)
@@ -26,5 +26,8 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
         Task<(byte[] bytes, string contentType)?> GetPrescriptionDocumentAsync(int userId, int prescriptionId);
 
         Task<(byte[] bytes, string contentType)?> GetCprDocumentAsync(int userId, int prescriptionId);
+
+        Task<int> CreateCheckoutAsync(int userId, PrescriptionCreateDto dto);
+
     }
 }
