@@ -312,7 +312,8 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                     ContactNumber = dto.Phone.Trim(),
                     AddressId = address.AddressId,
                     BranchId = dto.BranchId.Value,
-                    RoleId = domainRole.RoleId
+                    RoleId = domainRole.RoleId,
+                    IdentityUserId = identityUser.Id
                 };
 
                 var created = await _repo.AddEmployeeAsync(user);
@@ -508,7 +509,8 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                 await _context.SaveChangesAsync();
 
                 // =================== UPDATE IDENTITY USER ===================
-                var identityUser = await _userManager.FindByEmailAsync(existingEmployee.EmailAddress);
+                var identityUser = await _userManager.FindByIdAsync(existingEmployee.IdentityUserId);
+
                 if (identityUser != null)
                 {
                     identityUser.FirstName = dto.FirstName.Trim();
@@ -569,25 +571,47 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
             {
                 // =================== GET EMPLOYEE DETAILS BEFORE DELETION ===================
                 var employeeToDelete = await _repo.GetEmployeeByIdAsync(id);
-                string? deletedEmployeeName = null;
+                
+                if (employeeToDelete == null)
+                    return NotFound(new { error = "Employee not found." });
 
-                if (employeeToDelete != null)
-                {
-                    deletedEmployeeName = $"{employeeToDelete.FirstName} {employeeToDelete.LastName}".Trim();
-                }
+                string deletedEmployeeName = $"{employeeToDelete.FirstName} {employeeToDelete.LastName}".Trim();
+                string employeeEmail = employeeToDelete.EmailAddress;
 
                 var currentUserId = await GetCurrentUserIdAsync();
 
+                // =================== DELETE FROM IDENTITY TABLES FIRST ===================
+                if (!string.IsNullOrWhiteSpace(employeeToDelete.IdentityUserId))
+                {
+                    var identityUser = await _userManager.FindByIdAsync(employeeToDelete.IdentityUserId);
+
+                    if (identityUser != null)
+                    {
+                        var deleteIdentityResult = await _userManager.DeleteAsync(identityUser);
+
+                        if (!deleteIdentityResult.Succeeded)
+                        {
+                            var errors = string.Join(", ", deleteIdentityResult.Errors.Select(e => e.Description));
+                            return BadRequest(new { error = $"Failed to delete user from identity system: {errors}" });
+                        }
+                    }
+                }
+
+
+                // =================== DELETE FROM DOMAIN TABLE ===================
                 var result = await _repo.DeleteEmployeeAsync(id);
 
                 if (!result)
-                    return NotFound();
+                    return NotFound(new { error = "Failed to delete employee from database." });
+
+                // Save changes to the domain context
+                await _context.SaveChangesAsync();
 
                 // =================== CREATE DETAILED LOG ===================
                 if (currentUserId.HasValue)
                 {
                     var details = !string.IsNullOrWhiteSpace(deletedEmployeeName)
-                        ? $"Deleted Employee: {deletedEmployeeName}"
+                        ? $"Deleted Employee: {deletedEmployeeName} (Email: {employeeEmail})"
                         : "Employee name unavailable";
 
                     await _logger.CreateDeleteRecordLogAsync(
@@ -598,11 +622,11 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                     );
                 }
 
-                return Ok();
+                return Ok(new { message = "Employee deleted successfully." });
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, new { error = "An unexpected error occurred." });
+                return StatusCode(StatusCodes.Status500InternalServerError, new { error = $"An unexpected error occurred: {ex.Message}" });
             }
         }
 
@@ -617,8 +641,9 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                 return null;
 
             var domainUser = await _context.Users
-                .FirstOrDefaultAsync(u => u.EmailAddress == userEmail);
-            
+                .FirstOrDefaultAsync(u => u.IdentityUserId == identityUser.Id);
+
+
             return domainUser?.UserId;
         }
     }
