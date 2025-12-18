@@ -1,5 +1,5 @@
-﻿import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import "./AddInventory.css";
 
 import FormWrapper from "../../../../Components/InternalSystem/GeneralComponents/Form";
@@ -7,7 +7,8 @@ import AddButton from "../../../../Components/Form/FormAddButton";
 import FormHeader from "../../../../Components/InternalSystem/FormHeader";
 import DatePicker from "../../../../Components/Form/FormDatePicker";
 
-export default function AddInventory() {
+export default function EditInventory() {
+    const { id } = useParams();
     const navigate = useNavigate();
     const baseURL = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
 
@@ -19,6 +20,7 @@ export default function AddInventory() {
 
     const [successMessage, setSuccessMessage] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
+    const [loading, setLoading] = useState(true);
 
     // =================== VALIDATION STATE ===================
     const [errors, setErrors] = useState({});
@@ -44,7 +46,8 @@ export default function AddInventory() {
     useEffect(() => {
         fetchProducts();
         fetchBranches();
-    }, []);
+        fetchInventory();
+    }, [id]);
 
     // Close product dropdown on outside click
     useEffect(() => {
@@ -57,6 +60,40 @@ export default function AddInventory() {
         document.addEventListener("mousedown", onDocClick);
         return () => document.removeEventListener("mousedown", onDocClick);
     }, []);
+
+    // =================== FETCH INVENTORY DETAILS ===================
+    const fetchInventory = async () => {
+        try {
+            setLoading(true);
+            const response = await fetch(`${baseURL}/api/Inventory/${id}`, {
+                credentials: "include"
+            });
+
+            if (!response.ok) throw new Error("Failed to fetch inventory");
+
+            const data = await response.json();
+
+            setProductId(data.productId?.toString() || "");
+            setBranchId(data.branchId?.toString() || "");
+            setQuantity(data.quantity?.toString() || "");
+
+            // Parse expiry date
+            if (data.expiryDate) {
+                const parsedDate = new Date(data.expiryDate);
+                setExpiryDate(parsedDate);
+            }
+
+            // Set product query to product name after products are loaded
+            if (data.productName) {
+                setProductQuery(data.productName);
+            }
+        } catch (err) {
+            console.error("Error fetching inventory:", err);
+            setErrorMessage("Failed to load inventory details.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // =================== FETCH FUNCTIONS ===================
     const fetchProducts = async () => {
@@ -112,6 +149,16 @@ export default function AddInventory() {
             setLoadingBranches(false);
         }
     };
+
+    // Update product query when productId and productOptions are available
+    useEffect(() => {
+        if (productId && productOptions.length > 0) {
+            const selectedProduct = productOptions.find(p => p.value.toString() === productId.toString());
+            if (selectedProduct) {
+                setProductQuery(selectedProduct.productName);
+            }
+        }
+    }, [productId, productOptions]);
 
     // =================== VALIDATION FUNCTIONS ===================
     const validateProduct = (value) => {
@@ -232,7 +279,6 @@ export default function AddInventory() {
         setErrors(prev => ({ ...prev, quantity: error }));
     };
 
-
     const handleExpiryDateChange = (date) => {
         setExpiryDate(date);
         setTouched(prev => ({ ...prev, expiryDate: true }));
@@ -292,33 +338,46 @@ export default function AddInventory() {
         };
 
         try {
-            const response = await fetch(`${baseURL}/api/Inventory`, {
-                method: "POST",
+            const response = await fetch(`${baseURL}/api/Inventory/${id}`, {
+                method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
                 body: JSON.stringify(payload),
             });
 
             if (response.ok) {
-                setSuccessMessage("Inventory record added successfully!");
+                setSuccessMessage("Inventory record updated successfully!");
                 setErrorMessage("");
                 setTimeout(() => navigate("/inventory"), 1500);
             } else {
                 const errorText = await response.text();
-                setErrorMessage(errorText || "Failed to add inventory record.");
+                setErrorMessage(errorText || "Failed to update inventory record.");
                 setSuccessMessage("");
             }
         } catch (err) {
-            console.error("Error adding inventory:", err);
+            console.error("Error updating inventory:", err);
             setErrorMessage("Server error. Please try again.");
             setSuccessMessage("");
         }
     };
 
+    // =================== LOADING STATE ===================
+    if (loading) {
+        return (
+            <div className="add-inventory-page">
+                <FormHeader title="Edit Inventory Record" to="/inventory" />
+                <div className="text-center my-5">
+                    <div className="spinner-border text-primary" />
+                    <p className="mt-2">Loading inventory details...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="add-inventory-page">
             {/* HEADER (Title + Cancel Button) */}
-            <FormHeader title="Add New Inventory Record" to="/inventory" />
+            <FormHeader title="Edit Inventory Record" to="/inventory" />
 
             {/* ALERT MESSAGES */}
             {successMessage && (
@@ -335,7 +394,7 @@ export default function AddInventory() {
                 </div>
             )}
 
-            <FormWrapper title="Enter New Inventory Details:">
+            <FormWrapper title="Edit Inventory Details:">
                 <form className="add-inventory-form" onSubmit={handleSubmit}>
 
                     {/* PRODUCT SEARCHABLE DROPDOWN */}
@@ -394,8 +453,7 @@ export default function AddInventory() {
                     <div className="inventory-field">
                         <input
                             type="text"
-                            className={`form-control form-text-input ${touched.quantity && errors.quantity ? "is-invalid" : ""
-                                }`}
+                            className={`form-control form-text-input ${touched.quantity && errors.quantity ? "is-invalid" : ""}`}
                             placeholder="Quantity"
                             value={quantity}
                             onChange={handleQuantityChange}
@@ -423,9 +481,8 @@ export default function AddInventory() {
                         )}
                     </div>
 
-
                     {/* BUTTON */}
-                    <AddButton text="Add Inventory Record" type="submit" />
+                    <AddButton text="Save Changes" type="submit" />
                 </form>
             </FormWrapper>
         </div>

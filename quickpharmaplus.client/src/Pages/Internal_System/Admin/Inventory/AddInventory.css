@@ -1,4 +1,4 @@
-/* ================================
+﻿/* ================================
    PAGE BASE
 ================================ */
 .add-inventory-page {
@@ -40,11 +40,107 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1.2em;
+    gap: 2.5em;
 }
-
 
 .inventory-date-picker .react-datepicker-wrapper {
     width: 80%;
     align-items: center;
+}
+
+/* Inventory alert message styling */
+.inventory-alert {
+    width: 80%;
+    margin: 20px auto;
+}
+
+/* Searchable dropdown specific for inventory */
+.inventory-dropdown {
+    width: 100%;
+    z-index: 1500;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 2px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+    .inventory-dropdown .list-group-item {
+        cursor: pointer;
+        padding: 10px 15px;
+    }
+
+        .inventory-dropdown .list-group-item.active {
+            background-color: #0d6efd;
+            color: white;
+            border-color: #0d6efd;
+        }
+
+        .inventory-dropdown .list-group-item:hover {
+            background-color: #e9ecef;
+        }
+
+        .inventory-dropdown .list-group-item.active:hover {
+            background-color: #0d6efd;
+            color: white;
+        }
+
+.add-inventory-page .inventory-field {
+    width: 80%;
+    position: relative;
+}
+
+.date-container {
+    width: 100%;
+}
+
+/* ================================
+   VALIDATION FIX (MATCH EDIT EMPLOYEE)
+================================ */
+
+/* Wrapper controls width (same as input) */
+.add-inventory-page .inventory-field {
+    width: 80%;
+    position: relative;
+}
+
+    /* Input already fills wrapper */
+    .add-inventory-page .inventory-field .form-control {
+        width: 100%;
+    }
+
+    /* Validation text aligned EXACTLY under input */
+    .add-inventory-page .inventory-field .invalid-feedback {
+        display: block;
+        width: 100%;
+        font-size: 0.85rem;
+        color: #dc3545;
+        text-align: left;
+        margin-top: 4px;
+        min-height: 20px; /* prevents jumping */
+    }
+
+/* Red border (Bootstrap-compatible) */
+.add-inventory-page .form-control.is-invalid {
+    border-color: #dc3545 !important;
+}
+
+/* DatePicker full width */
+.add-inventory-page .inventory-field .react-datepicker-wrapper,
+.add-inventory-page .inventory-field .react-datepicker__input-container,
+.add-inventory-page .inventory-field input {
+    width: 100%;
+}
+
+/* Red border for invalid DatePicker */
+.add-inventory-page .inventory-field .date-container.is-invalid input {
+    border-color: #dc3545 !important;
+}
+
+/* DatePicker validation message */
+.inventory-validation-text {
+    font-size: 0.85rem;
+    color: #dc3545; /* red */
+    text-align: left; /* align to the right */
+    margin-top: 6px;
+    min-height: 20px; /* keeps layout stable */
 }

@@ -155,6 +155,13 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             };
         }
 
+        public async Task<Inventory> AddInventoryAsync(Inventory inventory)
+        {
+            _context.Inventories.Add(inventory);
+            await _context.SaveChangesAsync();
+            return inventory;
+        }
+
         public async Task<Inventory?> UpdateInventoryAsync(Inventory inventory)
         {
             var existing = await _context.Inventories.FirstOrDefaultAsync(i => i.InventoryId == inventory.InventoryId);

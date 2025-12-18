@@ -16,6 +16,9 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
         // Fetches a single inventory by id. Includes branch address (mapped into InventoryDetailDto.Address).
         Task<InventoryDetailDto?> GetInventoryByIdAsync(int id);
 
+        // Adds a new inventory record. Returns the created Inventory entity.
+        Task<Inventory> AddInventoryAsync(Inventory inventory);
+
         // Updates an existing inventory by id. Returns the updated Inventory or null if not found.
         Task<Inventory?> UpdateInventoryAsync(Inventory inventory);
 
@@ -23,4 +26,3 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
         Task<bool> DeleteInventoryAsync(int id);
     }
 }
-    
