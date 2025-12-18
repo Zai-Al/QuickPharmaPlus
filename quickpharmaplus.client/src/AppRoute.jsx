@@ -44,6 +44,7 @@ import EditCategory from "./Pages/Internal_System/Admin/Category/EditCategory.js
 import CategoryType from "./Pages/Internal_System/Admin/Category/Types.jsx";
 import InventoryList from "./Pages/Internal_System/Admin/Inventory/InventoryList.jsx";
 import AddInventory from "./Pages/Internal_System/Admin/Inventory/AddInventory.jsx";
+import EditInventory from "./Pages/Internal_System/Admin/Inventory/EditInventory.jsx";
 import PerscriptionsList from "./Pages/Internal_System/Perscriptions/PerscriptionsList.jsx";
 import ViewPerscription from "./Pages/Internal_System/Perscriptions/PerscriptionDetails.jsx";
 import ApprovePerscription from "./Pages/Internal_System/Perscriptions/PerscriptionApproval.jsx";
@@ -337,6 +338,14 @@ export default function AppRoutes() {
                                 }
                             />
 
+                            <Route
+                                path="/inventory"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin"]}>
+                                        <InventoryList />
+                                    </ProtectedRoute>
+                                }
+                            />
 
                             <Route
                                 path="/inventory/add"
@@ -348,10 +357,10 @@ export default function AppRoutes() {
                             />
 
                             <Route
-                                path="/inventory"
+                                path="/inventory/edit/:id"
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin"]}>
-                                        <InventoryList />
+                                        <EditInventory />
                                     </ProtectedRoute>
                                 }
                             />

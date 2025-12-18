@@ -22,6 +22,7 @@ export default function InventoryList() {
     // UI / data state
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [successMessage, setSuccessMessage] = useState("");
 
     const [inventories, setInventories] = useState([]);
     const [totalPages, setTotalPages] = useState(1);
@@ -249,7 +250,7 @@ export default function InventoryList() {
         return addr.city?.cityName ?? addr.cityName ?? addr.city?.CityName ?? "";
     }
 
-    // FIXED — delete handler restored
+    // =================== DELETE HANDLER ===================
     async function handleDeleteConfirm() {
         if (!deleteId) {
             setShowModal(false);
@@ -262,11 +263,28 @@ export default function InventoryList() {
                 credentials: "include"
             });
 
-            if (!res.ok) throw new Error(`Delete failed (${res.status})`);
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || `Delete failed (${res.status})`);
+            }
 
+            // Show success message
+            const responseData = await res.json();
+            setSuccessMessage(responseData.message || "Inventory record deleted successfully!");
+            setError("");
+
+            // Remove deleted item from the list
             setInventories(prev => prev.filter(i => i.inventoryId !== deleteId));
+
+            // Hide success message after 3 seconds
+            setTimeout(() => {
+                setSuccessMessage("");
+            }, 3000);
+
         } catch (err) {
             console.error("Delete inventory error:", err);
+            setError(err.message || "Failed to delete inventory record.");
+            setSuccessMessage("");
         } finally {
             setDeleteId(null);
             setShowModal(false);
@@ -276,6 +294,22 @@ export default function InventoryList() {
     return (
         <div className="inventory-page">
             <h2 className="text-center fw-bold inventory-title">Inventory</h2>
+
+            {/* SUCCESS MESSAGE */}
+            {successMessage && (
+                <div className="alert alert-success alert-dismissible" style={{ width: "80%", margin: "20px auto" }}>
+                    <button className="btn-close" data-bs-dismiss="alert" onClick={() => setSuccessMessage("")}></button>
+                    <strong>Success!</strong> {successMessage}
+                </div>
+            )}
+
+            {/* ERROR MESSAGE */}
+            {error && (
+                <div className="alert alert-danger alert-dismissible" style={{ width: "80%", margin: "20px auto" }}>
+                    <button className="btn-close" data-bs-dismiss="alert" onClick={() => setError("")}></button>
+                    <strong>Error!</strong> {error}
+                </div>
+            )}
 
             <FilterSection>
                 <FilterLeft>
@@ -369,7 +403,6 @@ export default function InventoryList() {
             </FilterSection>
 
             {loading && <div className="text-center text-muted my-3">Loading inventory...</div>}
-            {error && <div className="alert alert-danger">{error}</div>}
 
             <DataTable columns={columns} data={inventories} renderMap={renderMap} />
 
