@@ -29,8 +29,8 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             var query = _context.Inventories
                 .Include(i => i.Product)
                 .Include(i => i.Branch)
-                    .ThenInclude(b => b.Address)
-                        .ThenInclude(a => a.City)
+                    .ThenInclude(b => b!.Address)
+                        .ThenInclude(a => a!.City)
                 .AsQueryable();
 
             // ============================================
@@ -126,8 +126,8 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             var inv = await _context.Inventories
                 .Include(i => i.Product)
                 .Include(i => i.Branch)
-                    .ThenInclude(b => b.Address)
-                        .ThenInclude(a => a.City)
+                    .ThenInclude(b => b!.Address)
+                        .ThenInclude(a => a!.City)
                 .FirstOrDefaultAsync(i => i.InventoryId == id);
 
             if (inv == null) return null;
@@ -184,6 +184,154 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             _context.Inventories.Remove(existing);
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<PagedResult<ExpiredInventoryListDto>> GetExpiredInventoriesAsync(
+            int pageNumber,
+            int pageSize,
+            int daysBeforeExpiry = 29,
+            string? search = null,
+            string? supplierName = null,
+            DateOnly? expiryDate = null)
+        {
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 10;
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var expiryThreshold = today.AddDays(daysBeforeExpiry);
+
+            var query = _context.Inventories
+                .Include(i => i.Product)
+                    .ThenInclude(p => p!.Supplier)
+                .Include(i => i.Product)
+                    .ThenInclude(p => p!.Category)
+                .Include(i => i.Product)
+                    .ThenInclude(p => p!.ProductType)
+                .Include(i => i.Branch)
+                    .ThenInclude(b => b!.Address)
+                        .ThenInclude(a => a!.City)
+                .Where(i => i.InventoryExpiryDate.HasValue &&
+                           i.InventoryExpiryDate.Value <= expiryThreshold &&
+                           i.InventoryQuantity.HasValue &&
+                           i.InventoryQuantity.Value > 0)
+                .AsQueryable();
+
+            // ============================================
+            // SEARCH FILTER
+            // ============================================
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                search = search.Trim();
+
+                var validPattern = @"^[A-Za-z0-9+\- ]*$";
+                if (!Regex.IsMatch(search, validPattern))
+                {
+                    return new PagedResult<ExpiredInventoryListDto>
+                    {
+                        Items = new List<ExpiredInventoryListDto>(),
+                        TotalCount = 0
+                    };
+                }
+
+                if (int.TryParse(search, out int idVal))
+                {
+                    query = query.Where(i => i.InventoryId == idVal);
+                }
+                else
+                {
+                    var lower = search.ToLower();
+                    query = query.Where(i =>
+                        i.Product != null &&
+                        (i.Product.ProductName ?? "")
+                            .ToLower()
+                            .StartsWith(lower)
+                    );
+                }
+            }
+
+            // ============================================
+            // SUPPLIER NAME FILTER
+            // ============================================
+            if (!string.IsNullOrWhiteSpace(supplierName))
+            {
+                var lower = supplierName.ToLower();
+                query = query.Where(i =>
+                    i.Product != null &&
+                    i.Product.Supplier != null &&
+                    (i.Product.Supplier.SupplierName ?? "")
+                        .ToLower()
+                        .Contains(lower)
+                );
+            }
+
+            // ============================================
+            // EXPIRY DATE FILTER
+            // ============================================
+            if (expiryDate.HasValue)
+            {
+                var dateFilter = expiryDate.Value;
+                query = query.Where(i =>
+                    i.InventoryExpiryDate.HasValue &&
+                    i.InventoryExpiryDate.Value == dateFilter
+                );
+            }
+
+            var total = await query.CountAsync();
+
+            var items = await query
+                .OrderBy(i => i.InventoryExpiryDate)
+                .ThenBy(i => i.InventoryId)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .Select(i => new ExpiredInventoryListDto
+                {
+                    InventoryId = i.InventoryId,
+                    ProductName = i.Product != null ? i.Product.ProductName : null,
+                    Quantity = i.InventoryQuantity ?? 0,
+                    ExpiryDate = i.InventoryExpiryDate,
+                    SupplierName = i.Product != null && i.Product.Supplier != null ? i.Product.Supplier.SupplierName : null,
+                    CategoryName = i.Product != null && i.Product.Category != null ? i.Product.Category.CategoryName : null,
+                    ProductType = i.Product != null && i.Product.ProductType != null ? i.Product.ProductType.ProductTypeName : null,
+                    BranchCity = i.Branch != null && i.Branch.Address != null && i.Branch.Address.City != null ? i.Branch.Address.City.CityName : null,
+                    BranchId = i.BranchId
+                })
+                .ToListAsync();
+
+            return new PagedResult<ExpiredInventoryListDto>
+            {
+                Items = items,
+                TotalCount = total
+            };
+        }
+
+        public async Task<ExpiredInventoryListDto?> GetExpiredInventoryDetailsAsync(int inventoryId)
+        {
+            var inv = await _context.Inventories
+                .Include(i => i.Product)
+                    .ThenInclude(p => p!.Supplier)
+                .Include(i => i.Product)
+                    .ThenInclude(p => p!.Category)
+                .Include(i => i.Product)
+                    .ThenInclude(p => p!.ProductType)
+                .Include(i => i.Branch)
+                    .ThenInclude(b => b!.Address)
+                        .ThenInclude(a => a!.City)
+                .Where(i => i.InventoryId == inventoryId)
+                .Select(i => new ExpiredInventoryListDto
+                {
+                    InventoryId = i.InventoryId,
+                    ProductName = i.Product != null ? i.Product.ProductName : null,
+                    Quantity = i.InventoryQuantity ?? 0,
+                    ExpiryDate = i.InventoryExpiryDate,
+                    SupplierName = i.Product != null && i.Product.Supplier != null ? i.Product.Supplier.SupplierName : null,
+                    CategoryName = i.Product != null && i.Product.Category != null ? i.Product.Category.CategoryName : null,
+                    ProductType = i.Product != null && i.Product.ProductType != null ? i.Product.ProductType.ProductTypeName : null,
+                    BranchCity = i.Branch != null && i.Branch.Address != null && i.Branch.Address.City != null ? i.Branch.Address.City.CityName : null,
+                    BranchId = i.BranchId
+                })
+                .FirstOrDefaultAsync();
+
+            return inv;
         }
     }
 }
