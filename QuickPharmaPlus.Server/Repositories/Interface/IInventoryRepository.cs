@@ -24,5 +24,17 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
 
         // Deletes an inventory by id. Returns true if deleted, false when not found.
         Task<bool> DeleteInventoryAsync(int id);
+
+        // Fetches expired inventories with pagination and optional search (by supplier name).
+        Task<PagedResult<ExpiredInventoryListDto>> GetExpiredInventoriesAsync(
+            int pageNumber,
+            int pageSize,
+            int daysBeforeExpiry = 29,
+            string? search = null,
+            string? supplierName = null,
+            DateOnly? expiryDate = null);
+
+        // Fetches details of a single expired inventory by id.
+        Task<ExpiredInventoryListDto?> GetExpiredInventoryDetailsAsync(int inventoryId);
     }
 }
