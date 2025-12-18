@@ -26,6 +26,42 @@ export default function Checkout() {
     const [loadingCart, setLoadingCart] = useState(false);
     const [cartError, setCartError] = useState("");
 
+    const [showMismatchDialog, setShowMismatchDialog] = useState(false);
+    const [mismatchDialogBody, setMismatchDialogBody] = useState(null);
+
+    const validateApprovedPrescriptionsBeforeContinue = async () => {
+        const sections = prescriptionState.sections || {};
+        const prescribed = (itemsFromCart || []).filter((x) => x.prescribed);
+
+        for (const item of prescribed) {
+            const sec = sections[item.id];
+            if (!sec) continue;
+
+            // only validate existing/code flows (new uploads handled by your upload flow)
+            if (sec.mode === "existing" || sec.mode === "code") {
+                // must have passed backend check in the section
+                if (!sec.backendChecked || !sec.backendValid) {
+                    setMismatchDialogBody(
+                        <>
+                            <p className="fw-bold mb-2">Prescription validation failed</p>
+                            <p className="mb-1">
+                                Item: <span className="fw-bold">{item.name}</span>
+                            </p>
+                            <p className="mb-0">
+                                {sec.backendMessage || "Prescription does not match the prescribed product/quantity."}
+                            </p>
+                        </>
+                    );
+                    setShowMismatchDialog(true);
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    };
+
+
     // ? prevents “empty cart” warning flashing before first fetch finishes
     const [cartLoadedOnce, setCartLoadedOnce] = useState(false);
 
@@ -275,12 +311,23 @@ export default function Checkout() {
                 })();
 
                 return;
-            } else {
+            }
+        } else {
+            // ? existing/code path must be validated by backend before continue
+            (async () => {
+                const ok = await validateApprovedPrescriptionsBeforeContinue();
+                if (!ok) {
+                    setPrescriptionShowErrors(true);
+                    return;
+                }
+
                 setPrescriptionShowErrors(false);
                 goNextStep();
-            }
+            })();
+
             return;
         }
+
 
         // 2) Shipping step validation
         if (isShippingStep) {
@@ -419,6 +466,16 @@ export default function Checkout() {
                     navigate("/myOrders");
                 }}
             />
+            <DialogModal
+                show={showMismatchDialog}
+                title="Prescription does not match"
+                body={mismatchDialogBody}
+                confirmLabel="OK"
+                cancelLabel={null}
+                onCancel={() => setShowMismatchDialog(false)}
+                onConfirm={() => setShowMismatchDialog(false)}
+            />
+
         </>
     );
 }

@@ -2,6 +2,8 @@
 using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.ModelsDTO;
 using QuickPharmaPlus.Server.ModelsDTO.Prescription;
+using QuickPharmaPlus.Server.ModelsDTO.Prescription.Checkout;
+using QuickPharmaPlus.Server.ModelsDTO.WishList_Cart;
 using QuickPharmaPlus.Server.Repositories.Interface;
 
 namespace QuickPharmaPlus.Server.Repositories.Implementation
@@ -335,6 +337,120 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 "image/png" => "image/png",
                 _ => "application/octet-stream"
             };
+        }
+
+        // helper
+        private static string Normalize(string? s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return "";
+            return string.Join(" ",
+                s.Trim().ToLowerInvariant()
+                 .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        }
+
+        public async Task<CheckoutPrescriptionValidateResponseDto> ValidateCheckoutPrescriptionAsync(
+            int userId,
+            int prescriptionId,
+            List<CartItemDto> cartItems,
+            bool isHealthProfile
+        )
+        {
+            var res = new CheckoutPrescriptionValidateResponseDto();
+
+            if (userId <= 0 || prescriptionId <= 0)
+            {
+                res.IsValid = false;
+                res.Reason = "INVALID_INPUT";
+                return res;
+            }
+
+            cartItems ??= new();
+            var prescribedItems = cartItems.Where(x => x.RequiresPrescription).ToList();
+
+            if (!prescribedItems.Any())
+            {
+                res.IsValid = true;
+                res.Reason = "NO_PRESCRIPTION_ITEMS";
+                return res;
+            }
+
+            // 1️⃣ Load prescription
+            var prescription = await _context.Prescriptions
+                .Include(p => p.Approvals)
+                .FirstOrDefaultAsync(p => p.PrescriptionId == prescriptionId);
+
+            if (prescription == null)
+            {
+                res.IsValid = false;
+                res.Reason = "PRESCRIPTION_NOT_FOUND";
+                return res;
+            }
+
+            if ((prescription.UserId ?? 0) != userId)
+            {
+                res.IsValid = false;
+                res.Reason = "NOT_OWNER";
+                return res;
+            }
+
+            if ((prescription.PrescriptionStatusId ?? 0) != PrescriptionStatusConstants.Approved)
+            {
+                res.IsValid = false;
+                res.Reason = "NOT_APPROVED";
+                return res;
+            }
+
+            // 2️⃣ Build approval lookup (by product name)
+            var approvalMap = prescription.Approvals
+                .Where(a => !string.IsNullOrWhiteSpace(a.ApprovalProductName))
+                .GroupBy(a => Normalize(a.ApprovalProductName))
+                .ToDictionary(
+                    g => g.Key,
+                    g => g
+                        .OrderByDescending(a => a.ApprovalTimestamp ?? DateTime.MinValue)
+                        .First()
+                );
+
+            // 3️⃣ Validate cart items
+            foreach (var item in prescribedItems)
+            {
+                var itemRes = new CheckoutPrescriptionValidateResponseDto.ItemResult
+                {
+                    ProductId = item.ProductId,
+                    ProductName = item.Name,
+                    CartQuantity = item.CartQuantity
+                };
+
+                var key = Normalize(item.Name);
+
+                if (!approvalMap.TryGetValue(key, out var approval))
+                {
+                    itemRes.Matches = false;
+                    itemRes.Reason = "PRODUCT_NOT_IN_PRESCRIPTION";
+                    res.Items.Add(itemRes);
+                    continue;
+                }
+
+                itemRes.ApprovedProductName = approval.ApprovalProductName;
+                itemRes.ApprovedQuantity = approval.ApprovalQuantity;
+
+                if (approval.ApprovalQuantity != item.CartQuantity)
+                {
+                    itemRes.Matches = false;
+                    itemRes.Reason = "QUANTITY_MISMATCH";
+                    res.Items.Add(itemRes);
+                    continue;
+                }
+
+                itemRes.Matches = true;
+                itemRes.Reason = "OK";
+                res.Items.Add(itemRes);
+            }
+
+            res.IsValid = res.Items.All(i => i.Matches);
+            res.Reason = res.IsValid ? "OK" : "MISMATCH";
+
+            return res;
         }
     }
 }
