@@ -174,6 +174,8 @@ namespace QuickPharmaPlus.Server
             builder.Services.AddScoped<IPrescriptionPlanRepository, PrescriptionPlanRepository>();
             builder.Services.AddHostedService<QuickPharmaPlus.Server.Services.PrescriptionPlanEmailScheduler>();
             builder.Services.AddScoped<IShippingRepository, ShippingRepository>();
+            builder.Services.AddScoped<IPrescriptionPlanEmailLogService, PrescriptionPlanEmailLogService>();
+
 
 
 

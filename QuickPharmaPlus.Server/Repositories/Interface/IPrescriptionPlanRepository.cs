@@ -7,7 +7,7 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
         Task<List<PrescriptionPlanEligibleDto>> GetEligiblePrescriptionsAsync(int userId);
         Task<List<PrescriptionPlanItemDto>> GetPlanItemsAsync(int userId, int prescriptionId);
 
-        Task<bool> CreateAsync(int userId, PrescriptionPlanUpsertDto dto);
+        Task<int?> CreateAsync(int userId, PrescriptionPlanUpsertDto dto);
         Task<bool> UpdateAsync(int userId, int planId, PrescriptionPlanUpsertDto dto);
         Task<bool> DeleteAsync(int userId, int planId);
 

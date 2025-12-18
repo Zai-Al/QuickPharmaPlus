@@ -3,7 +3,7 @@ using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.ModelsDTO.Prescription;
 using QuickPharmaPlus.Server.ModelsDTO.PrescriptionPlan;
 using QuickPharmaPlus.Server.Repositories.Interface;
-using Microsoft.Extensions.Logging;
+using QuickPharmaPlus.Server.Services;
 
 
 namespace QuickPharmaPlus.Server.Repositories.Implementation
@@ -12,19 +12,21 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
     {
         private readonly QuickPharmaPlusDbContext _context;
         private readonly IShippingRepository _shippingRepository;
-        private readonly ILogger<PrescriptionPlanRepository> _logger;
+        private readonly IPrescriptionPlanEmailLogService _emailLogService;
+
 
 
         public PrescriptionPlanRepository(
     QuickPharmaPlusDbContext context,
     IShippingRepository shippingRepository,
-    ILogger<PrescriptionPlanRepository> logger
+    IPrescriptionPlanEmailLogService emailLogService
 )
         {
             _context = context;
             _shippingRepository = shippingRepository;
-            _logger = logger;
+            _emailLogService = emailLogService;
         }
+
 
 
 
@@ -81,7 +83,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
         }
 
 
-        public async Task<bool> CreateAsync(int userId, PrescriptionPlanUpsertDto dto)
+        public async Task<int?> CreateAsync(int userId, PrescriptionPlanUpsertDto dto)
         {
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
@@ -97,7 +99,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 .OrderByDescending(a => a.ApprovalTimestamp)
                 .FirstOrDefaultAsync();
 
-            if (approval == null) return false;
+            if (approval == null) return null;
 
             // =========================
             // 2) Calculate TOTAL AMOUNT
@@ -109,7 +111,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 .Select(p => new { p.ProductId, Price = (decimal?)p.ProductPrice })
                 .FirstOrDefaultAsync();
 
-            if (product == null) return false;
+            if (product == null) return null;
 
             var quantity = approval.ApprovalQuantity ?? 1;
             var subtotal = (product.Price ?? 0m) * quantity;
@@ -125,7 +127,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             if (dto.Method == "pickup")
             {
                 branchId = dto.BranchId;
-                if (branchId == null) return false;
+                if (branchId == null) return null;
             }
             else
             {
@@ -135,7 +137,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     .Select(c => c.BranchId)
                     .FirstOrDefaultAsync();
 
-                if (branchId == null) return false;
+                if (branchId == null) return null;
 
                 var address = new Address
                 {
@@ -188,7 +190,15 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             _context.PrescriptionPlans.Add(plan);
             await _context.SaveChangesAsync();
 
-            return true;
+            var bahrainToday = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(3));
+            await _emailLogService.SchedulePlanEmailsAsync(
+                plan.PrescriptionPlanId,
+                userId,
+                bahrainToday
+            );
+
+
+            return plan.PrescriptionPlanId;
         }
 
 
@@ -196,11 +206,6 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
         {
             try
             {
-                _logger.LogInformation(
-                    "[PlanUpdate] START userId={UserId}, planId={PlanId}, method={Method}, branchId={BranchId}, cityId={CityId}",
-                    userId, planId, dto?.Method, dto?.BranchId, dto?.CityId
-                );
-
                 var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
                 var plan = await _context.PrescriptionPlans
@@ -208,25 +213,10 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     .Include(p => p.Approval)
                     .FirstOrDefaultAsync(p => p.PrescriptionPlanId == planId && p.UserId == userId);
 
-                if (plan == null)
-                {
-                    _logger.LogWarning("[PlanUpdate] FAIL plan not found userId={UserId}, planId={PlanId}", userId, planId);
+                if (plan == null || plan.Shipping == null || plan.Approval == null)
                     return false;
-                }
-                if (plan.Shipping == null)
-                {
-                    _logger.LogWarning("[PlanUpdate] FAIL shipping is null planId={PlanId}", planId);
-                    return false;
-                }
-                if (plan.Approval == null)
-                {
-                    _logger.LogWarning("[PlanUpdate] FAIL approval is null planId={PlanId}", planId);
-                    return false;
-                }
 
                 var prescriptionId = plan.Approval.PrescriptionId;
-                _logger.LogInformation("[PlanUpdate] Loaded plan. prescriptionId={PrescriptionId}, currentShippingId={ShippingId}, currentBranchId={BranchId}, currentAddressId={AddressId}",
-                    prescriptionId, plan.ShippingId, plan.Shipping.BranchId, plan.Shipping.AddressId);
 
                 // ===== 1) Recalculate subtotal =====
                 var rows = await (
@@ -247,79 +237,53 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 ).AsNoTracking().ToListAsync();
 
                 if (rows.Count == 0)
-                {
-                    _logger.LogWarning("[PlanUpdate] FAIL no active approval rows. userId={UserId}, prescriptionId={PrescriptionId}, today={Today}",
-                        userId, prescriptionId, today);
                     return false;
-                }
 
                 var subtotal = rows.Sum(x => (x.Price ?? 0m) * x.Qty);
                 var deliveryFee = dto.Method == "delivery" ? 1m : 0m;
                 var newTotal = subtotal + deliveryFee;
 
-                _logger.LogInformation("[PlanUpdate] Amounts subtotal={Subtotal}, deliveryFee={DeliveryFee}, newTotal={NewTotal}",
-                    subtotal, deliveryFee, newTotal);
-
                 plan.PrescriptionPlanTotalAmount = newTotal;
 
-                var productIds = rows.Where(x => x.ProductId.HasValue).Select(x => x.ProductId!.Value).Distinct().ToList();
-                _logger.LogInformation("[PlanUpdate] productIds={ProductIds}", string.Join(",", productIds));
+                var productIds = rows
+                    .Where(x => x.ProductId.HasValue)
+                    .Select(x => x.ProductId!.Value)
+                    .Distinct()
+                    .ToList();
 
                 // ===== 2) Update Shipping =====
                 var method = (dto.Method ?? "").Trim().ToLowerInvariant();
                 if (method != "pickup" && method != "delivery")
-                {
-                    _logger.LogWarning("[PlanUpdate] FAIL invalid method='{Method}'", dto.Method);
                     return false;
-                }
 
                 if (method == "pickup")
                 {
                     if (dto.BranchId == null || dto.BranchId <= 0)
-                    {
-                        _logger.LogWarning("[PlanUpdate] FAIL pickup missing/invalid BranchId={BranchId}", dto.BranchId);
                         return false;
-                    }
 
                     plan.Shipping.BranchId = dto.BranchId.Value;
                     plan.Shipping.AddressId = null;
                     plan.Shipping.ShippingIsDelivery = false;
                     plan.Shipping.ShippingDate = DateTime.UtcNow;
-
-                    _logger.LogInformation("[PlanUpdate] PICKUP set BranchId={BranchId}, AddressId=null, ShippingIsDelivery=false",
-                        plan.Shipping.BranchId);
                 }
                 else // delivery
                 {
                     if (dto.CityId == null || dto.CityId <= 0)
-                    {
-                        _logger.LogWarning("[PlanUpdate] FAIL delivery missing/invalid CityId={CityId}", dto.CityId);
                         return false;
-                    }
 
-                    // assign branch from city
                     var assignedBranchId = await _context.Cities
                         .Where(c => c.CityId == dto.CityId.Value)
                         .Select(c => c.BranchId)
                         .FirstOrDefaultAsync();
 
-                    _logger.LogInformation("[PlanUpdate] City lookup cityId={CityId} -> assignedBranchId={AssignedBranchId}",
-                        dto.CityId.Value, assignedBranchId);
-
                     if (assignedBranchId == null)
-                    {
-                        _logger.LogWarning("[PlanUpdate] FAIL city has no BranchId mapping. cityId={CityId}", dto.CityId.Value);
                         return false;
-                    }
 
-                    // ensure address exists
                     Address address;
                     if (plan.Shipping.AddressId.HasValue)
                     {
                         address = await _context.Addresses
                             .FirstAsync(a => a.AddressId == plan.Shipping.AddressId.Value);
-
-                        _logger.LogInformation("[PlanUpdate] Using existing addressId={AddressId}", address.AddressId);
                     }
                     else
                     {
@@ -327,8 +291,6 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                         _context.Addresses.Add(address);
                         await _context.SaveChangesAsync();
                         plan.Shipping.AddressId = address.AddressId;
-
-                        _logger.LogInformation("[PlanUpdate] Created new addressId={AddressId}", address.AddressId);
                     }
 
                     address.CityId = dto.CityId.Value;
@@ -346,21 +308,17 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
 
                     plan.Shipping.ShippingIsDelivery = hasStock;
                     plan.Shipping.ShippingDate = DateTime.UtcNow;
-
-                    _logger.LogInformation("[PlanUpdate] DELIVERY set BranchId={BranchId}, AddressId={AddressId}, ShippingIsDelivery={HasStock}",
-                        plan.Shipping.BranchId, plan.Shipping.AddressId, hasStock);
                 }
 
                 await _context.SaveChangesAsync();
-                _logger.LogInformation("[PlanUpdate] SUCCESS planId={PlanId}", planId);
                 return true;
             }
-            catch (Exception ex)
+            catch
             {
-                _logger.LogError(ex, "[PlanUpdate] EXCEPTION userId={UserId}, planId={PlanId}", userId, planId);
                 return false;
             }
         }
+
 
 
 
