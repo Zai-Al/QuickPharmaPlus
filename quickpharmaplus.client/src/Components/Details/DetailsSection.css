@@ -68,22 +68,23 @@
 }
 
 /* Card Body */
-.card-body {
-    padding: 18px !important;
-    flex: 1;
+.product-card-body {
+/*    padding-top: 18px !important;
+    flex: 1;*/
     width: 100%;
     height: auto;
     display: flex;
-    align-items: center; /* vertically center contents */
+    text-align: left;
     justify-content: center; /* optional: center horizontally */
     flex-direction: column;
+    margin: 0;
 }
 
 
 
 /* Card Text — Auto Expanding */
 .card-text {
-    font-size: 15px;
+    font-size: 30px;
     color: #555;
     line-height: 1.6;
     white-space: normal;

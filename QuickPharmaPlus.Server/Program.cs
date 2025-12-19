@@ -203,18 +203,23 @@ namespace QuickPharmaPlus.Server
             }
 
             app.UseHttpsRedirection();
-            app.UseCors("AllowReactApp");
+            app.UseStaticFiles();
 
             app.UseRouting();
 
-            app.UseSession();
+            app.UseCors("AllowReactApp"); // Your CORS policy
+
             app.UseAuthentication();
             app.UseAuthorization();
 
+            // Explicitly map API routes with higher priority
+            app.MapControllerRoute(
+                name: "api",
+                pattern: "api/{controller}/{action=Index}/{id?}");
+
             app.MapControllers();
 
-            app.UseDefaultFiles();
-            app.UseStaticFiles();
+            // Then map the SPA fallback LAST
             app.MapFallbackToFile("index.html");
 
             app.Run();

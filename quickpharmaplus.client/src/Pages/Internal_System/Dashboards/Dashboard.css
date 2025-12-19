@@ -27,6 +27,19 @@
     font-weight: 600;
 }
 
+/* Card Body */
+.card-body {
+    /*    padding-top: 18px !important;
+    flex: 1;*/
+    width: 100%;
+    height: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center; /* optional: center horizontally */
+    flex-direction: column;
+    margin: 0;
+}
+
 .placeholder-number {
     font-size: 32px;
     font-weight: 700;

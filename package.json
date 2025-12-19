@@ -3,5 +3,8 @@
     "highcharts": "^12.4.0",
     "highcharts-react-official": "^3.2.3",
     "stripe": "^20.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.2"
   }
 }
