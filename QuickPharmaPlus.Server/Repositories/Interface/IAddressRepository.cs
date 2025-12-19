@@ -22,5 +22,8 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
 
         // Resolve a City entity by name (case-insensitive). Returns null when not found.
         Task<City?> ResolveCityByNameAsync(string? cityName);
+
+        Task<AddressDto?> GetProfileAddressByUserIdAsync(int userId);
+
     }
 }

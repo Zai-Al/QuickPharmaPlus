@@ -1,4 +1,5 @@
 ﻿using QuickPharmaPlus.Server.Models;
+using QuickPharmaPlus.Server.ModelsDTO.Checkout;
 
 namespace QuickPharmaPlus.Server.Repositories.Interface
 {
@@ -28,6 +29,9 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
             IEnumerable<int> productIds,
             bool ignoreExpired = true
         );
+
+
+        Task<ShippingValidationResultDto> ValidateShippingAsync(CheckoutShippingRequestDto req);
 
     }
 }

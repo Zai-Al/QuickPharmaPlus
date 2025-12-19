@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using QuickPharmaPlus.Server.Models;
+using QuickPharmaPlus.Server.ModelsDTO.Checkout;
 using QuickPharmaPlus.Server.Repositories.Interface;
 
 namespace QuickPharmaPlus.Server.Repositories.Implementation
@@ -7,18 +8,113 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
     public class ShippingRepository : IShippingRepository
     {
         private readonly QuickPharmaPlusDbContext _context;
+        private readonly IInventoryRepository _inventoryRepo;
 
-        public ShippingRepository(QuickPharmaPlusDbContext context)
+        public ShippingRepository(QuickPharmaPlusDbContext context, IInventoryRepository inventoryRepo)
         {
             _context = context;
+            _inventoryRepo = inventoryRepo;
         }
 
         // ===============================
-        // PICKUP SHIPPING
+        // VALIDATE SHIPPING (Checkout Step 1)
+        // ===============================
+        public async Task<ShippingValidationResultDto> ValidateShippingAsync(CheckoutShippingRequestDto req)
+        {
+            var result = new ShippingValidationResultDto
+            {
+                Ok = false,
+                BranchId = null,
+                UnavailableProductNames = new List<string>(),
+                Message = ""
+            };
+
+            if (req == null)
+            {
+                result.Message = "Invalid request.";
+                return result;
+            }
+
+            // items are required for stock validation
+            var items = req.Items ?? new List<CheckoutCartItemDto>();
+            if (items.Count == 0)
+            {
+                result.Message = "Cart items are missing.";
+                return result;
+            }
+
+            // Resolve branchId based on mode
+            int branchId;
+
+            var isPickup = string.Equals(req.Mode, "pickup", StringComparison.OrdinalIgnoreCase);
+            var isDelivery = string.Equals(req.Mode, "delivery", StringComparison.OrdinalIgnoreCase);
+
+            if (!isPickup && !isDelivery)
+            {
+                result.Message = "Invalid shipping mode.";
+                return result;
+            }
+
+            if (isPickup)
+            {
+                if (!req.PickupBranchId.HasValue || req.PickupBranchId.Value <= 0)
+                {
+                    result.Message = "Please select a pickup branch.";
+                    return result;
+                }
+
+                branchId = req.PickupBranchId.Value;
+
+                // optional: validate branch exists
+                var branchExists = await _context.Branches.AnyAsync(b => b.BranchId == branchId);
+                if (!branchExists)
+                {
+                    result.Message = "Invalid branchId.";
+                    return result;
+                }
+            }
+            else
+            {
+                // Delivery -> branch assigned to city
+                if (!req.CityId.HasValue || req.CityId.Value <= 0)
+                {
+                    result.Message = "Please select a city for delivery.";
+                    return result;
+                }
+
+                var assignedBranchId = await _context.Cities
+                    .Where(c => c.CityId == req.CityId.Value)
+                    .Select(c => c.BranchId)
+                    .FirstOrDefaultAsync();
+
+                if (!assignedBranchId.HasValue || assignedBranchId.Value <= 0)
+                {
+                    result.Message = "This city is not assigned to any branch.";
+                    return result;
+                }
+
+                branchId = assignedBranchId.Value;
+            }
+
+            // Inventory check (reusable)
+            var missing = await _inventoryRepo.GetUnavailableProductsForBranchAsync(branchId, items);
+
+            result.BranchId = branchId;
+            result.UnavailableProductNames = missing.Select(x => x.ProductName).ToList();
+            result.Ok = result.UnavailableProductNames.Count == 0;
+
+            result.Message = result.Ok
+                ? "OK"
+                : "Some products are not available in the selected branch.";
+
+            return result;
+        }
+
+        // ===============================
+        // PICKUP SHIPPING (Final create)
         // ===============================
         public async Task<Shipping> CreatePickupAsync(int userId, int branchId)
         {
-            // (Optional) Validate branch exists
             var branchExists = await _context.Branches.AnyAsync(b => b.BranchId == branchId);
             if (!branchExists)
                 throw new ArgumentException("Invalid branchId.");
@@ -42,9 +138,9 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
         }
 
         // ===============================
-        // DELIVERY SHIPPING
+        // DELIVERY SHIPPING (Final create)
+        // NOTE: This creates address + shipping. Validation should be done before calling this.
         // ===============================
-
         public async Task<Shipping> CreateDeliveryAsync(
             int userId,
             int cityId,
@@ -76,7 +172,8 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             _context.Addresses.Add(address);
             await _context.SaveChangesAsync();
 
-            // 3) Stock check in assigned branch (sets ShippingIsDelivery)
+            // 3) (Optional) keep this bool flag if you still want it on Shipping entity
+            //    NOTE: This does NOT check quantities. Use ValidateShippingAsync for real validation.
             var hasStockForAll = await HasStockForAllProductsAsync(
                 assignedBranchId.Value,
                 productIds,
@@ -92,7 +189,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 ShippingSlotId = null,
 
                 ShippingIsUrgent = false,
-                ShippingIsDelivery = hasStockForAll, // TRUE only if stock exists
+                ShippingIsDelivery = hasStockForAll,
                 ShippingDate = DateTime.UtcNow
             };
 
@@ -103,13 +200,13 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
         }
 
         public async Task<Shipping> CreateDeliveryByProductNamesAsync(
-    int userId,
-    int cityId,
-    string block,
-    string road,
-    string buildingNumber,
-    IEnumerable<string> productNames
-)
+            int userId,
+            int cityId,
+            string block,
+            string road,
+            string buildingNumber,
+            IEnumerable<string> productNames
+        )
         {
             var names = (productNames ?? Enumerable.Empty<string>())
                 .Select(x => (x ?? "").Trim())
@@ -117,7 +214,6 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 .Distinct()
                 .ToList();
 
-            // map names to ids (temporary until Approval stores ProductId)
             var productIds = await _context.Products
                 .Where(p => p.ProductName != null && names.Contains(p.ProductName))
                 .Select(p => p.ProductId)
@@ -127,23 +223,24 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             return await CreateDeliveryAsync(userId, cityId, block, road, buildingNumber, productIds);
         }
 
-
         // ===============================
-        // STOCK CHECK: ALL PRODUCTS IN BRANCH
+        // STOCK CHECK (bool) - legacy / optional
         // ===============================
-        public async Task<bool> HasStockForAllProductsAsync(int branchId, IEnumerable<int> productIds, bool ignoreExpired = true)
+        public async Task<bool> HasStockForAllProductsAsync(
+            int branchId,
+            IEnumerable<int> productIds,
+            bool ignoreExpired = true
+        )
         {
             var ids = (productIds ?? Enumerable.Empty<int>())
                 .Where(id => id > 0)
                 .Distinct()
                 .ToList();
 
-            // If no products, treat as "no stock"
             if (ids.Count == 0) return false;
 
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-            // Only inventory rows for this branch + these products
             var query = _context.Inventories
                 .AsNoTracking()
                 .Where(i =>
@@ -152,7 +249,6 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     ids.Contains(i.ProductId.Value)
                 );
 
-            // Ignore expired inventory if requested
             if (ignoreExpired)
             {
                 query = query.Where(i =>
@@ -160,7 +256,6 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 );
             }
 
-            // Group by product and sum quantities; every requested product must have sum > 0
             var grouped = await query
                 .GroupBy(i => i.ProductId!.Value)
                 .Select(g => new
@@ -170,10 +265,8 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 })
                 .ToListAsync();
 
-            // Build map
             var qtyMap = grouped.ToDictionary(x => x.ProductId, x => x.Qty);
 
-            // Every product in ids must exist in map with qty > 0
             foreach (var pid in ids)
             {
                 if (!qtyMap.TryGetValue(pid, out var qty)) return false;

@@ -1,31 +1,35 @@
-
 export default function DialogModal({
     show,
     title,
     body,
     confirmLabel = "Confirm",
-    cancelLabel = "Cancel",
+    cancelLabel = "Cancel", // pass null to hide ONLY the cancel button
     onConfirm,
     onCancel,
 }) {
     if (!show) return null;
 
+    const showCancelButton = cancelLabel !== null;
+
     return (
         <>
-            {/* Backdrop FIRST so it's behind the modal */}
+            {/* Backdrop */}
             <div className="modal-backdrop fade show" />
 
-            {/* Modal dialog on top */}
+            {/* Modal */}
             <div className="modal d-block" tabIndex="-1">
                 <div className="modal-dialog modal-dialog-centered">
                     <div className="modal-content">
                         <div className="modal-header">
                             <h5 className="modal-title">{title}</h5>
+
+                            {/* ? X is ALWAYS visible */}
                             <button
                                 type="button"
                                 className="btn-close"
+                                aria-label="Close"
                                 onClick={onCancel}
-                            ></button>
+                            />
                         </div>
 
                         <div className="modal-body">
@@ -33,15 +37,22 @@ export default function DialogModal({
                         </div>
 
                         <div className="modal-footer">
+                            {/* ? Cancel button hidden ONLY if cancelLabel === null */}
+                            {showCancelButton && (
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    onClick={onCancel}
+                                >
+                                    {cancelLabel}
+                                </button>
+                            )}
+
                             <button
                                 type="button"
-                                className="btn btn-secondary"
-                                onClick={onCancel}
-                            >
-                                {cancelLabel}
-                            </button>
-                            <button
-                                className={`btn ${confirmLabel.toLowerCase().includes("delete")
+                                className={`btn ${confirmLabel
+                                        .toLowerCase()
+                                        .includes("delete")
                                         ? "btn-danger"
                                         : "qp-edit-btn"
                                     }`}
@@ -49,7 +60,6 @@ export default function DialogModal({
                             >
                                 {confirmLabel}
                             </button>
-
                         </div>
                     </div>
                 </div>

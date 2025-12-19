@@ -89,5 +89,43 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             return await _context.Cities
                 .FirstOrDefaultAsync(c => c.CityName != null && c.CityName.ToLower() == term);
         }
+
+        public async Task<AddressDto?> GetProfileAddressByUserIdAsync(int userId)
+        {
+            if (userId <= 0) return null;
+
+            // Step 1: SELECT address_id FROM [User] WHERE user_id = @userId
+            var addressId = await _context.Users
+                .Where(u => u.UserId == userId)
+                .Select(u => u.AddressId)
+                .FirstOrDefaultAsync();
+
+            if (!addressId.HasValue || addressId.Value <= 0)
+                return null;
+
+            // Step 2: SELECT * FROM Address JOIN City WHERE address_id = @addressId
+            var addr = await _context.Addresses
+                .Include(a => a.City)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a => a.AddressId == addressId.Value);
+
+            if (addr == null) return null;
+
+            // Map to AddressDto (same style as your existing GetDtoByIdAsync)
+            return new AddressDto
+            {
+                AddressId = addr.AddressId,
+                Block = addr.Block,
+                Street = addr.Street,
+                BuildingNumber = addr.BuildingNumber,
+                City = addr.City == null ? null : new CityDto
+                {
+                    CityId = addr.City.CityId,
+                    CityName = addr.City.CityName
+                }
+            };
+        }
+
+
     }
 }

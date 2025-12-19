@@ -1,244 +1,704 @@
-// src/Pages/External_System/ShippingTab.jsx
-import { useState, useEffect } from "react";
-import DropDown from "../Shared_Components/DropDown";
-import AddressFields from "../Shared_Components/AddressFields";
+// src/Pages/External_System/Checkout/ShippingTab.jsx
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./Checkout.css";
+import DialogModal from "../Shared_Components/DialogModal";
 
-// TEMP – replace with real profile address later
-const MOCK_SAVED_ADDRESS = {
-    city: "Manama",
-    block: "305",
-    road: "12",
-    buildingFloor: "Building 10 / Floor 3",
-};
+// ---------- helpers ----------
+function toISODate(d) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+}
 
-// Fixed time slots (text will also be stored in DB)
-const SLOT_OPTIONS = [
-    "08:00 - 11:59",
-    "12:00 - 15:59",
-    "16:00 - 19:59",
-    "20:00 - 23:59",
-];
-
-// Pickup branches (placeholder names)
-const BRANCH_OPTIONS = [
-    "Branch 1",
-    "Branch 2",
-    "Branch 3",
-    "Branch 4",
-    "Branch 5",
-];
-
-// Helper: build Today + next 6 days (7 total) as text options
-function getNext7DaysLabels() {
-    const opts = [];
+function getNext7Days() {
     const today = new Date();
-
+    const opts = [];
     for (let i = 0; i < 7; i++) {
         const d = new Date(today);
         d.setDate(today.getDate() + i);
 
         const label = d.toLocaleDateString("en-GB", {
-            weekday: "short", // Mon, Tue...
-            day: "2-digit",   // 09
-            month: "short",   // Dec
+            weekday: "short",
+            day: "2-digit",
+            month: "short",
         });
 
-        opts.push(label); // e.g. "Mon, 09 Dec"
+        opts.push({ label, value: toISODate(d) });
     }
     return opts;
 }
 
-/**
- * Props:
- * - savedAddress?: address from profile (optional)
- * - unavailableByBranch?: { [branchName: string]: string[] } // item names not available there
- * - showErrors?: boolean   // parent sets true when user clicks Continue
- * - onStateChange?: (state) => void   // { isValid, mode, isUrgent }
- */
+function toHHmm(t) {
+    if (!t) return "";
+    const parts = String(t).split(":");
+    const hh = parts[0]?.padStart(2, "0") ?? "00";
+    const mm = parts[1]?.padStart(2, "0") ?? "00";
+    return `${hh}:${mm}`;
+}
+
+function formatSlotLabel(s) {
+    const start = toHHmm(s?.start ?? s?.Start);
+    const end = toHHmm(s?.end ?? s?.End);
+    if (start && end) return `${start} - ${end}`;
+    return String(s?.slotName ?? s?.SlotName ?? "Time Slot");
+}
+
 export default function ShippingTab({
-    savedAddress,
-    unavailableByBranch = {},
+    userId,
+    cartItems = [],
+    savedAddress: savedAddressProp = null,
     showErrors = false,
     onStateChange,
 }) {
-    // "pickup" | "delivery"
-    const [mode, setMode] = useState("pickup");
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
+    const dateOptions = useMemo(() => getNext7Days(), []);
 
-    // pickup state
-    const [pickupBranch, setPickupBranch] = useState("");
-    const [unavailableItems, setUnavailableItems] = useState([]);
+    const lastSentRef = useRef("");
+    const lastValidateRef = useRef("");
 
-    // delivery state
+    const [savedAddress, setSavedAddress] = useState(savedAddressProp);
+
+    useEffect(() => {
+        if (savedAddressProp) setSavedAddress(savedAddressProp);
+    }, [savedAddressProp]);
+
+    // mode
+    const [mode, setMode] = useState("pickup"); // pickup | delivery
+    const isPickup = mode === "pickup";
+    const isDelivery = mode === "delivery";
+
+    // pickup branch list
+    const [branches, setBranches] = useState([]);
+    const [pickupBranchId, setPickupBranchId] = useState("");
+
+    // cities
+    const [cities, setCities] = useState([]);
+
+    // city search states
+    const [cityQuery, setCityQuery] = useState("");
+    const [showCityDropdown, setShowCityDropdown] = useState(false);
+    const [highlightIndex, setHighlightIndex] = useState(0);
+    const cityWrapRef = useRef(null);
+
+    // delivery
     const [useSavedAddress, setUseSavedAddress] = useState(false);
     const [isUrgent, setIsUrgent] = useState(false);
-    const [shippingDate, setShippingDate] = useState("");
-    const [shippingTime, setShippingTime] = useState("");
 
     const [address, setAddress] = useState({
-        city: "",
+        cityId: "",
         block: "",
         road: "",
         buildingFloor: "",
     });
 
-    // all validation errors
+    // backend results
+    const [resolvedBranchId, setResolvedBranchId] = useState("");
+    const [unavailableProductNames, setUnavailableProductNames] = useState([]);
+
+    // schedule
+    const [shippingDateISO, setShippingDateISO] = useState("");
+    const [slotId, setSlotId] = useState("");
+    const [slotOptions, setSlotOptions] = useState([]);
+    const [slotsByDate, setSlotsByDate] = useState({});
+
+    // unavailable pop-up
+    const [showUnavailableModal, setShowUnavailableModal] = useState(false);
+    const [unavailableModalBody, setUnavailableModalBody] = useState(null);
+    const lastPopupKeyRef = useRef("");
+
+    // errors shown
     const [errors, setErrors] = useState({});
-    const [pickupBranchError, setPickupBranchError] = useState("");
 
-    const profileAddress = savedAddress || MOCK_SAVED_ADDRESS;
-    const dateOptions = getNext7DaysLabels(); // today + 6 days
+    // items for validation
+    const validateItems = useMemo(() => {
+        return (cartItems || [])
+            .filter((x) => x && x.productId && Number(x.quantity) > 0)
+            .map((x) => ({
+                productId: Number(x.productId),
+                qty: Number(x.quantity),
+            }));
+    }, [cartItems]);
 
-    const isPickup = mode === "pickup";
-    const isDelivery = mode === "delivery";
+    const validateItemsKey = useMemo(() => {
+        return (validateItems || [])
+            .map((x) => `${x.productId}:${x.qty}`)
+            .sort()
+            .join("|");
+    }, [validateItems]);
 
-    // Fill address when using saved profile address
-    useEffect(() => {
-        if (useSavedAddress && isDelivery) {
-            setAddress((prev) => {
-                if (
-                    prev.city === profileAddress.city &&
-                    prev.block === profileAddress.block &&
-                    prev.road === profileAddress.road &&
-                    prev.buildingFloor === profileAddress.buildingFloor
-                ) {
-                    return prev; // no change
-                }
-                return { ...profileAddress };
-            });
+    const unavailableKey = useMemo(
+        () => (unavailableProductNames || []).slice().sort().join("|"),
+        [unavailableProductNames]
+    );
+
+    const addressKey = useMemo(
+        () => `${address.cityId}|${address.block}|${address.road}|${address.buildingFloor}`,
+        [address.cityId, address.block, address.road, address.buildingFloor]
+    );
+
+    // ---------- helpers for clean state resets ----------
+    const resetDeliveryScheduleAndAvailability = () => {
+        setShippingDateISO("");
+        setSlotId("");
+        setSlotOptions([]);
+        setSlotsByDate({});
+        setResolvedBranchId("");
+        setUnavailableProductNames([]);
+        lastPopupKeyRef.current = "";
+        setShowUnavailableModal(false);
+    };
+
+    const applySavedAddressToForm = (sa) => {
+        if (!sa) return;
+
+        const saCityId = sa.cityId ? String(sa.cityId) : "";
+        const saCityName = sa.cityName ? String(sa.cityName) : "";
+
+        setAddress({
+            cityId: saCityId,
+            block: sa.block ?? "",
+            road: sa.road ?? "",
+            buildingFloor: sa.buildingFloor ?? "",
+        });
+
+        setCityQuery(saCityName);
+        setShowCityDropdown(false);
+        setHighlightIndex(0);
+    };
+
+    const clearAddressForm = () => {
+        setAddress({ cityId: "", block: "", road: "", buildingFloor: "" });
+        setCityQuery("");
+        setShowCityDropdown(false);
+        setHighlightIndex(0);
+    };
+
+    const toggleUseSavedAddress = () => {
+        const next = !useSavedAddress;
+
+        
+        lastValidateRef.current = "";
+        lastSentRef.current = "";
+        lastPopupKeyRef.current = "";
+
+        resetDeliveryScheduleAndAvailability();
+        setUseSavedAddress(next);
+
+        if (next) {
+            // checked ON
+            applySavedAddressToForm(savedAddress);
+        } else {
+            // checked OFF => make fields empty again
+            clearAddressForm();
         }
-    }, [useSavedAddress, isDelivery, profileAddress]);
+    };
+
+
+    // ---------- fetch branches + cities ----------
+    const fetchBranches = async () => {
+        try {
+            const res = await fetch(`${API_BASE}/api/Branch?pageNumber=1&pageSize=500`, {
+                credentials: "include",
+            });
+            if (!res.ok) {
+                setBranches([]);
+                return;
+            }
+
+            const json = await res.json();
+            const raw = Array.isArray(json?.items) ? json.items : [];
+
+            const normalized = raw
+                .map((b) => ({
+                    branchId: b.branchId ?? b.BranchId ?? b.id ?? b.Id,
+                    cityName:
+                        b.cityName ??
+                        b.CityName ??
+                        b.branchCityName ??
+                        b.BranchCityName ??
+                        "",
+                    branchName: b.branchName ?? b.BranchName ?? "",
+                }))
+                .filter((b) => b.branchId != null);
+
+            setBranches(normalized);
+        } catch {
+            setBranches([]);
+        }
+    };
+
+    const fetchCities = async () => {
+        try {
+            const res = await fetch(`${API_BASE}/api/cities`, { credentials: "include" });
+            if (!res.ok) {
+                setCities([]);
+                return;
+            }
+            const json = await res.json();
+            setCities(Array.isArray(json) ? json : []);
+        } catch {
+            setCities([]);
+        }
+    };
+
+    useEffect(() => {
+        fetchBranches();
+        fetchCities();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // ---------- close city dropdown on outside click ----------
+    useEffect(() => {
+        const onDocMouseDown = (e) => {
+            if (!cityWrapRef.current) return;
+            if (!cityWrapRef.current.contains(e.target)) setShowCityDropdown(false);
+        };
+        document.addEventListener("mousedown", onDocMouseDown);
+        return () => document.removeEventListener("mousedown", onDocMouseDown);
+    }, []);
+
+    // ---------- city search helpers ----------
+    const filteredCities = useMemo(() => {
+        const q = (cityQuery || "").trim().toLowerCase();
+        const list = cities || [];
+        if (!q) return list;
+        return list.filter((c) =>
+            String(c.cityName ?? c.CityName ?? "").toLowerCase().includes(q)
+        );
+    }, [cities, cityQuery]);
+
+    const handleCityInputChange = (e) => {
+        const val = e.target.value;
+        setCityQuery(val);
+
+        // typing => city not selected
+        setAddress((a) => ({ ...a, cityId: "" }));
+
+        resetDeliveryScheduleAndAvailability();
+
+        setShowCityDropdown(true);
+        setHighlightIndex(0);
+    };
+
+    const handleCityInputFocus = () => {
+        if (useSavedAddress) return;
+        setShowCityDropdown(true);
+        setHighlightIndex(0);
+    };
+
+    const handleSelectCity = (city) => {
+        const name = city.cityName ?? city.CityName ?? "";
+        const id = city.cityId ?? city.CityId ?? "";
+        setCityQuery(name);
+        setAddress((a) => ({ ...a, cityId: String(id) }));
+
+        resetDeliveryScheduleAndAvailability();
+
+        setShowCityDropdown(false);
+        setHighlightIndex(0);
+    };
+
+    const handleCityKeyDown = (e) => {
+        if (!showCityDropdown || useSavedAddress) return;
+        const list = filteredCities || [];
+        if (list.length === 0) return;
+
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setHighlightIndex((i) => Math.min(i + 1, list.length - 1));
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setHighlightIndex((i) => Math.max(i - 1, 0));
+        } else if (e.key === "Enter") {
+            e.preventDefault();
+            const picked = list[highlightIndex];
+            if (picked) handleSelectCity(picked);
+        } else if (e.key === "Escape") {
+            setShowCityDropdown(false);
+        }
+    };
 
     const handleAddressChange = (e) => {
         const { name, value } = e.target;
-        setAddress((prev) => ({
-            ...prev,
-            [name]: value,
-        }));
+        setAddress((a) => ({ ...a, [name]: value }));
     };
 
-    const handleToggleSavedAddress = () => {
-        setUseSavedAddress((prev) => !prev);
-    };
+    // ---------- fetch saved address (PROFILE) ----------
+    useEffect(() => {
+        if (!userId) return;
 
-    const handleToggleUrgent = () => {
-        setIsUrgent((prev) => !prev);
-    };
+        (async () => {
+            try {
+                const res = await fetch(`${API_BASE}/api/Addresses/profile?userId=${userId}`, {
+                    credentials: "include",
+                });
 
-    // When pickup branch changes, check if all items are available in that branch
-    const handlePickupBranchChange = (e) => {
-        const value = e.target.value;
-        setPickupBranch(value);
+                if (!res.ok) {
+                    setSavedAddress(null);
+                    return;
+                }
 
-        const unavailable = value ? unavailableByBranch[value] || [] : [];
+                const dto = await res.json();
 
-        setUnavailableItems(unavailable);
+                const mapped = {
+                    cityId: dto?.city?.cityId ?? dto?.City?.cityId ?? dto?.city?.CityId ?? "",
+                    cityName:
+                        dto?.city?.cityName ??
+                        dto?.City?.cityName ??
+                        dto?.city?.CityName ??
+                        "",
+                    block: dto?.block ?? dto?.Block ?? "",
+                    road: dto?.street ?? dto?.Street ?? "",
+                    buildingFloor: dto?.buildingNumber ?? dto?.BuildingNumber ?? "",
+                };
 
-        if (!value) {
-            setPickupBranchError("Please choose a pickup branch.");
-        } else if (unavailable.length > 0) {
-            setPickupBranchError(
-                "Some items in your order are not available at this branch."
-            );
-        } else {
-            setPickupBranchError("");
+                setSavedAddress(mapped);
+            } catch (e) {
+                console.error(e);
+                setSavedAddress(null);
+            }
+        })();
+    }, [API_BASE, userId]);
+
+    // if user toggled saved address ON before savedAddress finished loading,
+    // apply it once it arrives
+    useEffect(() => {
+        if (!isDelivery) return;
+        if (!useSavedAddress) return;
+        if (!savedAddress) return;
+
+        // force saved values
+        applySavedAddressToForm(savedAddress);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isDelivery, useSavedAddress, savedAddress]);
+
+    // ---------- VALIDATE ----------
+    async function validateShipping() {
+        try {
+            const payload = {
+                UserId: Number(userId),
+                Mode: mode,
+                PickupBranchId: isPickup && pickupBranchId ? Number(pickupBranchId) : null,
+
+                UseSavedAddress: isDelivery ? !!useSavedAddress : false,
+                CityId: isDelivery && address.cityId ? Number(address.cityId) : null,
+                Block: isDelivery ? address.block : null,
+                Road: isDelivery ? address.road : null,
+                BuildingFloor: isDelivery ? address.buildingFloor : null,
+
+                IsUrgent: !!isUrgent,
+                ShippingDate: shippingDateISO ? shippingDateISO : null,
+                SlotId: slotId ? Number(slotId) : null,
+
+                Items: (validateItems || []).map((x) => ({
+                    ProductId: x.productId,
+                    Quantity: x.qty,
+                })),
+            };
+
+            const res = await fetch(`${API_BASE}/api/CheckoutShipping/validate`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify(payload),
+            });
+
+            const json = await res.json().catch(() => ({}));
+
+            const rb =
+                json?.branchId ??
+                json?.BranchId ??
+                json?.resolvedBranchId ??
+                json?.ResolvedBranchId ??
+                "";
+
+            const unavailable =
+                json?.unavailableProductNames ??
+                json?.unavailable ??
+                json?.UnavailableProductNames ??
+                [];
+
+            const names = Array.isArray(unavailable)
+                ? unavailable
+                    .map((x) => (typeof x === "string" ? x : x?.name ?? x?.Name))
+                    .filter(Boolean)
+                : [];
+
+            const nextRb = rb ? String(rb) : "";
+            setResolvedBranchId((prev) => (prev === nextRb ? prev : nextRb));
+
+            const nextNamesSorted = names.slice().sort();
+            setUnavailableProductNames((prev) => {
+                const prevKey = (prev || []).slice().sort().join("|");
+                const nextKey = nextNamesSorted.join("|");
+                return prevKey === nextKey ? prev : names;
+            });
+        } catch {
+            setResolvedBranchId("");
+            setUnavailableProductNames([]);
         }
-    };
+    }
 
-    // === VALIDATION (pickup branch + delivery address/schedule) ===
+    useEffect(() => {
+        if (!userId) return;
+
+        if (isPickup) {
+            if (!pickupBranchId) {
+                setResolvedBranchId("");
+                setUnavailableProductNames([]);
+                return;
+            }
+        }
+
+        if (isDelivery) {
+            if (!useSavedAddress && !address.cityId) {
+                setResolvedBranchId("");
+                setUnavailableProductNames([]);
+                return;
+            }
+            if (useSavedAddress && !savedAddress) {
+                setResolvedBranchId("");
+                setUnavailableProductNames([]);
+                return;
+            }
+            // if saved is ON but for any timing reason address.cityId is empty, use saved cityId
+            if (useSavedAddress && savedAddress && !address.cityId) {
+                const saCityId = savedAddress.cityId ? String(savedAddress.cityId) : "";
+                if (saCityId) setAddress((a) => ({ ...a, cityId: saCityId }));
+            }
+        }
+
+        const key = [
+            String(userId),
+            mode,
+            pickupBranchId || "",
+            useSavedAddress ? "1" : "0",
+            isDelivery && useSavedAddress
+                ? `SAVED:${savedAddress?.cityId ?? ""}`
+                : `ADDR:${addressKey}`,
+            validateItemsKey,
+        ].join("||");
+
+        if (key === lastValidateRef.current) return;
+        lastValidateRef.current = key;
+
+        validateShipping();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        userId,
+        mode,
+        pickupBranchId,
+        useSavedAddress,
+        savedAddress,
+        addressKey,
+        validateItemsKey,
+        isPickup,
+        isDelivery,
+    ]);
+
+    // if products unavailable -> popup
+    useEffect(() => {
+        if (!unavailableProductNames || unavailableProductNames.length === 0) {
+            lastPopupKeyRef.current = "";
+            setShowUnavailableModal(false);
+            return;
+        }
+
+        const key = (unavailableProductNames || []).slice().sort().join("|");
+        if (key === lastPopupKeyRef.current) return;
+        lastPopupKeyRef.current = key;
+
+        setUnavailableModalBody(
+            <div className="text-start">
+                <p className="fw-bold mb-2">Some items are not available in this branch.</p>
+                <p className="mb-2">You can't continue until you choose another city / branch or remove the item(s) from your order</p>
+
+                <div className="fw-bold mb-1">Unavailable items:</div>
+                <ul className="mb-0">
+                    {unavailableProductNames.map((n, idx) => (
+                        <li key={idx}>{n}</li>
+                    ))}
+                </ul>
+            </div>
+        );
+
+        setShowUnavailableModal(true);
+    }, [unavailableKey]);
+
+    // ---------- slots ----------
+    async function loadSlots(branchId) {
+        try {
+            const res = await fetch(
+                `${API_BASE}/api/CheckoutShipping/slots?branchId=${encodeURIComponent(
+                    branchId
+                )}&daysAhead=6`,
+                { credentials: "include" }
+            );
+
+            const json = await res.json().catch(() => null);
+            const groups = Array.isArray(json) ? json : Array.isArray(json?.slots) ? json.slots : [];
+
+            const map = {};
+            for (const g of groups) {
+                const date = g?.date ?? g?.Date;
+                const slots = Array.isArray(g?.slots)
+                    ? g.slots
+                    : Array.isArray(g?.Slots)
+                        ? g.Slots
+                        : [];
+
+                if (!date) continue;
+
+                map[String(date)] = slots
+                    .map((s) => ({
+                        value: String(s.slotId ?? s.SlotId ?? ""),
+                        label: formatSlotLabel(s),
+                    }))
+                    .filter((o) => o.value);
+            }
+
+            setSlotsByDate(map);
+        } catch {
+            setSlotsByDate({});
+        }
+    }
+
+    useEffect(() => {
+        if (!isDelivery || isUrgent) return;
+
+        if (!shippingDateISO) {
+            setSlotOptions([]);
+            setSlotId("");
+            return;
+        }
+
+        const opts = slotsByDate[shippingDateISO] || [];
+        setSlotOptions(opts);
+
+        if (slotId && !opts.some((o) => o.value === slotId)) setSlotId("");
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isDelivery, isUrgent, shippingDateISO, slotsByDate]);
+
+    useEffect(() => {
+        if (!isDelivery) return;
+
+        if (isUrgent) {
+            setSlotId("");
+            setSlotOptions([]);
+            return;
+        }
+
+        if (!resolvedBranchId) {
+            setSlotOptions([]);
+            setSlotId("");
+            return;
+        }
+
+        loadSlots(resolvedBranchId);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isDelivery, isUrgent, resolvedBranchId]);
+
+    // ---------- UI VALIDATION + send to parent ----------
     useEffect(() => {
         const numberRegex = /^[0-9]+$/;
         const newErrors = {};
 
-        // Pickup validation
         if (isPickup) {
-            if (!pickupBranch) {
-                newErrors.pickupBranch = "Please choose a pickup branch.";
-            } else if (unavailableItems.length > 0) {
-                newErrors.pickupBranch =
-                    "Some items in your order are not available at this branch.";
-            }
+            if (!pickupBranchId) newErrors.pickupBranch = "Please choose a pickup branch.";
+            if (pickupBranchId && unavailableProductNames.length > 0)
+                newErrors.pickupBranch = "Some items are not available at this branch.";
         }
 
-        // Delivery validation
         if (isDelivery) {
-            // Address only if NOT using saved address
             if (!useSavedAddress) {
-                if (!address.city) {
-                    newErrors.city = "Please select your city.";
-                }
+                if (!address.cityId) newErrors.city = "Please select your city.";
 
-                if (!address.block.trim()) {
-                    newErrors.block = "Please enter your block.";
-                } else if (!numberRegex.test(address.block.trim())) {
+                if (!address.block.trim()) newErrors.block = "Please enter your block.";
+                else if (!numberRegex.test(address.block.trim()))
                     newErrors.block = "Block must contain only numbers.";
-                }
 
-                if (!address.road.trim()) {
-                    newErrors.road = "Please enter your road.";
-                } else if (!numberRegex.test(address.road.trim())) {
+                if (!address.road.trim()) newErrors.road = "Please enter your road.";
+                else if (!numberRegex.test(address.road.trim()))
                     newErrors.road = "Road must contain only numbers.";
-                }
 
-                if (!address.buildingFloor.trim()) {
-                    newErrors.buildingFloor =
-                        "Please enter your building / floor number.";
-                }
+                if (!address.buildingFloor.trim())
+                    newErrors.buildingFloor = "Please enter your building / floor number.";
+            } else {
+                // saved address on: still require cityId to exist (from savedAddress)
+                if (!address.cityId) newErrors.city = "Saved address is missing a city.";
             }
 
-            // Schedule (only when not urgent)
+            if ((address.cityId || useSavedAddress) && unavailableProductNames.length > 0) {
+                newErrors.deliveryInventory =
+                    "Some products are not available for delivery in your area.";
+            }
+
             if (!isUrgent) {
-                if (!shippingDate) {
-                    newErrors.shippingDate = "Please select a shipping date.";
-                }
-                if (!shippingTime) {
-                    newErrors.shippingTime = "Please select a time slot.";
-                }
+                if (!shippingDateISO) newErrors.shippingDate = "Please select a shipping date.";
+                if (!slotId) newErrors.shippingTime = "Please select a time slot.";
             }
         }
 
-        // showErrors controls whether messages are visible
-        const visibleErrors = showErrors ? newErrors : {};
+        const nextErrors = showErrors ? newErrors : {};
+        setErrors((prev) =>
+            JSON.stringify(prev) === JSON.stringify(nextErrors) ? prev : nextErrors
+        );
 
-        // merge pickupBranchError into visibleErrors for DropDown
-        if (visibleErrors.pickupBranch) {
-            setPickupBranchError(visibleErrors.pickupBranch);
-        } else if (!showErrors) {
-            // when we hide errors, also clear the visible pickup error
-            setPickupBranchError("");
-        }
+        const hasErrors = Object.keys(newErrors).length > 0;
 
-        setErrors(visibleErrors);
+        const payload = {
+            isValid: !hasErrors,
+            mode,
+            isUrgent: !!isUrgent,
 
-        const isValid = Object.keys(newErrors).length === 0;
+            UserId: Number(userId),
+            Mode: mode,
+            PickupBranchId: isPickup && pickupBranchId ? Number(pickupBranchId) : null,
 
-        if (onStateChange) {
-            onStateChange({
-                isValid,
-                mode,
-                isUrgent,
-            });
-        }
+            UseSavedAddress: isDelivery ? !!useSavedAddress : false,
+            CityId: isDelivery && address.cityId ? Number(address.cityId) : null,
+            Block: isDelivery ? address.block : null,
+            Road: isDelivery ? address.road : null,
+            BuildingFloor: isDelivery ? address.buildingFloor : null,
+
+            ShippingDate: shippingDateISO || null,
+            SlotId: slotId ? Number(slotId) : null,
+
+            Items: (validateItems || []).map((x) => ({
+                ProductId: x.productId,
+                Quantity: x.qty,
+            })),
+        };
+
+        const key = JSON.stringify(payload);
+        if (key === lastSentRef.current) return;
+        lastSentRef.current = key;
+
+        if (typeof onStateChange === "function") onStateChange(payload);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
-        isPickup,
-        isDelivery,
-        pickupBranch,
-        unavailableItems,
-        useSavedAddress,
-        address,
-        isUrgent,
-        shippingDate,
-        shippingTime,
         showErrors,
         mode,
-        onStateChange,
+        pickupBranchId,
+        useSavedAddress,
+        addressKey,
+        cityQuery,
+        resolvedBranchId,
+        isUrgent,
+        shippingDateISO,
+        slotId,
+        unavailableKey,
+        isPickup,
+        isDelivery,
     ]);
 
+    // ---------- UI ----------
     return (
         <div className="text-start prescription-container">
             <h3 className="fw-bold mb-3 text-center">Shipping</h3>
 
-            {/* PICKUP OPTION */}
+            {/* PICKUP */}
             <div className="prescription-option">
                 <input
                     className="form-check-input"
@@ -247,7 +707,14 @@ export default function ShippingTab({
                     id="shipping-pickup"
                     value="pickup"
                     checked={isPickup}
-                    onChange={() => setMode("pickup")}
+                    onChange={() => {
+                        setMode("pickup");
+                        setUseSavedAddress(false);
+                        setPickupBranchId("");
+                        clearAddressForm();
+                        resetDeliveryScheduleAndAvailability();
+                        setIsUrgent(false);
+                    }}
                 />
                 <label htmlFor="shipping-pickup" className="form-check-label">
                     Pickup
@@ -256,36 +723,38 @@ export default function ShippingTab({
 
             {isPickup && (
                 <div className="prescription-subsection">
-                    <DropDown
-                        label="Choose Pickup Branch:"
-                        name="pickupBranch"
-                        value={pickupBranch}
-                        onChange={handlePickupBranchChange}
-                        placeholder="Choose Pickup Branch"
-                        options={BRANCH_OPTIONS}
-                        error={pickupBranchError}
-                    />
+                    <label className="form-label fw-bold">Choose Pickup Branch:</label>
+                    <select
+                        className="form-select"
+                        value={pickupBranchId}
+                        onChange={(e) => setPickupBranchId(e.target.value)}
+                    >
+                        <option value="">Choose Pickup Branch</option>
+                        {branches.map((b) => (
+                            <option key={b.branchId} value={String(b.branchId)}>
+                                {(b.cityName || b.branchName || `Branch #${b.branchId}`).trim()}
+                            </option>
+                        ))}
+                    </select>
 
-                    {showErrors &&
-                        unavailableItems.length > 0 &&
-                        !pickupBranchError && (
-                            <div className="mt-1 small text-danger text-start">
-                                <div>Unavailable in this branch:</div>
-                                <ul className="mb-1">
-                                    {unavailableItems.map((name, idx) => (
-                                        <li key={idx}>{name}</li>
-                                    ))}
-                                </ul>
-                                <div>
-                                    Please select another branch or remove these
-                                    items from your order.
-                                </div>
-                            </div>
-                        )}
+                    {showErrors && errors.pickupBranch && (
+                        <div className="text-danger small mt-1">{errors.pickupBranch}</div>
+                    )}
+
+                    {showErrors && unavailableProductNames.length > 0 && (
+                        <div className="mt-2 small text-danger">
+                            <div>Unavailable in this branch:</div>
+                            <ul className="mb-1">
+                                {unavailableProductNames.map((n, idx) => (
+                                    <li key={idx}>{n}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                 </div>
             )}
 
-            {/* DELIVERY OPTION */}
+            {/* DELIVERY */}
             <div className="prescription-option mt-3">
                 <input
                     className="form-check-input"
@@ -294,7 +763,11 @@ export default function ShippingTab({
                     id="shipping-delivery"
                     value="delivery"
                     checked={isDelivery}
-                    onChange={() => setMode("delivery")}
+                    onChange={() => {
+                        setMode("delivery");
+                        setPickupBranchId("");
+                        resetDeliveryScheduleAndAvailability();
+                    }}
                 />
                 <label htmlFor="shipping-delivery" className="form-check-label">
                     Delivery
@@ -303,101 +776,223 @@ export default function ShippingTab({
 
             {isDelivery && (
                 <div className="prescription-subsection">
-                    {/* fee note */}
-                    <p className="text-danger small mb-3">
-                        * Delivery fee is 1 BHD
-                    </p>
+                    <p className="text-danger small mb-3">* Delivery fee is 1 BHD</p>
 
-                    {/* SHIPPING ADDRESS */}
-                    <div className="mb-4">
-                        <h5 className="fw-bold mb-2">Shipping Address</h5>
+                    {/* Saved address checkbox */}
+                    <div className="form-check mb-3">
+                        <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id="use-saved-address"
+                            checked={useSavedAddress}
+                            onChange={toggleUseSavedAddress}
+                            disabled={!savedAddress}
+                        />
+                        <label htmlFor="use-saved-address" className="form-check-label">
+                            Choose saved address from Profile.
+                            {!savedAddress && (
+                                <span className="text-muted"> (No saved address found)</span>
+                            )}
+                        </label>
+                    </div>
 
-                        <div className="form-check mb-2">
+                    {/* City + Block aligned */}
+                    <div className="row g-3">
+                        <div className="col-md-6" ref={cityWrapRef} style={{ position: "relative" }}>
+                            <label className="form-label fw-bold">City</label>
                             <input
-                                className="form-check-input"
-                                type="checkbox"
-                                id="use-saved-address"
-                                checked={useSavedAddress}
-                                onChange={handleToggleSavedAddress}
+                                type="text"
+                                className="form-control"
+                                placeholder={
+                                    cities.length === 0
+                                        ? "Loading cities..."
+                                        : "Select city or start typing"
+                                }
+                                value={cityQuery}
+                                onChange={handleCityInputChange}
+                                onFocus={handleCityInputFocus}
+                                onKeyDown={handleCityKeyDown}
+                                disabled={useSavedAddress || cities.length === 0}
+                                autoComplete="off"
                             />
-                            <label
-                                htmlFor="use-saved-address"
-                                className="form-check-label"
-                            >
-                                Choose saved address from Profile.
-                            </label>
+
+                            {showCityDropdown && !useSavedAddress && filteredCities.length > 0 && (
+                                <ul
+                                    className="list-group position-absolute w-100"
+                                    style={{ zIndex: 1500, maxHeight: 200, overflowY: "auto" }}
+                                >
+                                    {filteredCities.map((c, idx) => (
+                                        <li
+                                            key={c.cityId ?? c.CityId ?? idx}
+                                            className={`list-group-item list-group-item-action ${idx === highlightIndex ? "active" : ""
+                                                }`}
+                                            onMouseDown={(ev) => ev.preventDefault()}
+                                            onClick={() => handleSelectCity(c)}
+                                            onMouseEnter={() => setHighlightIndex(idx)}
+                                        >
+                                            {c.cityName ?? c.CityName}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+
+                            {showErrors && errors.city && (
+                                <div className="text-danger small mt-1">{errors.city}</div>
+                            )}
                         </div>
 
-                        <div className="prescription-address mt-2">
-                            <AddressFields
-                                title=""
-                                formData={address}
-                                errors={errors}
-                                handleChange={handleAddressChange}
+                        <div className="col-md-6">
+                            <label className="form-label fw-bold">Block</label>
+                            <input
+                                className="form-control"
+                                name="block"
+                                value={address.block}
+                                onChange={handleAddressChange}
                                 disabled={useSavedAddress}
                             />
+                            {showErrors && errors.block && (
+                                <div className="text-danger small mt-1">{errors.block}</div>
+                            )}
+                        </div>
+
+                        <div className="col-md-6">
+                            <label className="form-label fw-bold">Road</label>
+                            <input
+                                className="form-control"
+                                name="road"
+                                value={address.road}
+                                onChange={handleAddressChange}
+                                disabled={useSavedAddress}
+                            />
+                            {showErrors && errors.road && (
+                                <div className="text-danger small mt-1">{errors.road}</div>
+                            )}
+                        </div>
+
+                        <div className="col-md-6">
+                            <label className="form-label fw-bold">Building Number / Floor Number</label>
+                            <input
+                                className="form-control"
+                                name="buildingFloor"
+                                value={address.buildingFloor}
+                                onChange={handleAddressChange}
+                                disabled={useSavedAddress}
+                            />
+                            {showErrors && errors.buildingFloor && (
+                                <div className="text-danger small mt-1">{errors.buildingFloor}</div>
+                            )}
                         </div>
                     </div>
 
-                    {/* SHIPPING SCHEDULE */}
-                    <div className="mb-2">
+                    {showErrors && errors.deliveryInventory && unavailableProductNames.length > 0 && (
+                        <div className="mt-2 small text-danger">
+                            <div>Unavailable for delivery:</div>
+                            <ul className="mb-1">
+                                {unavailableProductNames.map((n, idx) => (
+                                    <li key={idx}>{n}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
+                    {/* Schedule */}
+                    <div className="mt-4">
                         <h5 className="fw-bold mb-2">Shipping Schedule</h5>
 
                         <div className="form-check mb-1">
                             <input
                                 className="form-check-input"
                                 type="checkbox"
-                                id="set-delivery-urgency"
+                                id="urgent"
                                 checked={isUrgent}
-                                onChange={handleToggleUrgent}
+                                onChange={() => {
+                                    setIsUrgent((p) => !p);
+                                    // when toggling urgency, reset date/slot only
+                                    setShippingDateISO("");
+                                    setSlotId("");
+                                    setSlotOptions([]);
+                                }}
                             />
-                            <label
-                                htmlFor="set-delivery-urgency"
-                                className="form-check-label"
-                            >
+                            <label htmlFor="urgent" className="form-check-label">
                                 Set Delivery Urgency
                             </label>
                         </div>
 
-                        <p className="small text-muted mb-3">
-                            Delivery urgency allows order deliveries within an
-                            hour but delivery fees increases by 1 BHD.
-                        </p>
-
-                        {/* Two dropdowns – disappear when urgent is ON */}
                         {!isUrgent && (
-                            <div className="row">
+                            <div className="row g-3">
                                 <div className="col-md-6">
-                                    <DropDown
-                                        label="Shipping Date:"
-                                        name="shippingDate"
-                                        value={shippingDate}
-                                        onChange={(e) =>
-                                            setShippingDate(e.target.value)
-                                        }
-                                        placeholder="Choose Shipping Date"
-                                        options={dateOptions}
-                                        error={errors.shippingDate}
-                                    />
+                                    <label className="form-label fw-bold">Shipping Date:</label>
+                                    <select
+                                        className="form-select"
+                                        value={shippingDateISO}
+                                        onChange={(e) => {
+                                            setShippingDateISO(e.target.value);
+                                            setSlotId("");
+                                        }}
+                                    >
+                                        <option value="">Choose Shipping Date</option>
+                                        {dateOptions.map((o) => (
+                                            <option key={o.value} value={o.value}>
+                                                {o.label}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    {showErrors && errors.shippingDate && (
+                                        <div className="text-danger small mt-1">
+                                            {errors.shippingDate}
+                                        </div>
+                                    )}
                                 </div>
+
                                 <div className="col-md-6">
-                                    <DropDown
-                                        label="Shipping Time:"
-                                        name="shippingTime"
-                                        value={shippingTime}
-                                        onChange={(e) =>
-                                            setShippingTime(e.target.value)
+                                    <label className="form-label fw-bold">Shipping Time:</label>
+                                    <select
+                                        className="form-select"
+                                        value={slotId}
+                                        onChange={(e) => setSlotId(e.target.value)}
+                                        disabled={
+                                            !resolvedBranchId || !shippingDateISO || slotOptions.length === 0
                                         }
-                                        placeholder="Choose Shipping Time"
-                                        options={SLOT_OPTIONS}
-                                        error={errors.shippingTime}
-                                    />
+                                    >
+                                        <option value="">
+                                            {!resolvedBranchId
+                                                ? "Select city first"
+                                                : !shippingDateISO
+                                                    ? "Select date"
+                                                    : slotOptions.length === 0
+                                                        ? "No available slots"
+                                                        : "Choose Shipping Time"}
+                                        </option>
+
+                                        {slotOptions.map((s) => (
+                                            <option key={s.value} value={s.value}>
+                                                {s.label}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    {showErrors && errors.shippingTime && (
+                                        <div className="text-danger small mt-1">
+                                            {errors.shippingTime}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
                     </div>
                 </div>
             )}
+
+            <DialogModal
+                show={showUnavailableModal}
+                title="Unavailable items"
+                body={unavailableModalBody}
+                confirmLabel="OK"
+                cancelLabel={null}
+                onCancel={() => setShowUnavailableModal(false)}
+                onConfirm={() => setShowUnavailableModal(false)}
+            />
 
             <div className="prescription-divider" />
         </div>

@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuickPharmaPlus.Server.Models;
+using QuickPharmaPlus.Server.Repositories.Interface;
 
 namespace QuickPharmaPlus.Server.Controllers.Internal_System
 {
@@ -10,10 +11,12 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
     public class AddressesController : ControllerBase
     {
         private readonly QuickPharmaPlusDbContext _context;
+        private readonly IAddressRepository _addressRepo;
 
-        public AddressesController(QuickPharmaPlusDbContext context)
+        public AddressesController(QuickPharmaPlusDbContext context, IAddressRepository addressRepo)
         {
             _context = context;
+            _addressRepo = addressRepo;
         }
 
         // Update existing address
@@ -52,6 +55,15 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
             await _context.SaveChangesAsync();
 
             return Ok(new { addressId = address.AddressId });
+        }
+
+        // GET: api/Address/profile?userId=123
+        [HttpGet("profile")]
+        public async Task<IActionResult> GetProfile([FromQuery] int userId)
+        {
+            var dto = await _addressRepo.GetProfileAddressByUserIdAsync(userId);
+            if (dto == null) return NotFound(new { message = "User does not have a saved profile address." });
+            return Ok(dto);
         }
     }
 }

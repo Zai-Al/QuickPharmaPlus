@@ -10,7 +10,6 @@ namespace QuickPharmaPlus.Server.Models;
 [Index("OrderId", Name = "IXFK_Product_Order_Order")]
 [Index("PrescriptionId", Name = "IXFK_Product_Order_Prescription")]
 [Index("ProductId", Name = "IXFK_Product_Order_Product")]
-[Index("ProductOrderStatusId", Name = "IXFK_Product_Order_Product_Order_Status")]
 public partial class ProductOrder
 {
     [Key]
@@ -22,9 +21,6 @@ public partial class ProductOrder
 
     [Column("Product_id")]
     public int? ProductId { get; set; }
-
-    [Column("Product_Order_Status_id")]
-    public int? ProductOrderStatusId { get; set; }
 
     [Column("Prescription_id")]
     public int? PrescriptionId { get; set; }
@@ -40,8 +36,4 @@ public partial class ProductOrder
     [ForeignKey("ProductId")]
     [InverseProperty("ProductOrders")]
     public virtual Product? Product { get; set; }
-
-    [ForeignKey("ProductOrderStatusId")]
-    [InverseProperty("ProductOrders")]
-    public virtual ProductOrderStatus? ProductOrderStatus { get; set; }
 }

@@ -1,9 +1,11 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.ModelsDTO;
-using QuickPharmaPlus.Server.ModelsDTO.Inventory;
 using QuickPharmaPlus.Server.ModelsDTO.Address;
+using QuickPharmaPlus.Server.ModelsDTO.Checkout;
+using QuickPharmaPlus.Server.ModelsDTO.Inventory;
 using QuickPharmaPlus.Server.Repositories.Interface;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace QuickPharmaPlus.Server.Repositories.Implementation
@@ -333,5 +335,81 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
 
             return inv;
         }
+
+        public async Task<List<UnavailableProductDto>> GetUnavailableProductsForBranchAsync(
+             int branchId,
+             List<CheckoutCartItemDto> items
+         )
+        {
+            if (branchId <= 0) return new List<UnavailableProductDto>();
+            if (items == null || items.Count == 0) return new List<UnavailableProductDto>();
+
+            // collapse duplicates (same product repeated)
+            var required = items
+                .Where(i => i != null && i.ProductId > 0 && i.Quantity > 0)
+                .GroupBy(i => i.ProductId)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
+
+            if (required.Count == 0) return new List<UnavailableProductDto>();
+
+            // available qty per product in this branch (exclude expired if you want)
+            // If "expired should NOT be sellable", keep the expiry filter.
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            var available = await _context.Inventories
+                .Where(i =>
+                    i.BranchId == branchId &&
+                    i.ProductId.HasValue &&
+                    required.Keys.Contains(i.ProductId.Value) &&
+                    i.InventoryQuantity.HasValue &&
+                    i.InventoryQuantity.Value > 0 &&
+                    (
+                        !i.InventoryExpiryDate.HasValue ||
+                        i.InventoryExpiryDate.Value > today
+                    )
+                )
+                .GroupBy(i => i.ProductId)
+                .Select(g => new
+                {
+                    ProductId = g.Key,
+                    AvailableQty = g.Sum(x => x.InventoryQuantity ?? 0)
+                })
+                .ToListAsync();
+
+            var availableMap = available.ToDictionary(x => x.ProductId, x => x.AvailableQty);
+
+            // get product names
+            var productNames = await _context.Products
+                .Where(p => required.Keys.Contains(p.ProductId))
+                .Select(p => new { p.ProductId, p.ProductName })
+                .ToListAsync();
+
+            var nameMap = productNames.ToDictionary(x => x.ProductId, x => x.ProductName ?? $"Product #{x.ProductId}");
+
+            // build missing list
+            var missing = new List<UnavailableProductDto>();
+
+            foreach (var kv in required)
+            {
+                var productId = kv.Key;
+                var reqQty = kv.Value;
+                var availQty = availableMap.TryGetValue(productId, out var aq) ? aq : 0;
+
+                if (availQty < reqQty)
+                {
+                    missing.Add(new UnavailableProductDto
+                    {
+                        ProductId = productId,
+                        ProductName = nameMap.TryGetValue(productId, out var n) ? n : $"Product #{productId}",
+                        RequiredQty = reqQty,
+                        AvailableQty = availQty
+                    });
+                }
+            }
+
+            return missing;
+        }
+
+
     }
 }
