@@ -15,9 +15,11 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
 
             var options = new SessionCreateOptions
             {
+                PaymentMethodTypes = new List<string> { "card" },
                 Mode = "payment",
                 SuccessUrl = $"{domain}/payment-success",
                 CancelUrl = $"{domain}/payment-failed",
+                Locale = "auto", // This will auto-detect the user's locale or use a valid default
                 LineItems = new List<SessionLineItemOptions>()
             };
 
@@ -55,12 +57,16 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                 });
             }
 
-            var service = new SessionService();
-            Session session = service.Create(options);
-
-            // Return the hosted checkout URL instead of session id
-            return Ok(new { url = session.Url });
-
+            try
+            {
+                var service = new SessionService();
+                Session session = service.Create(options);
+                return Ok(new { url = session.Url });
+            }
+            catch (StripeException ex)
+            {
+                return BadRequest(new { error = "Payment session creation failed", message = ex.Message });
+            }
         }
     }
 

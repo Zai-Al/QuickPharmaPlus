@@ -232,7 +232,7 @@ export default function AppRoutes() {
                             />
 
                             <Route
-                                path="/addProduct"
+                                path="/product/add"
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
                                         <AddProduct />
@@ -241,7 +241,7 @@ export default function AppRoutes() {
                             />
 
                             <Route
-                                path="/products/view"
+                                path="/products/view/:id"
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
                                         <ViewProduct />

@@ -128,27 +128,41 @@ export default function ProductsList() {
     async function fetchSuppliersForFilter() {
         try {
             const res = await fetch(`${baseURL}/api/Suppliers?pageNumber=1&pageSize=200`, { credentials: "include" });
-            if (!res.ok) return;
+            if (!res.ok) {
+                console.error(`Failed to fetch suppliers: ${res.status} ${res.statusText}`);
+                setError("Unable to load supplier options. Please try again later.");
+                return;
+            }
             const data = await res.json();
             const items = data.items ?? [];
             setSupplierOptions(items.map(s => ({
                 supplierId: s.supplierId ?? null,
                 supplierName: s.supplierName ?? "—"
             })));
-        } catch { }
+        } catch (err) {
+            console.error("Error fetching suppliers:", err);
+            setError(`Failed to load suppliers: ${err.message || "Network error occurred"}`);
+        }
     }
 
     async function fetchCategoriesForFilter() {
         try {
             const res = await fetch(`${baseURL}/api/Category?pageNumber=1&pageSize=200`, { credentials: "include" });
-            if (!res.ok) return;
+            if (!res.ok) {
+                console.error(`Failed to fetch categories: ${res.status} ${res.statusText}`);
+                setError("Unable to load category options. Please try again later.");
+                return;
+            }
             const data = await res.json();
             const items = data.items ?? [];
             setCategoryOptions(items.map(c => ({
                 categoryId: c.categoryId ?? null,
                 categoryName: c.categoryName ?? "—"
             })));
-        } catch { }
+        } catch (err) {
+            console.error("Error fetching categories:", err);
+            setError(`Failed to load categories: ${err.message || "Network error occurred"}`);
+        }
     }
 
     async function fetchProducts(page = currentPage) {
@@ -166,7 +180,11 @@ export default function ProductsList() {
             if (selectedCategory) params.set("categoryId", selectedCategory.categoryId);
 
             const res = await fetch(`${baseURL}/api/Products?${params.toString()}`, { credentials: "include" });
-            if (!res.ok) throw new Error();
+            if (!res.ok) {
+                const errorText = await res.text().catch(() => "");
+                console.error(`Failed to fetch products: ${res.status} ${res.statusText}`, errorText);
+                throw new Error(`Server responded with ${res.status}: ${res.statusText}`);
+            }
 
             const data = await res.json();
             const items = data.items ?? [];
@@ -183,8 +201,9 @@ export default function ProductsList() {
             const totalCount = data.totalCount ?? items.length;
             setTotalPages(Math.max(1, Math.ceil(totalCount / pageSize)));
             setCurrentPage(page);
-        } catch {
-            setError("Unable to load products.");
+        } catch (err) {
+            console.error("Error fetching products:", err);
+            setError(`Unable to load products: ${err.message || "Network error occurred. Please check your connection."}`);
         } finally {
             setLoading(false);
         }
@@ -258,11 +277,21 @@ export default function ProductsList() {
     async function handleDeleteConfirm() {
         if (!deleteId) return setShowModal(false);
         try {
-            await fetch(`${baseURL}/api/Products/${deleteId}`, {
+            const res = await fetch(`${baseURL}/api/Products/${deleteId}`, {
                 method: "DELETE",
                 credentials: "include"
             });
+
+            if (!res.ok) {
+                const errorText = await res.text().catch(() => "");
+                console.error(`Failed to delete product ${deleteId}: ${res.status} ${res.statusText}`, errorText);
+                throw new Error(`Failed to delete product: ${res.statusText}`);
+            }
+
             fetchProducts();
+        } catch (err) {
+            console.error("Error deleting product:", err);
+            setError(`Failed to delete product: ${err.message || "An unexpected error occurred. Please try again."}`);
         } finally {
             setDeleteId(null);
             setShowModal(false);

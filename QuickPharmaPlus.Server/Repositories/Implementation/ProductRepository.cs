@@ -397,5 +397,23 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             };
         }
 
+        // =====================================================
+        // CHECK IF PRODUCT NAME EXISTS (FOR DUPLICATE VALIDATION)
+        // =====================================================
+        public async Task<bool> ProductNameExistsAsync(string name, int? excludeId = null)
+        {
+            var normalizedName = name.Trim().ToLower();
+
+            var query = _context.Products
+                .Where(p => (p.ProductName ?? "").ToLower() == normalizedName);
+
+            if (excludeId.HasValue)
+            {
+                query = query.Where(p => p.ProductId != excludeId.Value);
+            }
+
+            return await query.AnyAsync();
+        }
+
     }
 }

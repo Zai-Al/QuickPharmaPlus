@@ -6,30 +6,29 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
 {
     public interface IProductRepository
     {
-        // Paged + filtered product list (supports id or name search)
-        Task<PagedResult<ProductListDto>> GetAllProductsAsync(int pageNumber, int pageSize, string? search = null, int? supplierId = null, int? categoryId = null);
+        Task<PagedResult<ProductListDto>> GetAllProductsAsync(
+            int pageNumber,
+            int pageSize,
+            string? search = null,
+            int? supplierId = null,
+            int? categoryId = null);
 
-        // Single product details
         Task<ProductDetailDto?> GetProductByIdAsync(int id);
-
-        // CRUD
         Task<Product> AddProductAsync(Product product);
         Task<Product?> UpdateProductAsync(Product product);
         Task<bool> DeleteProductAsync(int id);
+        Task<bool> ProductNameExistsAsync(string name, int? excludeId = null);
 
         Task<PagedResult<ProductListDto>> GetExternalProductsAsync(
-    int pageNumber,
-    int pageSize,
-    string? search = null,
-    int[]? supplierIds = null,
-    int[]? categoryIds = null,
-    int[]? productTypeIds = null,
-    int[]? branchIds = null,
-    decimal? minPrice = null,
-decimal? maxPrice = null,
-    string? sortBy = null
-);
-
-
+            int pageNumber,
+            int pageSize,
+            string? search = null,
+            int[]? supplierIds = null,
+            int[]? categoryIds = null,
+            int[]? productTypeIds = null,
+            int[]? branchIds = null,
+            decimal? minPrice = null,
+            decimal? maxPrice = null,
+            string? sortBy = null);
     }
 }
