@@ -103,6 +103,25 @@ const buildFavSummary = (inc) => {
     return "This product may be incompatible with your wishlist items, allergies, and illnesses.";
 };
 
+// helper for card image
+const buildCardImageUrl = (dto, API_BASE) => {
+    const id = dto?.id ?? dto?.Id ?? dto?.productId ?? dto?.ProductId ?? null;
+
+    const base64 =
+        dto?.productImageBase64 ??
+        dto?.ProductImageBase64 ??
+        dto?.imageBase64 ??
+        dto?.ImageBase64 ??
+        null;
+
+    const hasBase64 = !!base64;
+
+    return hasBase64
+        ? `data:image/jpeg;base64,${base64}`
+        : id
+            ? `${API_BASE}/api/ExternalProducts/${id}/image?v=${id}`
+            : null;
+};
 export default function Product() {
     const location = useLocation();
 
@@ -453,7 +472,7 @@ export default function Product() {
                         branch: "All Branches",
                         requiresPrescription: dto.requiresPrescription ?? dto.RequiresPrescription ?? false,
                         incompatibilities: safeInc,
-                        imageUrl: (dto.id ?? dto.Id) ? `${API_BASE}/api/ExternalProducts/${dto.id ?? dto.Id}/image` : null,
+                        imageUrl: buildCardImageUrl(dto, API_BASE),
                         inventoryCount: inv,
                         stockStatus,
                     };

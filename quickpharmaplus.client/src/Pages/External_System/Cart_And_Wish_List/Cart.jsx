@@ -46,6 +46,27 @@ const buildIncompatibilityLines = (incRaw = {}) => {
     return lines;
 };
 
+// helper image
+const buildCartImageSrc = (x, API_BASE) => {
+    const productId = x?.productId ?? x?.ProductId ?? null;
+
+    const base64 =
+        x?.productImageBase64 ??
+        x?.ProductImageBase64 ??
+        x?.imageBase64 ??
+        x?.ImageBase64 ??
+        null;
+
+    const hasBase64 = !!base64;
+
+    return hasBase64
+        ? `data:image/jpeg;base64,${base64}`
+        : productId
+            ? `${API_BASE}/api/ExternalProducts/${productId}/image?v=${productId}`
+            : "";
+};
+
+
 export default function Cart() {
     const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
 
@@ -122,21 +143,15 @@ export default function Cart() {
                         // keep row key stable (prefer cartItemId if backend returns it)
                         id: x.cartItemId ?? x.CartItemId ?? x.id ?? idx + 1,
                         productId,
-
                         name: x.name ?? x.Name ?? "—",
                         category: x.categoryName ?? x.CategoryName ?? "—",
                         type: x.productTypeName ?? x.ProductTypeName ?? "—",
                         price: x.price ?? x.Price ?? 0,
-
                         quantity: Number(qty) || 1,
-
                         stockAvailable: Number(inv) || 0,
                         stockStatus,
-
                         prescribed: !!(x.requiresPrescription ?? x.RequiresPrescription ?? false),
-
-                        imageSrc: productId ? `${API_BASE}/api/ExternalProducts/${productId}/image` : "",
-
+                        imageSrc: buildCartImageSrc(x, API_BASE),
                         incompatibilities: inc,
                     };
                 });

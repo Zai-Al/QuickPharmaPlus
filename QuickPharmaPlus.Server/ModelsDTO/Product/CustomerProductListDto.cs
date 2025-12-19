@@ -37,5 +37,8 @@
         /// Later can become a proper object with meds/allergies/illness.
         /// </summary>
         public object? Incompatibilities { get; set; }
+
+        public string? ProductImageBase64 { get; set; }
+
     }
 }

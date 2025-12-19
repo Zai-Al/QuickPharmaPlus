@@ -94,7 +94,7 @@
 
 .product-description-section {
     text-align: left;
-    margin-top: 1.5rem;
+    margin-top: 2rem;
 }
 
 .product-section-title {
@@ -110,7 +110,7 @@
 
 /* Header bar styled similar to your table header */
 .product-recommendation-header {
-    margin-top: 1rem;
+    margin-top: 2rem;
     background-color: #54B2B5; /* same color as your table header */
     color: #ffffff;
     font-weight: 600;
