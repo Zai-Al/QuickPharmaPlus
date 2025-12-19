@@ -113,20 +113,31 @@ const mockCheckInteractions = (_currentCart, productToAdd) => {
     return buildInteractionMessages(inc);
 };
 
-// map API list item -> ProductRowSection card shape
-const mapListItemToCard = (dto, API_BASE) => ({
-    id: dto.id,
-    name: dto.name,
-    price: dto.price ?? 0,
-    imageUrl: dto.id ? `${API_BASE}/api/ExternalProducts/${dto.id}/image` : null,
-    isFavorite: false,
-    requiresPrescription: dto.requiresPrescription ?? false,
-    incompatibilities: dto.incompatibilities ?? { medications: [], allergies: [], illnesses: [] },
-    categoryName: dto.categoryName ?? "",
-    productType: dto.productTypeName ?? "",
-    inventoryCount: dto.inventoryCount ?? 0,
-    stockStatus: dto.stockStatus ?? ((dto.inventoryCount ?? 0) <= 0 ? "OUT_OF_STOCK" : "IN_STOCK"),
-});
+const mapListItemToCard = (dto, API_BASE) => {
+    const hasBase64 = !!dto.productImageBase64; // DEFINE IT
+
+    return {
+        id: dto.id,
+        name: dto.name,
+        price: dto.price ?? 0,
+
+        imageUrl: hasBase64
+            ? `data:image/jpeg;base64,${dto.productImageBase64}`
+            : dto.id
+                ? `${API_BASE}/api/ExternalProducts/${dto.id}/image?v=${dto.id}`
+                : null,
+
+        isFavorite: false,
+        requiresPrescription: dto.requiresPrescription ?? false,
+        incompatibilities: dto.incompatibilities ?? { medications: [], allergies: [], illnesses: [] },
+        categoryName: dto.categoryName ?? "",
+        productType: dto.productTypeName ?? "",
+        inventoryCount: dto.inventoryCount ?? 0,
+        stockStatus:
+            dto.stockStatus ??
+            ((dto.inventoryCount ?? 0) <= 0 ? "OUT_OF_STOCK" : "IN_STOCK"),
+    };
+};
 
 export default function ProductDetails() {
     const { id } = useParams();

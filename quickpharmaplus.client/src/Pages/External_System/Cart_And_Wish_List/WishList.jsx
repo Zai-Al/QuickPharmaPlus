@@ -92,6 +92,27 @@ const buildMedicationLines = (incRaw = {}) => {
     return lines.filter(Boolean);
 };
 
+
+// helper for image
+const buildWishImageSrc = (x, API_BASE) => {
+    const productId = x?.productId ?? x?.ProductId ?? null;
+
+    const base64 =
+        x?.productImageBase64 ??
+        x?.ProductImageBase64 ??
+        x?.imageBase64 ??
+        x?.ImageBase64 ??
+        null;
+
+    const hasBase64 = !!base64;
+
+    return hasBase64
+        ? `data:image/jpeg;base64,${base64}`
+        : productId
+            ? `${API_BASE}/api/ExternalProducts/${productId}/image?v=${productId}`
+            : "";
+};
+
 export default function WishList() {
     const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
 
@@ -175,13 +196,10 @@ export default function WishList() {
                         category: x.categoryName ?? x.category ?? "—",
                         type: x.productTypeName ?? x.type ?? "—",
                         price: x.price ?? 0,
-
                         stockAvailable: inv,
                         stockStatus,
                         prescribed: !!(x.requiresPrescription ?? x.prescribed ?? false),
-
-                        imageSrc: productId ? `${API_BASE}/api/ExternalProducts/${productId}/image` : "",
-
+                        imageSrc: buildWishImageSrc(x, API_BASE),
                         incompatibilities: inc,
                     };
                 });

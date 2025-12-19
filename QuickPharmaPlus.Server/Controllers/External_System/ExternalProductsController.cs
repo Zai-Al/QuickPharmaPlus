@@ -100,7 +100,7 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                         SupplierId = dto.SupplierId,
                         SupplierName = dto.SupplierName,
 
-                        RequiresPrescription = dto.IsControlled ?? false,
+                        RequiresPrescription = dto.CategoryId == 1,
 
                         InventoryCount = dto.InventoryCount,
 
@@ -113,13 +113,36 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                     })
                     .ToList();
 
+                var productIds = items.Select(x => x.Id).ToList();
+
+                var imageMap = await _context.Products
+                    .Where(p => productIds.Contains(p.ProductId))
+                    .Select(p => new
+                    {
+                        p.ProductId,
+                        p.ProductImage
+                    })
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                var imageDict = imageMap.ToDictionary(
+                    x => x.ProductId,
+                    x => x.ProductImage != null ? Convert.ToBase64String(x.ProductImage) : null
+                );
+
+                foreach (var item in items)
+                {
+                    imageDict.TryGetValue(item.Id, out var base64);
+                    item.ProductImageBase64 = base64;
+                }
+
                 // ✅ NEW: compute illness + allergy incompatibilities only if userId provided
                 if (userId.HasValue && userId.Value > 0 && items.Count > 0)
                 {
-                    var productIds = items.Select(x => x.Id).ToList();
+                    var productIdsForInc = items.Select(x => x.Id).ToList();
 
-                    var illnessMap = await GetIllnessIncompatibilityMapAsync(userId.Value, productIds);
-                    var allergyMap = await GetAllergyIncompatibilityMapAsync(userId.Value, productIds);
+                    var illnessMap = await GetIllnessIncompatibilityMapAsync(userId.Value, productIdsForInc);
+                    var allergyMap = await GetAllergyIncompatibilityMapAsync(userId.Value, productIdsForInc);
 
                     foreach (var it in items)
                     {
@@ -206,7 +229,7 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                 SupplierId = dto.SupplierId,
                 SupplierName = dto.SupplierName,
 
-                RequiresPrescription = dto.IsControlled ?? false,
+                RequiresPrescription = dto.CategoryId == 1,
 
                 InventoryCount = inventoryCount,
                 StockStatus =
@@ -243,6 +266,49 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
 
             return Ok(detail);
         }
+
+        [HttpGet("{id}/image")]
+        public async Task<IActionResult> GetProductImage(int id)
+        {
+            var product = await _context.Products
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.ProductId == id);
+
+            if (product == null || product.ProductImage == null || product.ProductImage.Length == 0)
+                return NotFound();
+
+            var bytes = product.ProductImage; // <-- your varbinary column
+            var contentType = DetectImageContentType(bytes);
+
+            return File(bytes, contentType);
+        }
+
+
+        private static string DetectImageContentType(byte[] bytes)
+        {
+            if (bytes == null || bytes.Length < 4) return "application/octet-stream";
+
+            // PNG: 89 50 4E 47
+            if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47)
+                return "image/png";
+
+            // JPEG: FF D8
+            if (bytes[0] == 0xFF && bytes[1] == 0xD8)
+                return "image/jpeg";
+
+            // GIF: 47 49 46
+            if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46)
+                return "image/gif";
+
+            // WEBP: "RIFF....WEBP"
+            if (bytes.Length >= 12 &&
+                bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46 &&
+                bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50)
+                return "image/webp";
+
+            return "application/octet-stream";
+        }
+
 
         [HttpGet("{id:int}/availability")]
         public async Task<IActionResult> GetProductAvailability(int id)

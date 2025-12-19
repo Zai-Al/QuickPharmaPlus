@@ -98,12 +98,17 @@ const mapApiToCard = (dto, API_BASE) => {
         dto?.stockStatus ??
         dto?.StockStatus ??
         (inv <= 0 ? "OUT_OF_STOCK" : inv <= 5 ? "LOW_STOCK" : "IN_STOCK");
+    const hasBase64 = !!dto.productImageBase64;
 
     return {
         id: dto.id,
         name: dto.name,
         price: dto.price ?? 0,
-        imageUrl: dto.id ? `${API_BASE}/api/ExternalProducts/${dto.id}/image` : null,
+        imageUrl: hasBase64
+            ? `data:image/jpeg;base64,${dto.productImageBase64}`
+            : dto.id
+                ? `${API_BASE}/api/ExternalProducts/${dto.id}/image?v=${dto.id}`
+                : null,
         isFavorite: false,
         requiresPrescription: dto.requiresPrescription ?? false,
 
