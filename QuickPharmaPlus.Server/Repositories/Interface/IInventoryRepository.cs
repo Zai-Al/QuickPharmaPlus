@@ -1,5 +1,6 @@
 ﻿using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.ModelsDTO;
+using QuickPharmaPlus.Server.ModelsDTO.Checkout;
 using QuickPharmaPlus.Server.ModelsDTO.Inventory;
 
 namespace QuickPharmaPlus.Server.Repositories.Interface
@@ -36,5 +37,10 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
 
         // Fetches details of a single expired inventory by id.
         Task<ExpiredInventoryListDto?> GetExpiredInventoryDetailsAsync(int inventoryId);
+
+        Task<List<UnavailableProductDto>> GetUnavailableProductsForBranchAsync(
+            int branchId,
+            List<CheckoutCartItemDto> items
+        );
     }
 }

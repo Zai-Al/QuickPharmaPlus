@@ -83,8 +83,6 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
     public virtual DbSet<ProductOrder> ProductOrders { get; set; }
 
-    public virtual DbSet<ProductOrderStatus> ProductOrderStatuses { get; set; }
-
     public virtual DbSet<ProductType> ProductTypes { get; set; }
 
     public virtual DbSet<Reorder> Reorders { get; set; }
@@ -98,8 +96,6 @@ public partial class QuickPharmaPlusDbContext : DbContext
     public virtual DbSet<Severity> Severities { get; set; }
 
     public virtual DbSet<Shipping> Shippings { get; set; }
-
-    public virtual DbSet<ShippingType> ShippingTypes { get; set; }
 
     public virtual DbSet<Slot> Slots { get; set; }
 
@@ -264,7 +260,7 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
         modelBuilder.Entity<LogType>(entity =>
         {
-            entity.HasKey(e => e.LogTypeId).HasName("PK__Log_Type__92B17BDB63D98667");
+            entity.HasKey(e => e.LogTypeId).HasName("PK__Log_Type__92B17BDB2D84DD76");
         });
 
         modelBuilder.Entity<Order>(entity =>
@@ -326,8 +322,6 @@ public partial class QuickPharmaPlusDbContext : DbContext
             entity.HasOne(d => d.Prescription).WithMany(p => p.ProductOrders).HasConstraintName("FK_Product_Order_Prescription");
 
             entity.HasOne(d => d.Product).WithMany(p => p.ProductOrders).HasConstraintName("FK_Product_Order_Product");
-
-            entity.HasOne(d => d.ProductOrderStatus).WithMany(p => p.ProductOrders).HasConstraintName("FK_Product_Order_Product_Order_Status");
         });
 
         modelBuilder.Entity<ProductType>(entity =>
@@ -377,7 +371,7 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
         modelBuilder.Entity<Slot>(entity =>
         {
-            entity.HasKey(e => e.SlotId).HasName("PK__Slot__1AE5AEE6D44E0A8E");
+            entity.HasKey(e => e.SlotId).HasName("PK__Slot__1AE5AEE698713019");
         });
 
         modelBuilder.Entity<Supplier>(entity =>
@@ -407,7 +401,7 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
         modelBuilder.Entity<SupplierOrderType>(entity =>
         {
-            entity.HasKey(e => e.SupplierOrderTypeId).HasName("PK__Supplier__6B90B83F862CFC19");
+            entity.HasKey(e => e.SupplierOrderTypeId).HasName("PK__Supplier__6B90B83F1D1A74EF");
         });
 
         modelBuilder.Entity<User>(entity =>

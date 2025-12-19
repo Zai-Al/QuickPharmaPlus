@@ -285,6 +285,20 @@ export default function Checkout() {
         }
     };
 
+    const canContinue =
+        // don’t allow continue if cart not ready / empty
+        cartLoadedOnce &&
+        !loadingCart &&
+        !cartError &&
+        itemsFromCart.length > 0 &&
+        // per-step validation
+        (isPrescriptionStep
+            ? prescriptionState.allValid
+            : isShippingStep
+                ? shippingState.isValid
+                : true);
+
+
     const handleContinueClick = () => {
         // 1) Prescription step validation + upload
         if (isPrescriptionStep) {
@@ -363,6 +377,8 @@ export default function Checkout() {
             case "shipping":
                 return (
                     <ShippingTab
+                        userId={userId}
+                        cartItems={itemsFromCart}
                         showErrors={shippingShowErrors}
                         onStateChange={handleShippingStateChange}
                     />
@@ -434,7 +450,7 @@ export default function Checkout() {
                             type="button"
                             className="btn qp-add-btn px-4"
                             onClick={handleContinueClick}
-                            disabled={prescriptionUploading}
+                            disabled={prescriptionUploading || !canContinue}
                         >
                             {prescriptionUploading
                                 ? "Uploading..."

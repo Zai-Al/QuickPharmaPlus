@@ -45,14 +45,14 @@ public partial class Prescription
     [StringLength(100)]
     public string? PrescriptionCprDocumentContentType { get; set; }
 
+    [Column("address_id")]
+    public int? AddressId { get; set; }
+
     [StringLength(255)]
     public string? PrescriptionDocumentFileName { get; set; }
 
     [StringLength(255)]
     public string? PrescriptionCprDocumentFileName { get; set; }
-
-    [Column("address_id")]
-    public int? AddressId { get; set; }
 
     [ForeignKey("AddressId")]
     [InverseProperty("Prescriptions")]
