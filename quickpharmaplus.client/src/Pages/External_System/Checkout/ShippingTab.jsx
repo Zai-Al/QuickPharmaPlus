@@ -50,6 +50,7 @@ export default function ShippingTab({
     savedAddress: savedAddressProp = null,
     showErrors = false,
     onStateChange,
+    initialState = null,
 }) {
     const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
     const dateOptions = useMemo(() => getNext7Days(), []);
@@ -109,6 +110,46 @@ export default function ShippingTab({
 
     // errors shown
     const [errors, setErrors] = useState({});
+
+    // =========================
+    // HYDRATE FROM initialState
+    // =========================
+    const hydratedRef = useRef(false);
+
+    useEffect(() => {
+        if (hydratedRef.current) return;
+        if (!initialState) return;
+
+        hydratedRef.current = true;
+
+        const initMode = initialState.Mode ?? initialState.mode ?? "pickup";
+        setMode(initMode);
+
+        const initPickup = initialState.PickupBranchId ?? initialState.pickupBranchId ?? "";
+        setPickupBranchId(initPickup ? String(initPickup) : "");
+
+        const initUseSaved = !!(initialState.UseSavedAddress ?? initialState.useSavedAddress ?? false);
+        setUseSavedAddress(initUseSaved);
+
+        const initUrgent = !!(initialState.IsUrgent ?? initialState.isUrgent ?? false);
+        setIsUrgent(initUrgent);
+
+        setAddress({
+            cityId: initialState.CityId != null ? String(initialState.CityId) : "",
+            block: initialState.Block ?? initialState.block ?? "",
+            road: initialState.Road ?? initialState.road ?? "",
+            buildingFloor: initialState.BuildingFloor ?? initialState.buildingFloor ?? "",
+        });
+
+        // IMPORTANT: if NOT urgent, restore date+slot.
+        // If urgent, we leave slot blank, but we still want date saved as TODAY (you wanted that on backend; UI can still show empty)
+        const initDate = initialState.ShippingDate ?? initialState.shippingDate ?? "";
+        const initSlot = initialState.SlotId ?? initialState.slotId ?? "";
+
+        setShippingDateISO(initDate ? String(initDate) : "");
+        setSlotId(initSlot ? String(initSlot) : "");
+    }, [initialState]);
+
 
     // items for validation
     const validateItems = useMemo(() => {
@@ -651,6 +692,7 @@ export default function ShippingTab({
             isValid: !hasErrors,
             mode,
             isUrgent: !!isUrgent,
+            IsUrgent: !!isUrgent,
 
             UserId: Number(userId),
             Mode: mode,
@@ -662,8 +704,8 @@ export default function ShippingTab({
             Road: isDelivery ? address.road : null,
             BuildingFloor: isDelivery ? address.buildingFloor : null,
 
-            ShippingDate: shippingDateISO || null,
-            SlotId: slotId ? Number(slotId) : null,
+            ShippingDate: isDelivery && !isUrgent ? (shippingDateISO || null) : null,
+            SlotId: isDelivery && !isUrgent && slotId ? Number(slotId) : null,
 
             Items: (validateItems || []).map((x) => ({
                 ProductId: x.productId,

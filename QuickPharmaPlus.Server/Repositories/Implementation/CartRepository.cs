@@ -44,7 +44,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     CategoryName = p.Category != null ? p.Category.CategoryName : null,
                     ProductTypeName = p.ProductType != null ? p.ProductType.ProductTypeName : null,
 
-                    RequiresPrescription = p.IsControlled ?? false,
+                    RequiresPrescription = (p.CategoryId == 1) || (p.Category != null && p.Category.CategoryId == 1),
 
                     CartQuantity = c.CartItemQuantity ?? 0,
 

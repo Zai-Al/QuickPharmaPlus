@@ -25,6 +25,8 @@ public partial class ProductOrder
     [Column("Prescription_id")]
     public int? PrescriptionId { get; set; }
 
+    public int Quantity { get; set; }
+
     [ForeignKey("OrderId")]
     [InverseProperty("ProductOrders")]
     public virtual Order? Order { get; set; }

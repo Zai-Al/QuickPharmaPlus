@@ -319,6 +319,8 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
         modelBuilder.Entity<ProductOrder>(entity =>
         {
+            entity.Property(e => e.Quantity).HasDefaultValue(1);
+
             entity.HasOne(d => d.Order).WithMany(p => p.ProductOrders).HasConstraintName("FK_Product_Order_Order");
 
             entity.HasOne(d => d.Prescription).WithMany(p => p.ProductOrders).HasConstraintName("FK_Product_Order_Prescription");
@@ -373,7 +375,7 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
         modelBuilder.Entity<Slot>(entity =>
         {
-            entity.HasKey(e => e.SlotId).HasName("PK__Slot__1AE5AEE6D44E0A8E");
+            entity.HasKey(e => e.SlotId).HasName("PK__Slot__1AE5AEE640BCFA31");
         });
 
         modelBuilder.Entity<Supplier>(entity =>

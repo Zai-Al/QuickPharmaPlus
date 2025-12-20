@@ -7,6 +7,7 @@ export default function CheckoutPrescriptionTab({
     userId,
     onStateChange,
     showErrors,
+    initialState = null,
 }) {
     const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
 
@@ -68,6 +69,15 @@ export default function CheckoutPrescriptionTab({
         fetchApproved();
     }, [API_BASE, userId]);
 
+    useEffect(() => {
+        if (!initialState?.sections) return;
+        setSectionStatus((prev) => {
+            // don’t overwrite if user already interacted
+            if (Object.keys(prev || {}).length > 0) return prev;
+            return initialState.sections;
+        });
+    }, [initialState]);
+
     const handleStatusChange = (itemId, status) => {
         setSectionStatus((prev) => ({
             ...prev,
@@ -118,6 +128,7 @@ export default function CheckoutPrescriptionTab({
                     onStatusChange={handleStatusChange}
                     showErrors={showErrors}
                     approvedOptions={approvedOptions}
+                    initialState={initialState?.sections?.[item.id] || null}
                 />
             ))}
         </div>

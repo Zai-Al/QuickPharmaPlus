@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace QuickPharmaPlus.Server.Models;
 
 [Table("Slot")]
-[Index("SlotName", Name = "UQ__Slot__A888F6FB242923D6", IsUnique = true)]
+[Index("SlotName", Name = "UQ__Slot__A888F6FB9FB5BA4D", IsUnique = true)]
 public partial class Slot
 {
     [Key]

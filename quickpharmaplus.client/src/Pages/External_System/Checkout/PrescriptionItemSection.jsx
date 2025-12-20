@@ -30,6 +30,7 @@ export default function PrescriptionItemSection({
     onStatusChange,
     showErrors,
     approvedOptions = [],
+    initialState = null,
 }) {
     const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
 
@@ -45,6 +46,37 @@ export default function PrescriptionItemSection({
         message: "",
     });
     const [checking, setChecking] = useState(false);
+
+    const hydratedRef = useRef(false);
+
+    useEffect(() => {
+        if (hydratedRef.current) return;
+        if (!initialState) return;
+
+        hydratedRef.current = true;
+
+        // Restore basic selection
+        if (initialState.mode) setMode(initialState.mode);
+
+        if (initialState.mode === "existing") {
+            if (initialState.selectedPrescriptionId)
+                setSelectedExisting(String(initialState.selectedPrescriptionId));
+        }
+
+        if (initialState.mode === "code") {
+            if (initialState.approvalCode) setApprovalCode(String(initialState.approvalCode));
+        }
+
+        // restore server validation status so it doesn't block continue
+        if (initialState.backendChecked) {
+            setServerCheck({
+                checked: true,
+                ok: !!initialState.backendValid,
+                message: initialState.backendMessage || "",
+            });
+        }
+    }, [initialState]);
+
 
     const validateWithServer = async (prescriptionId, isHealthProfile) => {
         if (!userId) throw new Error("Missing user id.");
@@ -359,11 +391,14 @@ export default function PrescriptionItemSection({
                 backendMessage: serverCheck.message,
 
                 // existing (health profile)
+                // existing (health profile)
                 usesHealthProfile: mode === "existing",
-                selectedPrescriptionId: mode === "existing" ? selectedExisting : null,
+                selectedExisting: mode === "existing" ? selectedExisting : null,   
+                selectedPrescriptionId: mode === "existing" ? selectedExisting : null, 
 
                 // code mode
                 approvalCode: mode === "code" ? approvalCode.trim() : null,
+                approvedPrescriptionId: mode === "code" ? approvalCode.trim() : null, 
 
                 // new upload
                 prescriptionFile: mode === "new" ? prescriptionFile : null,
@@ -422,11 +457,23 @@ export default function PrescriptionItemSection({
                         onChange={(e) => setSelectedExisting(e.target.value)}
                     >
                         <option value="">Choose from Health Profile</option>
-                        {approvedOptions.map((o) => (
-                            <option key={o.id} value={String(o.id)}>
-                                {o.label}
-                            </option>
-                        ))}
+                        {approvedOptions.map((o) => {
+                            const id = o.id ?? o.prescriptionId ?? o.PrescriptionId;
+                            const name =
+                                o.label ??
+                                o.prescriptionName ??
+                                o.PrescriptionName ??
+                                o.name ??
+                                o.Name ??
+                                `Prescription #${id ?? "—"}`;
+
+                            return (
+                                <option key={String(id ?? name)} value={id ? String(id) : ""}>
+                                    {name}
+                                </option>
+                            );
+                        })}
+
                     </select>
 
                     {errors.existing && (

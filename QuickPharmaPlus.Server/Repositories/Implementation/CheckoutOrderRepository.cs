@@ -23,6 +23,21 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             _prescriptionRepo = prescriptionRepo;
         }
 
+        // Bahrain time helper (Windows: "Arabian Standard Time")
+        private static DateTime BahrainNow()
+        {
+            try
+            {
+                var tz = TimeZoneInfo.FindSystemTimeZoneById("Arabian Standard Time");
+                return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+            }
+            catch
+            {
+                // fallback (+03:00)
+                return DateTime.UtcNow.AddHours(3);
+            }
+        }
+
         public async Task<CheckoutCreateOrderResponseDto> CreateOrderFromCheckoutAsync(CheckoutCreateOrderRequestDto req)
         {
             if (req.UserId <= 0)
@@ -47,14 +62,14 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     if (req.PrescriptionDocument == null || req.CprDocument == null)
                         return new CheckoutCreateOrderResponseDto { Created = false, Message = "Prescription files required." };
 
-                    // address required for checkout upload, per your CreateCheckoutAsync rules :contentReference[oaicite:5]{index=5}
+                    // address required for checkout upload
                     if (!req.CityId.HasValue || string.IsNullOrWhiteSpace(req.Block) ||
                         string.IsNullOrWhiteSpace(req.Road) || string.IsNullOrWhiteSpace(req.BuildingFloor))
                         return new CheckoutCreateOrderResponseDto { Created = false, Message = "Delivery address required for prescription upload." };
 
                     var createDto = new PrescriptionCreateDto
                     {
-                        // Name can be empty; repo auto-fills for checkout :contentReference[oaicite:6]{index=6}
+                        // Name can be empty; repo auto-fills for checkout
                         PrescriptionName = "",
                         CityId = req.CityId.Value,
                         Block = req.Block,
@@ -84,7 +99,6 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 }
 
                 // 2c) Validate prescription against cart using your existing validator
-                // This checks: owner, approved status, product names match, quantities match :contentReference[oaicite:7]{index=7}
                 var presRes = await _prescriptionRepo.ValidateCheckoutPrescriptionAsync(
                     req.UserId,
                     usedPrescriptionId.Value,
@@ -98,7 +112,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     {
                         Created = false,
                         PrescriptionValid = false,
-                        PrescriptionReason = presRes.Reason, // e.g. NOT_APPROVED, QUANTITY_MISMATCH :contentReference[oaicite:8]{index=8}
+                        PrescriptionReason = presRes.Reason,
                         Message = "Prescription does not match prescribed products."
                     };
                 }
@@ -161,6 +175,25 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 };
             }
 
+            // 4.5) Compute totals server-side (so OrderTotal is NEVER null)
+            var productIds = cartItems.Select(x => x.ProductId).Distinct().ToList();
+
+            // IMPORTANT: Replace ProductPrice with your real price column if different
+            var priceMap = await _db.Products
+                .Where(p => productIds.Contains(p.ProductId))
+                .Select(p => new { p.ProductId, p.ProductPrice })
+                .ToDictionaryAsync(x => x.ProductId, x => x.ProductPrice ?? 0m);
+
+            decimal subtotal = 0m;
+            foreach (var it in cartItems)
+            {
+                var unit = priceMap.TryGetValue(it.ProductId, out var p) ? p : 0m;
+                subtotal += unit * it.CartQuantity;
+            }
+
+            decimal deliveryFee = (req.Mode == "delivery") ? 1m : 0m;
+            decimal orderTotal = subtotal + deliveryFee;
+
             // 5) Create everything in a transaction
             using var tx = await _db.Database.BeginTransactionAsync();
 
@@ -189,43 +222,80 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     addressId = address.AddressId;
                 }
 
+                int? profileAddressId = null;
+
+                if (req.Mode == "delivery" && req.UseSavedAddress)
+                {
+                    profileAddressId = await _db.Users
+                        .Where(u => u.UserId == req.UserId)
+                        .Select(u => (int?)u.AddressId)   // assumes User has AddressId FK
+                        .FirstOrDefaultAsync();
+
+                    if (!profileAddressId.HasValue || profileAddressId.Value <= 0)
+                        return new CheckoutCreateOrderResponseDto { Created = false, Message = "User does not have a saved profile address." };
+                }
+                var nowBH = BahrainNow();
+
                 // Shipping
                 var shipping = new Shipping
                 {
                     UserId = req.UserId,
                     BranchId = branchId.Value,
-                    AddressId = (req.Mode == "delivery" ? (req.UseSavedAddress ? null : addressId) : null),
+                    AddressId = req.Mode == "delivery"
+                        ? (req.UseSavedAddress ? profileAddressId : addressId)
+                        : null,
                     ShippingIsDelivery = (req.Mode == "delivery"),
                     ShippingIsUrgent = (req.Mode == "delivery" ? req.IsUrgent : null),
                     ShippingSlotId = (req.Mode == "delivery" && !req.IsUrgent) ? req.SlotId : null,
-                    ShippingDate = (req.Mode == "delivery" && !req.IsUrgent && req.ShippingDate.HasValue)
-                        ? req.ShippingDate.Value.ToDateTime(TimeOnly.MinValue)
-                        : null
+                    ShippingDate = req.Mode != "delivery" ? null : req.IsUrgent ? nowBH.Date : (req.ShippingDate.HasValue ? req.ShippingDate.Value.ToDateTime(TimeOnly.MinValue) : (DateTime?)null)
+
                 };
 
                 _db.Shippings.Add(shipping);
                 await _db.SaveChangesAsync();
 
-                // Order (adjust property names if your Order entity differs)
+                // ===== Payment (CASH for now) =====
+                // IMPORTANT: adjust property names to match your Payment model
+                var payment = new Payment
+                {
+                    PaymentMethodId = 1,      // 1 = cash
+                    PaymentTimestamp = nowBH, // time of order
+                    PaymentAmount = orderTotal,
+                    PaymentIsSuccessful = true
+                };
+
+                _db.Payments.Add(payment);
+                await _db.SaveChangesAsync();
+
+                // ===== Order =====
+                // IMPORTANT: adjust property names to match your Order model
                 var order = new Order
                 {
                     UserId = req.UserId,
                     ShippingId = shipping.ShippingId,
-                    // OrderCreationDate = DateTime.Now,
-                    // TotalAmount = ...
+
+                    OrderStatusId = 1,        // 1 = approved
+                    OrderCreationDate = nowBH,
+                    OrderTotal = orderTotal,
+
+                    PaymentId = payment.PaymentId
                 };
+
                 _db.Orders.Add(order);
                 await _db.SaveChangesAsync();
 
-                // ProductOrders (NO status field, since you will delete it)
+                // ProductOrders
                 foreach (var it in cartItems)
                 {
                     var po = new ProductOrder
                     {
                         OrderId = order.OrderId,
                         ProductId = it.ProductId,
+
                         // IMPORTANT: set your real quantity column name here:
-                        // ProductOrderQuantity = it.CartQuantity,
+                        // If your model is ProductOrderQuantity, keep it.
+                        // If it's Quantity, replace it.
+                        Quantity = it.CartQuantity,
 
                         // If you have a PrescriptionId FK on ProductOrder, set it ONLY for prescribed items
                         PrescriptionId = it.RequiresPrescription ? usedPrescriptionId : null
@@ -261,9 +331,11 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             }
         }
 
-        private async Task<List<string>> GetUnavailableNamesAsync(int branchId, List<QuickPharmaPlus.Server.ModelsDTO.WishList_Cart.CartItemDto> cartItems)
+        private async Task<List<string>> GetUnavailableNamesAsync(
+            int branchId,
+            List<QuickPharmaPlus.Server.ModelsDTO.WishList_Cart.CartItemDto> cartItems)
         {
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = DateOnly.FromDateTime(BahrainNow());
 
             var productIds = cartItems.Select(i => i.ProductId).Distinct().ToList();
 
@@ -292,9 +364,11 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 .ToListAsync();
         }
 
-        private async Task DecreaseInventoryAsync(int branchId, List<QuickPharmaPlus.Server.ModelsDTO.WishList_Cart.CartItemDto> cartItems)
+        private async Task DecreaseInventoryAsync(
+            int branchId,
+            List<QuickPharmaPlus.Server.ModelsDTO.WishList_Cart.CartItemDto> cartItems)
         {
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = DateOnly.FromDateTime(BahrainNow());
 
             foreach (var it in cartItems)
             {
