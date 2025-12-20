@@ -71,7 +71,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     CategoryName = p.Category != null ? p.Category.CategoryName : null,
                     ProductTypeName = p.ProductType != null ? p.ProductType.ProductTypeName : null,
 
-                    RequiresPrescription = p.IsControlled ?? false,
+                    RequiresPrescription = (p.CategoryId == 1) || (p.Category != null && p.Category.CategoryId == 1),
 
                     InventoryCount = _context.Inventories
                         .Where(i => i.ProductId == p.ProductId && (i.InventoryQuantity ?? 0) > 0)

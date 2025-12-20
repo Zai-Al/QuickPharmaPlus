@@ -76,16 +76,29 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             else
             {
                 // Delivery -> branch assigned to city
-                if (!req.CityId.HasValue || req.CityId.Value <= 0)
+                int? cityId = req.CityId;
+
+                if (req.UseSavedAddress)
                 {
-                    result.Message = "Please select a city for delivery.";
+                    cityId = await _context.Users
+                        .Where(u => u.UserId == req.UserId)
+                        .Select(u => (int?)u.Address!.CityId)
+                        .FirstOrDefaultAsync();
+                }
+
+                if (!cityId.HasValue || cityId.Value <= 0)
+                {
+                    result.Message = req.UseSavedAddress
+                        ? "No saved profile address found for this user."
+                        : "Please select a city for delivery.";
                     return result;
                 }
 
                 var assignedBranchId = await _context.Cities
-                    .Where(c => c.CityId == req.CityId.Value)
+                    .Where(c => c.CityId == cityId.Value)
                     .Select(c => c.BranchId)
                     .FirstOrDefaultAsync();
+
 
                 if (!assignedBranchId.HasValue || assignedBranchId.Value <= 0)
                 {

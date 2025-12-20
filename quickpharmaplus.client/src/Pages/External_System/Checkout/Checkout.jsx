@@ -1,6 +1,6 @@
 // src/Pages/External_System/Checkout.jsx
-import { useEffect, useState, useContext, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useContext, useCallback, useMemo, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AuthContext } from "../../../Context/AuthContext.jsx";
 
 import PageHeader from "../Shared_Components/PageHeader";
@@ -14,8 +14,57 @@ import PaymentTab from "./PaymentTab";
 
 import "../Shared_Components/External_Style.css";
 
+const DRAFT_KEY = "qp_checkout_draft_v1";
+/*
+function saveDraftToSession(draft) {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+}
+*/
+function loadDraftFromSession() {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return null;
+    }
+}
+function clearDraftFromSession() {
+    sessionStorage.removeItem(DRAFT_KEY);
+}
+
+// ---- helpers ----
+function pickSingleApprovedPrescriptionId(prescriptionState, itemsFromCart) {
+    const sections = prescriptionState?.sections || {};
+    const prescribed = (itemsFromCart || []).filter((x) => x.prescribed);
+
+    const ids = new Set();
+
+    for (const item of prescribed) {
+        const sec = sections[item.id];
+        if (!sec) continue;
+
+        // existing mode (health profile)
+        if (sec.mode === "existing") {
+            const v = Number(sec.selectedExisting ?? sec.selectedPrescriptionId);
+            if (Number.isFinite(v) && v > 0) ids.add(v);
+        }
+
+        // code mode
+        if (sec.mode === "code") {
+            const v = Number(sec.approvedPrescriptionId ?? sec.approvalCode ?? sec.selectedExisting);
+            if (Number.isFinite(v) && v > 0) ids.add(v);
+        }
+    }
+
+    if (ids.size === 1) return [...ids][0];
+    return null;
+}
+
+
 export default function Checkout() {
     const navigate = useNavigate();
+    const [sp] = useSearchParams();
 
     const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
 
@@ -29,107 +78,34 @@ export default function Checkout() {
     const [showMismatchDialog, setShowMismatchDialog] = useState(false);
     const [mismatchDialogBody, setMismatchDialogBody] = useState(null);
 
-    const validateApprovedPrescriptionsBeforeContinue = async () => {
-        const sections = prescriptionState.sections || {};
-        const prescribed = (itemsFromCart || []).filter((x) => x.prescribed);
-
-        for (const item of prescribed) {
-            const sec = sections[item.id];
-            if (!sec) continue;
-
-            // only validate existing/code flows (new uploads handled by your upload flow)
-            if (sec.mode === "existing" || sec.mode === "code") {
-                // must have passed backend check in the section
-                if (!sec.backendChecked || !sec.backendValid) {
-                    setMismatchDialogBody(
-                        <>
-                            <p className="fw-bold mb-2">Prescription validation failed</p>
-                            <p className="mb-1">
-                                Item: <span className="fw-bold">{item.name}</span>
-                            </p>
-                            <p className="mb-0">
-                                {sec.backendMessage || "Prescription does not match the prescribed product/quantity."}
-                            </p>
-                        </>
-                    );
-                    setShowMismatchDialog(true);
-                    return false;
-                }
+    // If we ever go to Stripe and come back, we want to restore this.
+    const [draft, setDraft] = useState(() => {
+        const fromSession = loadDraftFromSession();
+        return (
+            fromSession || {
+                shipping: null, // full ShippingTab payload
+                prescription: null, // { ApprovedPrescriptionId, IsHealthProfile }
+                payment: { method: "cash" },
             }
-        }
+        );
+    });
 
-        return true;
-    };
+    // Tracks whether we intentionally left to Stripe.
+    const leavingForStripeRef = useRef(false);
 
+    // Prevent session draft hanging around if user leaves checkout normally.
+    useEffect(() => {
+        return () => {
+            if (!leavingForStripeRef.current) {
+                clearDraftFromSession();
+            }
+        };
+    }, []);
 
-    // ? prevents “empty cart” warning flashing before first fetch finishes
+    // Prevent “empty cart” warning flashing before first fetch finishes
     const [cartLoadedOnce, setCartLoadedOnce] = useState(false);
 
-    // Is there any prescribed medication in this order?
-    const hasPrescribed = itemsFromCart.some((item) => item.prescribed);
-
-    // Dynamic tabs (Prescription appears only if needed)
-    const checkoutTabs = [
-        { key: "summary", label: "Order Summary" },
-        ...(hasPrescribed ? [{ key: "prescription", label: "Prescription" }] : []),
-        { key: "shipping", label: "Shipping" },
-        { key: "payment", label: "Payment" },
-    ];
-
-    const [activeStep, setActiveStep] = useState("summary");
-
-    // ----- PRESCRIPTION STATE -----
-    const [prescriptionState, setPrescriptionState] = useState({
-        allValid: !hasPrescribed,
-        anyNewUpload: false,
-        sections: {}, // per-item section payloads from CheckoutPrescriptionTab
-    });
-
-    const [prescriptionUploading, setPrescriptionUploading] = useState(false);
-    const [prescriptionUploadError, setPrescriptionUploadError] = useState("");
-    const [prescriptionShowErrors, setPrescriptionShowErrors] = useState(false);
-
-    // Dialog when at least one prescription was uploaded as NEW
-    const [showApprovalDialog, setShowApprovalDialog] = useState(false);
-
-    // ----- SHIPPING STATE -----
-    const [shippingState, setShippingState] = useState({
-        isValid: false,
-        mode: "pickup", // "pickup" | "delivery"
-        isUrgent: false,
-    });
-
-    const [shippingShowErrors, setShippingShowErrors] = useState(false);
-
-    const handlePrescriptionStateChange = useCallback((next) => {
-        setPrescriptionState((prev) => {
-            const same =
-                prev.allValid === next.allValid &&
-                prev.anyNewUpload === next.anyNewUpload &&
-                prev.sections === next.sections; // reference compare is fine
-
-            return same ? prev : next;
-        });
-    }, []);
-
-    const handleShippingStateChange = useCallback((next) => {
-        setShippingState((prev) =>
-            prev.isValid === next.isValid &&
-                prev.mode === next.mode &&
-                prev.isUrgent === next.isUrgent
-                ? prev
-                : next
-        );
-    }, []);
-
-    // ? keep prescription defaults in sync if cart changes and prescription tab is removed/added
-    useEffect(() => {
-        setPrescriptionState((prev) => ({
-            ...prev,
-            allValid: hasPrescribed ? prev.allValid : true,
-        }));
-    }, [hasPrescribed]);
-
+    // fetch cart
     useEffect(() => {
         if (!userId) {
             setItemsFromCart([]);
@@ -147,6 +123,7 @@ export default function Checkout() {
                 const res = await fetch(`${API_BASE}/api/Cart?userId=${userId}`, {
                     signal: controller.signal,
                     headers: { "Content-Type": "application/json" },
+                    credentials: "include",
                 });
 
                 if (!res.ok) throw new Error("Failed to load cart for checkout.");
@@ -154,7 +131,6 @@ export default function Checkout() {
                 const data = await res.json();
                 const apiItems = Array.isArray(data?.items) ? data.items : [];
 
-                // normalize to what checkout expects (id/quantity/prescribed)
                 const mapped = apiItems
                     .map((x, idx) => {
                         const productId = x.productId ?? x.ProductId;
@@ -175,10 +151,7 @@ export default function Checkout() {
                             type: x.type ?? x.productTypeName ?? x.ProductTypeName ?? "",
 
                             imageSrc:
-                                x.imageSrc ??
-                                x.productImageBase64 ??
-                                x.ProductImageBase64 ??
-                                null,
+                                x.imageSrc ?? x.productImageBase64 ?? x.ProductImageBase64 ?? null,
                             incompatibilities: x.incompatibilities ?? x.Incompatibilities ?? {},
                         };
                     })
@@ -204,6 +177,327 @@ export default function Checkout() {
         return () => controller.abort();
     }, [API_BASE, userId]);
 
+    // Is there any prescribed medication in this order?
+    const hasPrescribed = itemsFromCart.some((item) => item.prescribed);
+
+    // Dynamic tabs (Prescription appears only if needed)
+    const checkoutTabs = useMemo(
+        () => [
+            { key: "summary", label: "Order Summary" },
+            ...(hasPrescribed ? [{ key: "prescription", label: "Prescription" }] : []),
+            { key: "shipping", label: "Shipping" },
+            { key: "payment", label: "Payment" },
+        ],
+        [hasPrescribed]
+    );
+
+    const [activeStep, setActiveStep] = useState("summary");
+
+    // Restore tab on return from Stripe cancel:
+    useEffect(() => {
+        const tab = sp.get("tab");
+        if (tab && checkoutTabs.some((t) => t.key === tab)) {
+            setActiveStep(tab);
+        }
+        const fromSession = loadDraftFromSession();
+        if (fromSession) setDraft(fromSession);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // ----- PRESCRIPTION STATE -----
+    const [prescriptionState, setPrescriptionState] = useState({
+        allValid: !hasPrescribed,
+        anyNewUpload: false,
+        sections: {},
+    });
+
+    const [prescriptionUploading, setPrescriptionUploading] = useState(false);
+    const [prescriptionUploadError, setPrescriptionUploadError] = useState("");
+    const [prescriptionShowErrors, setPrescriptionShowErrors] = useState(false);
+
+    // Dialog when at least one prescription was uploaded as NEW
+    const [showApprovalDialog, setShowApprovalDialog] = useState(false);
+
+    // ----- SHIPPING STATE -----
+    const [shippingState, setShippingState] = useState({
+        isValid: false,
+        mode: "pickup",
+        isUrgent: false,
+    });
+
+    const [shippingShowErrors, setShippingShowErrors] = useState(false);
+
+    // ----- PLACE ORDER (CASH) -----
+    const [placingOrder, setPlacingOrder] = useState(false);
+    const [placeOrderError, setPlaceOrderError] = useState("");
+    const [showOrderResultDialog, setShowOrderResultDialog] = useState(false);
+    const [orderPlacedOk, setOrderPlacedOk] = useState(false);
+    const [orderResultBody, setOrderResultBody] = useState(null);
+
+    // keep prescription defaults in sync if cart changes and prescription tab is removed/added
+    useEffect(() => {
+        setPrescriptionState((prev) => ({
+            ...prev,
+            allValid: hasPrescribed ? prev.allValid : true,
+        }));
+    }, [hasPrescribed]);
+
+    const handlePrescriptionStateChange = useCallback((next) => {
+        setPrescriptionState((prev) => {
+            const same =
+                prev.allValid === next.allValid &&
+                prev.anyNewUpload === next.anyNewUpload &&
+                prev.sections === next.sections;
+            return same ? prev : next;
+        });
+
+        // persist so going back restores selections
+        setDraft((p) => ({
+            ...p,
+            prescriptionUI: next, // store the whole UI payload (sections/mode/code/etc)
+        }));
+    }, []);
+
+
+    const handleShippingStateChange = useCallback((next) => {
+        setShippingState((prev) =>
+            prev.isValid === next.isValid &&
+                prev.mode === next.mode &&
+                prev.isUrgent === next.isUrgent
+                ? prev
+                : next
+        );
+
+        // store full payload for place order
+        setDraft((p) => ({
+            ...p,
+            shipping: next?.payload ? next.payload : next,
+        }));
+    }, []);
+
+    // --- validate approved prescription sections before leaving prescription step ---
+    const validateApprovedPrescriptionsBeforeContinue = useCallback(async () => {
+        const sections = prescriptionState.sections || {};
+        const prescribed = (itemsFromCart || []).filter((x) => x.prescribed);
+
+        const singleId = pickSingleApprovedPrescriptionId(prescriptionState, itemsFromCart);
+        if (prescribed.length > 0 && !prescriptionState.anyNewUpload && !singleId) {
+            setMismatchDialogBody(
+                <>
+                    <p className="fw-bold mb-2">Prescription selection issue</p>
+                    <p className="mb-0">
+                        Please select the <span className="fw-bold">same approved prescription</span> for
+                        all prescribed items.
+                    </p>
+                </>
+            );
+            setShowMismatchDialog(true);
+            return false;
+        }
+
+        for (const item of prescribed) {
+            const sec = sections[item.id];
+            if (!sec) continue;
+
+            if (sec.mode === "existing" || sec.mode === "code") {
+                if (!sec.backendChecked || !sec.backendValid) {
+                    setMismatchDialogBody(
+                        <>
+                            <p className="fw-bold mb-2">Prescription validation failed</p>
+                            <p className="mb-1">
+                                Item: <span className="fw-bold">{item.name}</span>
+                            </p>
+                            <p className="mb-0">
+                                {sec.backendMessage ||
+                                    "Prescription does not match the prescribed product/quantity."}
+                            </p>
+                        </>
+                    );
+                    setShowMismatchDialog(true);
+                    return false;
+                }
+            }
+        }
+
+        // Save minimal prescription draft (IDs only) for final create
+        if (prescribed.length > 0 && !prescriptionState.anyNewUpload) {
+            setDraft((p) => ({
+                ...p,
+                prescription: {
+                    ApprovedPrescriptionId: singleId,
+                    IsHealthProfile: Object.values(sections).some((s) => s?.mode === "existing"),
+                },
+            }));
+        }
+
+        return true;
+    }, [prescriptionState, itemsFromCart]);
+
+    // Upload NEW prescriptions (kept for your old flow; if you no longer need uploads, you can delete this block)
+    const uploadNewCheckoutPrescriptions = async () => {
+        if (!userId) throw new Error("Missing userId.");
+
+        const sections = prescriptionState.sections || {};
+        const newUploads = Object.values(sections).filter((s) => s?.mode === "new");
+        if (!newUploads.length) return;
+
+        setPrescriptionUploading(true);
+        setPrescriptionUploadError("");
+
+        try {
+            for (const s of newUploads) {
+                if (!s?.prescriptionFile || !s?.cprFile) {
+                    throw new Error("Missing prescription file(s).");
+                }
+
+                const fd = new FormData();
+                fd.append("PrescriptionDocument", s.prescriptionFile);
+                fd.append("PrescriptionCprDocument", s.cprFile);
+                fd.append("PrescriptionName", "");
+
+                const cityId = Number.parseInt(s.address?.cityId, 10);
+                fd.append("CityId", Number.isFinite(cityId) ? String(cityId) : "");
+                fd.append("Block", s.address?.block ?? "");
+                fd.append("Road", s.address?.road ?? "");
+                fd.append("BuildingFloor", s.address?.buildingFloor ?? "");
+
+                const res = await fetch(`${API_BASE}/api/Prescription/checkout/${userId}`, {
+                    method: "POST",
+                    body: fd,
+                    credentials: "include",
+                });
+
+                if (!res.ok) {
+                    let msg = `Upload failed (${res.status})`;
+                    try {
+                        const j = await res.json();
+                        msg = j?.error || j?.message || msg;
+                    } catch {
+                        // ignore
+                    }
+                    throw new Error(msg);
+                }
+            }
+        } finally {
+            setPrescriptionUploading(false);
+        }
+    };
+
+    // Cash order submit (NO stripe)
+    const placeCashOrder = useCallback(async () => {
+        if (!userId) return;
+
+        const ship = draft?.shipping;
+
+        if (!ship?.isValid) {
+            setPlaceOrderError("Shipping is not valid. Please re-check the Shipping step.");
+            return;
+        }
+
+        if ((draft?.payment?.method || "cash") !== "cash") {
+            setPlaceOrderError("Stripe is disabled for now. Please select Cash.");
+            return;
+        }
+
+        setPlacingOrder(true);
+        setPlaceOrderError("");
+        setOrderPlacedOk(false);
+
+        try {
+            const fd = new FormData();
+
+            // required
+            fd.append("UserId", String(userId));
+            fd.append("Mode", String(ship.Mode ?? ship.mode ?? "pickup"));
+
+            // pickup
+            if (ship.PickupBranchId != null) fd.append("PickupBranchId", String(ship.PickupBranchId));
+
+            // delivery fields
+            fd.append("UseSavedAddress", String(!!ship.UseSavedAddress));
+            if (ship.CityId != null) fd.append("CityId", String(ship.CityId));
+            if (ship.Block != null) fd.append("Block", String(ship.Block));
+            if (ship.Road != null) fd.append("Road", String(ship.Road));
+            if (ship.BuildingFloor != null) fd.append("BuildingFloor", String(ship.BuildingFloor));
+
+            // schedule
+            fd.append("IsUrgent", String(!!ship.isUrgent || !!ship.IsUrgent));
+            if (ship.ShippingDate) fd.append("ShippingDate", String(ship.ShippingDate));
+            if (ship.SlotId != null) fd.append("SlotId", String(ship.SlotId));
+
+            // prescription (only if exists)
+            if (draft?.prescription?.ApprovedPrescriptionId != null) {
+                fd.append("ApprovedPrescriptionId", String(draft.prescription.ApprovedPrescriptionId));
+                fd.append("IsHealthProfile", String(!!draft.prescription.IsHealthProfile));
+            }
+
+            // not uploading new prescription in this flow
+            fd.append("UploadNewPrescription", "false");
+
+            const res = await fetch(`${API_BASE}/api/CheckoutOrder/create`, {
+                method: "POST",
+                body: fd,
+                credentials: "include",
+            });
+
+            const json = await res.json().catch(() => ({}));
+
+            if (!res.ok || !json?.created) {
+                const msg = json?.message || `Failed to create order (${res.status}).`;
+                const unavailable = Array.isArray(json?.unavailableProductNames)
+                    ? json.unavailableProductNames
+                    : [];
+                const presReason = json?.prescriptionReason;
+
+                setOrderPlacedOk(false);
+                setOrderResultBody(
+                    <div className="text-start">
+                        <div className="fw-bold mb-2">{msg}</div>
+
+                        {presReason && (
+                            <div className="mb-2">
+                                <div className="fw-bold">Prescription reason:</div>
+                                <div>{presReason}</div>
+                            </div>
+                        )}
+
+                        {unavailable.length > 0 && (
+                            <>
+                                <div className="fw-bold mt-2">Unavailable items:</div>
+                                <ul className="mb-0">
+                                    {unavailable.map((n, i) => (
+                                        <li key={i}>{n}</li>
+                                    ))}
+                                </ul>
+                            </>
+                        )}
+                    </div>
+                );
+
+                setShowOrderResultDialog(true);
+                return;
+            }
+
+            // success
+            clearDraftFromSession();
+
+            setOrderPlacedOk(true);
+            setOrderResultBody(
+                <div className="text-start">
+                    <div className="fw-bold mb-2">Order created successfully.</div>
+                    <div>
+                        Order ID: <span className="fw-bold">{json?.orderId ?? "—"}</span>
+                    </div>
+                </div>
+            );
+            setShowOrderResultDialog(true);
+        } catch (e) {
+            setPlaceOrderError(e?.message || "Unexpected error while placing order.");
+        } finally {
+            setPlacingOrder(false);
+        }
+    }, [API_BASE, draft, userId]);
+
     const stepKeys = checkoutTabs.map((t) => t.key);
     const currentIndex = stepKeys.indexOf(activeStep);
     const isFirst = currentIndex === 0;
@@ -213,10 +507,9 @@ export default function Checkout() {
     const isShippingStep = activeStep === "shipping";
 
     const goNextStep = () => {
-        if (!isLast) {
+        if (currentIndex < stepKeys.length - 1) {
             setActiveStep(stepKeys[currentIndex + 1]);
         } else {
-            // later: submit final order here
             console.log("Place order clicked");
         }
     };
@@ -229,78 +522,19 @@ export default function Checkout() {
         }
     };
 
-    // ? Upload all NEW prescriptions (from prescription tab) before showing approval dialog
-    const uploadNewCheckoutPrescriptions = async () => {
-        if (!userId) throw new Error("Missing userId.");
-
-        const sections = prescriptionState.sections || {};
-        const newUploads = Object.values(sections).filter((s) => s?.mode === "new");
-
-        if (!newUploads.length) return;
-
-        setPrescriptionUploading(true);
-        setPrescriptionUploadError("");
-
-        try {
-            for (const s of newUploads) {
-                // Basic guard (should already be enforced by allValid, but keep it safe)
-                if (!s?.prescriptionFile || !s?.cprFile) {
-                    throw new Error("Missing prescription file(s).");
-                }
-
-                const fd = new FormData();
-
-                // MUST match backend DTO property names:
-                fd.append("PrescriptionDocument", s.prescriptionFile);
-                fd.append("PrescriptionCprDocument", s.cprFile);
-
-                // you said you don’t want name for checkout prescriptions
-                fd.append("PrescriptionName", "");
-
-                // Address payload from PrescriptionItemSection
-                const cityId = Number.parseInt(s.address?.cityId, 10);
-                fd.append("CityId", Number.isFinite(cityId) ? String(cityId) : "");
-                fd.append("Block", s.address?.block ?? "");
-                fd.append("Road", s.address?.road ?? "");
-                fd.append("BuildingFloor", s.address?.buildingFloor ?? "");
-
-                const res = await fetch(`${API_BASE}/api/Prescription/checkout/${userId}`, {
-                    method: "POST",
-                    body: fd,
-                });
-
-                if (!res.ok) {
-                    let msg = `Upload failed (${res.status})`;
-                    try {
-                        const j = await res.json();
-                        msg = j?.error || j?.message || msg;
-                    } catch {
-                        // ignore JSON parsing errors
-                    }
-                    throw new Error(msg);
-                }
-            }
-        } finally {
-            setPrescriptionUploading(false);
-        }
-    };
-
     const canContinue =
-        // don’t allow continue if cart not ready / empty
         cartLoadedOnce &&
         !loadingCart &&
         !cartError &&
         itemsFromCart.length > 0 &&
-        // per-step validation
         (isPrescriptionStep
             ? prescriptionState.allValid
             : isShippingStep
                 ? shippingState.isValid
                 : true);
 
-
     const handleContinueClick = () => {
-        // 1) Prescription step validation + upload
+        // 1) Prescription step
         if (isPrescriptionStep) {
             setPrescriptionUploadError("");
 
@@ -309,7 +543,6 @@ export default function Checkout() {
                 return;
             }
 
-            // All info filled:
             if (prescriptionState.anyNewUpload) {
                 setPrescriptionShowErrors(false);
 
@@ -318,16 +551,13 @@ export default function Checkout() {
                         await uploadNewCheckoutPrescriptions();
                         setShowApprovalDialog(true);
                     } catch (e) {
-                        setPrescriptionUploadError(
-                            e?.message || "Failed to upload prescription."
-                        );
+                        setPrescriptionUploadError(e?.message || "Failed to upload prescription.");
                     }
                 })();
 
                 return;
             }
-        } else {
-            // ? existing/code path must be validated by backend before continue
+
             (async () => {
                 const ok = await validateApprovedPrescriptionsBeforeContinue();
                 if (!ok) {
@@ -342,8 +572,7 @@ export default function Checkout() {
             return;
         }
 
-
-        // 2) Shipping step validation
+        // 2) Shipping step
         if (isShippingStep) {
             if (!shippingState.isValid) {
                 setShippingShowErrors(true);
@@ -355,10 +584,26 @@ export default function Checkout() {
             return;
         }
 
-        // 3) Other steps (summary, payment)
+        // 3) Payment step (LAST) -> place cash order
+        if (activeStep === "payment" && isLast) {
+            placeCashOrder();
+            return;
+        }
+
+        // 4) Other steps
         goNextStep();
     };
+/*
+    // (Stripe helpers kept but unused for now)
+    const handleBeforeStripeRedirect = useCallback(() => {
+        leavingForStripeRef.current = true;
+        saveDraftToSession(draft);
+    }, [draft]);
 
+    const handleStripeCancelledReturn = useCallback(() => {
+        leavingForStripeRef.current = false;
+    }, []);
+    */
     const renderActiveTabContent = () => {
         switch (activeStep) {
             case "summary":
@@ -371,6 +616,7 @@ export default function Checkout() {
                         userId={userId}
                         showErrors={prescriptionShowErrors}
                         onStateChange={handlePrescriptionStateChange}
+                        initialState={draft?.prescriptionUI || null}
                     />
                 );
 
@@ -381,6 +627,7 @@ export default function Checkout() {
                         cartItems={itemsFromCart}
                         showErrors={shippingShowErrors}
                         onStateChange={handleShippingStateChange}
+                        initialState={draft?.shipping || null}
                     />
                 );
 
@@ -390,6 +637,13 @@ export default function Checkout() {
                         items={itemsFromCart}
                         shippingMode={shippingState.mode}
                         isUrgent={shippingState.isUrgent}
+                        method={draft.payment?.method || "cash"}
+                        onMethodChange={(m) =>
+                            setDraft((p) => ({
+                                ...p,
+                                payment: { ...(p.payment || {}), method: m },
+                            }))
+                        }
                     />
                 );
 
@@ -411,23 +665,21 @@ export default function Checkout() {
                 />
 
                 <div className="border rounded-bottom p-4 mt-0 text-center">
-                    {loadingCart && (
-                        <div className="alert alert-info">Loading your cart...</div>
-                    )}
+                    {loadingCart && <div className="alert alert-info">Loading your cart...</div>}
                     {cartError && <div className="alert alert-danger">{cartError}</div>}
 
-                    {cartLoadedOnce &&
-                        !loadingCart &&
-                        !cartError &&
-                        itemsFromCart.length === 0 && (
-                            <div className="alert alert-warning">
-                                Your cart has no in-stock items to checkout.
-                            </div>
-                        )}
+                    {cartLoadedOnce && !loadingCart && !cartError && itemsFromCart.length === 0 && (
+                        <div className="alert alert-warning">
+                            Your cart has no in-stock items to checkout.
+                        </div>
+                    )}
 
-                    {/* ? show upload errors on prescription step */}
                     {activeStep === "prescription" && prescriptionUploadError && (
                         <div className="alert alert-danger">{prescriptionUploadError}</div>
+                    )}
+
+                    {activeStep === "payment" && placeOrderError && (
+                        <div className="alert alert-danger">{placeOrderError}</div>
                     )}
 
                     {renderActiveTabContent()}
@@ -440,7 +692,7 @@ export default function Checkout() {
                                 type="button"
                                 className="btn btn-outline-secondary px-4"
                                 onClick={goPrev}
-                                disabled={prescriptionUploading}
+                                disabled={prescriptionUploading || placingOrder}
                             >
                                 Previous
                             </button>
@@ -450,13 +702,15 @@ export default function Checkout() {
                             type="button"
                             className="btn qp-add-btn px-4"
                             onClick={handleContinueClick}
-                            disabled={prescriptionUploading || !canContinue}
+                            disabled={prescriptionUploading || placingOrder || !canContinue}
                         >
-                            {prescriptionUploading
-                                ? "Uploading..."
-                                : isLast
-                                    ? "Place Order"
-                                    : "Continue"}
+                            {placingOrder
+                                ? "Placing..."
+                                : prescriptionUploading
+                                    ? "Uploading..."
+                                    : isLast
+                                        ? "Place Order"
+                                        : "Continue"}
                         </button>
                     </div>
                 </div>
@@ -482,6 +736,7 @@ export default function Checkout() {
                     navigate("/myOrders");
                 }}
             />
+
             <DialogModal
                 show={showMismatchDialog}
                 title="Prescription does not match"
@@ -492,6 +747,28 @@ export default function Checkout() {
                 onConfirm={() => setShowMismatchDialog(false)}
             />
 
+            <DialogModal
+                show={showOrderResultDialog}
+                title="Checkout"
+                body={orderResultBody}
+                confirmLabel="OK"
+                cancelLabel={null}
+                onCancel={() => setShowOrderResultDialog(false)}
+                onConfirm={() => {
+                    setShowOrderResultDialog(false);
+                    if (orderPlacedOk) {
+                        navigate("/myOrders");
+                    }
+                }}
+            />
         </>
     );
 }
+
+/*
+NOTES:
+1) ShippingTab currently calls onStateChange(payload).
+   handleShippingStateChange stores draft.shipping as next.payload ? next.payload : next
+   (so both styles are supported)
+2) Stripe helpers are kept but NOT used right now (cash testing).
+*/
