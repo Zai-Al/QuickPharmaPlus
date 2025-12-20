@@ -450,6 +450,7 @@ export default function EditProfile_Internal() {
 
                     {/* SAVE BUTTON */}
                     <button className="btn save-btn w-100 mb-3" type="submit" disabled={saving}>
+                        <i className="bi bi-save me-2"></i>
                         {saving ? "Saving..." : "Save Changes"}
                     </button>
 

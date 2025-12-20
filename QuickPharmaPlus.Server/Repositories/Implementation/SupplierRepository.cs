@@ -13,7 +13,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
         private readonly QuickPharmaPlusDbContext _context;
 
         // Same validation rules as controller + frontend
-        private static readonly Regex ValidNamePattern = new(@"^[A-Za-z\s-]+$");
+        private static readonly Regex ValidNamePattern = new(@"^[A-Za-z\s.-]+$");
         private static readonly Regex ValidIdPattern = new(@"^[0-9]+$");
 
         public SupplierRepository(QuickPharmaPlusDbContext context)
@@ -179,7 +179,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
         }
 
         // ============================================================
-        // DELETE SUPPLIER
+        // DELETE SUPPLIER (WITH ADDRESS DELETION)
         // ============================================================
         public async Task<bool> DeleteSupplierAsync(int id)
         {
@@ -187,16 +187,33 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             if (supplier == null)
                 return false;
 
+            // Store address ID before deleting supplier
+            var addressId = supplier.AddressId;
+
+            // 1. Remove related supplier orders
             var relatedOrders = _context.SupplierOrders.Where(so => so.SupplierId == id);
             _context.SupplierOrders.RemoveRange(relatedOrders);
 
+            // 2. Remove related reorders
             var relatedReorders = _context.Reorders.Where(r => r.SupplierId == id);
             _context.Reorders.RemoveRange(relatedReorders);
 
+            // 3. Detach products (set SupplierId to null)
             var products = _context.Products.Where(p => p.SupplierId == id);
             await products.ForEachAsync(p => p.SupplierId = null);
 
+            // 4. Delete the supplier
             _context.Suppliers.Remove(supplier);
+
+            // 5. Delete the associated address (if exists)
+            if (addressId.HasValue)
+            {
+                var address = await _context.Addresses.FirstOrDefaultAsync(a => a.AddressId == addressId.Value);
+                if (address != null)
+                {
+                    _context.Addresses.Remove(address);
+                }
+            }
 
             await _context.SaveChangesAsync();
             return true;

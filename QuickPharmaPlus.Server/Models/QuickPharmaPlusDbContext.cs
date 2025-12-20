@@ -260,7 +260,7 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
         modelBuilder.Entity<LogType>(entity =>
         {
-            entity.HasKey(e => e.LogTypeId).HasName("PK__Log_Type__92B17BDB3C50DC27");
+            entity.HasKey(e => e.LogTypeId).HasName("PK__Log_Type__92B17BDB63D98667");
         });
 
         modelBuilder.Entity<Order>(entity =>
@@ -308,6 +308,8 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
         modelBuilder.Entity<Product>(entity =>
         {
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+
             entity.HasOne(d => d.Category).WithMany(p => p.Products).HasConstraintName("FK_Product_Category");
 
             entity.HasOne(d => d.ProductType).WithMany(p => p.Products).HasConstraintName("FK_Product_Product_Type");
@@ -403,7 +405,7 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
         modelBuilder.Entity<SupplierOrderType>(entity =>
         {
-            entity.HasKey(e => e.SupplierOrderTypeId).HasName("PK__Supplier__6B90B83FDC1643F1");
+            entity.HasKey(e => e.SupplierOrderTypeId).HasName("PK__Supplier__6B90B83F862CFC19");
         });
 
         modelBuilder.Entity<User>(entity =>

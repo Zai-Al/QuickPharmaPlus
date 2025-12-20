@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using QuickPharmaPlus.Server.Identity;
 using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.ModelsDTO.Product;
 using QuickPharmaPlus.Server.Repositories.Interface;
@@ -14,6 +16,8 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
     public class ProductsController : ControllerBase
     {
         private readonly IProductRepository _repo;
+        private readonly IQuickPharmaLogRepository _logger;
+        private readonly UserManager<ApplicationUser> _userManager;
         private readonly QuickPharmaPlusDbContext _context;
 
         // === REGEX MATCH FRONT-END VALIDATION ===
@@ -22,10 +26,38 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
         private static readonly Regex CategoryPattern = new(@"^[A-Za-z\s]*$");
         private static readonly Regex IdPattern = new(@"^[0-9]*$");
 
-        public ProductsController(IProductRepository repo, QuickPharmaPlusDbContext context)
+        // ================================
+        // SINGLE CONSTRUCTOR - DO NOT DUPLICATE
+        // ================================
+        public ProductsController(
+            IProductRepository repo,
+            IQuickPharmaLogRepository logger,
+            UserManager<ApplicationUser> userManager,
+            QuickPharmaPlusDbContext context)
         {
             _repo = repo;
+            _logger = logger;
+            _userManager = userManager;
             _context = context;
+        }
+
+        // ================================
+        // HELPER: GET CURRENT USER ID
+        // ================================
+        private async Task<int?> GetCurrentUserIdAsync()
+        {
+            var userEmail = User?.Identity?.Name;
+            if (string.IsNullOrEmpty(userEmail))
+                return null;
+
+            var identityUser = await _userManager.FindByEmailAsync(userEmail);
+            if (identityUser == null)
+                return null;
+
+            var domainUser = await _context.Users
+                .FirstOrDefaultAsync(u => u.EmailAddress == userEmail);
+
+            return domainUser?.UserId;
         }
 
         // GET: api/Products?pageNumber=1&pageSize=10&search=...
@@ -164,7 +196,8 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                 ProductTypeId = model.ProductTypeId.Value,
                 ProductPrice = model.ProductPrice.Value,
                 IsControlled = model.IsControlled,
-                ProductImage = imageBytes
+                ProductImage = imageBytes,
+                IsActive = true // SET AS ACTIVE BY DEFAULT
             };
 
             var created = await _repo.AddProductAsync(product);
@@ -183,6 +216,41 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
 
             await _context.SaveChangesAsync();
 
+            // =================== CREATE DETAILED LOG ===================
+            var currentUserId = await GetCurrentUserIdAsync();
+            if (currentUserId.HasValue)
+            {
+                // Get related entity names for better log details
+                var supplier = await _context.Suppliers.FindAsync(model.SupplierId.Value);
+                var category = await _context.Categories.FindAsync(model.CategoryId.Value);
+                var productType = await _context.ProductTypes.FindAsync(model.ProductTypeId.Value);
+
+                var ingredientNames = await _context.Ingredients
+                    .Where(i => model.IngredientIds.Contains(i.IngredientId))
+                    .Select(i => i.IngredientName)
+                    .ToListAsync();
+
+                var details = $"Product Name: {trimmedName}, " +
+                              $"Price: BHD {model.ProductPrice.Value:F3}, " +
+                              $"Supplier: {supplier?.SupplierName ?? "Unknown"}, " +
+                              $"Category: {category?.CategoryName ?? "Unknown"}, " +
+                              $"Type: {productType?.ProductTypeName ?? "Unknown"}, " +
+                              $"Controlled: {(model.IsControlled ? "Yes" : "No")}, " +
+                              $"Ingredients: [{string.Join(", ", ingredientNames)}]";
+
+                if (!string.IsNullOrWhiteSpace(imageFileName))
+                {
+                    details += $", Image: {imageFileName}";
+                }
+
+                await _logger.CreateAddRecordLogAsync(
+                    userId: currentUserId.Value,
+                    tableName: "Product",
+                    recordId: created.ProductId,
+                    details: details
+                );
+            }
+
             return Ok(new
             {
                 message = "Product created successfully.",
@@ -192,19 +260,208 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
 
         // PUT api/Products/{id}
         [HttpPut("{id:int}")]
-        public async Task<IActionResult> Update(int id, [FromBody] Product model)
+        public async Task<IActionResult> Update(int id, [FromForm] ProductCreateDto model)
         {
-            if (model == null || model.ProductId != id)
-                return BadRequest("Product ID mismatch.");
+            if (id <= 0)
+                return BadRequest("Invalid product ID.");
 
-            // Validate Product Name
-            if (!string.IsNullOrWhiteSpace(model.ProductName) &&
-                !NamePattern.IsMatch(model.ProductName))
-                return BadRequest("Product name contains invalid characters.");
+            // 1. Check if product exists AND IS ACTIVE
+            var existingProduct = await _context.Products
+                .Include(p => p.Supplier)
+                .Include(p => p.Category)
+                .Include(p => p.ProductType)
+                .FirstOrDefaultAsync(p => p.ProductId == id && p.IsActive);
 
-            var updated = await _repo.UpdateProductAsync(model);
-            if (updated == null) return NotFound();
-            return Ok(updated);
+            if (existingProduct == null)
+                return NotFound("Product not found.");
+
+            // Get existing ingredients for comparison
+            var existingIngredients = await _context.IngredientProducts
+                .Where(ip => ip.ProductId == id)
+                .Include(ip => ip.Ingredient)
+                .ToListAsync();
+
+            // 2. Validate name is not empty
+            if (string.IsNullOrWhiteSpace(model.ProductName))
+                return BadRequest("Product name is required.");
+
+            var trimmedName = model.ProductName.Trim();
+
+            // 3. Validate minimum length
+            if (trimmedName.Length < 3)
+                return BadRequest("Product name must be at least 3 characters.");
+
+            // 4. Validate allowed characters
+            if (!NamePattern.IsMatch(trimmedName))
+                return BadRequest("Product name may only contain letters, numbers, spaces, dots, dashes, and plus signs.");
+
+            // 5. Check for duplicate name (excluding current product)
+            var nameExists = await _repo.ProductNameExistsAsync(trimmedName, id);
+            if (nameExists)
+                return Conflict("A product with this name already exists in the system.");
+
+            // 6. Validate description
+            if (string.IsNullOrWhiteSpace(model.ProductDescription))
+                return BadRequest("Product description is required.");
+
+            if (model.ProductDescription.Trim().Length < 3)
+                return BadRequest("Product description must be at least 3 characters.");
+
+            // 7. Validate supplier
+            if (!model.SupplierId.HasValue || model.SupplierId.Value <= 0)
+                return BadRequest("Valid supplier must be selected.");
+
+            // 8. Validate category
+            if (!model.CategoryId.HasValue || model.CategoryId.Value <= 0)
+                return BadRequest("Valid category must be selected.");
+
+            // 9. Validate product type
+            if (!model.ProductTypeId.HasValue || model.ProductTypeId.Value <= 0)
+                return BadRequest("Valid product type must be selected.");
+
+            // 10. Validate price
+            if (!model.ProductPrice.HasValue || model.ProductPrice.Value <= 0)
+                return BadRequest("Product price must be greater than 0.");
+
+            // 11. Validate ingredients
+            if (model.IngredientIds == null || model.IngredientIds.Count == 0)
+                return BadRequest("At least one active ingredient must be selected.");
+
+            if (model.IngredientIds.Any(ingredientId => ingredientId <= 0))
+                return BadRequest("Invalid ingredient ID detected.");
+
+            // =================== TRACK CHANGES ===================
+            var changes = new List<string>();
+
+            // Track name change
+            if (existingProduct.ProductName != trimmedName)
+                changes.Add($"Name: '{existingProduct.ProductName}' → '{trimmedName}'");
+
+            // Track description change
+            if (existingProduct.ProductDescription != model.ProductDescription.Trim())
+                changes.Add($"Description updated");
+
+            // Track price change
+            if (existingProduct.ProductPrice != model.ProductPrice.Value)
+                changes.Add($"Price: BHD {existingProduct.ProductPrice:F3} → BHD {model.ProductPrice.Value:F3}");
+
+            // Track supplier change
+            if (existingProduct.SupplierId != model.SupplierId.Value)
+            {
+                var newSupplier = await _context.Suppliers.FindAsync(model.SupplierId.Value);
+                changes.Add($"Supplier: '{existingProduct.Supplier?.SupplierName ?? "Unknown"}' → '{newSupplier?.SupplierName ?? "Unknown"}'");
+            }
+
+            // Track category change
+            if (existingProduct.CategoryId != model.CategoryId.Value)
+            {
+                var newCategory = await _context.Categories.FindAsync(model.CategoryId.Value);
+                changes.Add($"Category: '{existingProduct.Category?.CategoryName ?? "Unknown"}' → '{newCategory?.CategoryName ?? "Unknown"}'");
+            }
+
+            // Track product type change
+            if (existingProduct.ProductTypeId != model.ProductTypeId.Value)
+            {
+                var newType = await _context.ProductTypes.FindAsync(model.ProductTypeId.Value);
+                changes.Add($"Type: '{existingProduct.ProductType?.ProductTypeName ?? "Unknown"}' → '{newType?.ProductTypeName ?? "Unknown"}'");
+            }
+
+            // Track controlled status change
+            if (existingProduct.IsControlled != model.IsControlled)
+                changes.Add($"Controlled: {(existingProduct.IsControlled ?? false ? "Yes" : "No")} → {(model.IsControlled ? "Yes" : "No")}");
+
+            // Track ingredient changes
+            var oldIngredientIds = existingIngredients.Select(ei => ei.IngredientId ?? 0).OrderBy(x => x).ToList();
+            var newIngredientIds = model.IngredientIds.OrderBy(x => x).ToList();
+
+            if (!oldIngredientIds.SequenceEqual(newIngredientIds))
+            {
+                var oldIngredientNames = existingIngredients
+                    .Where(ei => ei.Ingredient != null)
+                    .Select(ei => ei.Ingredient!.IngredientName)
+                    .ToList();
+
+                var newIngredientNames = await _context.Ingredients
+                    .Where(i => model.IngredientIds.Contains(i.IngredientId))
+                    .Select(i => i.IngredientName)
+                    .ToListAsync();
+
+                changes.Add($"Ingredients: [{string.Join(", ", oldIngredientNames)}] → [{string.Join(", ", newIngredientNames)}]");
+            }
+
+            // 12. Update product fields
+            existingProduct.ProductName = trimmedName;
+            existingProduct.ProductDescription = model.ProductDescription.Trim();
+            existingProduct.SupplierId = model.SupplierId.Value;
+            existingProduct.CategoryId = model.CategoryId.Value;
+            existingProduct.ProductTypeId = model.ProductTypeId.Value;
+            existingProduct.ProductPrice = model.ProductPrice.Value;
+            existingProduct.IsControlled = model.IsControlled;
+
+            // 13. Process image only if new one is uploaded
+            string? imageFileName = null;
+            if (model.ProductImage != null)
+            {
+                using var ms = new MemoryStream();
+                await model.ProductImage.CopyToAsync(ms);
+                existingProduct.ProductImage = ms.ToArray();
+                imageFileName = model.ProductImage.FileName;
+
+                // Track image change
+                changes.Add($"Image Updated: {imageFileName}");
+            }
+
+            // 14. Update ingredient relationships
+            // Remove existing relationships
+            _context.IngredientProducts.RemoveRange(existingIngredients);
+
+            // Add new relationships
+            foreach (var ingredientId in model.IngredientIds)
+            {
+                var ingredientProduct = new IngredientProduct
+                {
+                    ProductId = id,
+                    IngredientId = ingredientId
+                };
+
+                _context.IngredientProducts.Add(ingredientProduct);
+            }
+
+            await _context.SaveChangesAsync();
+
+            // =================== CREATE DETAILED LOG ===================
+            var currentUserId = await GetCurrentUserIdAsync();
+            if (currentUserId.HasValue && changes.Any())
+            {
+                var details = $"Product: {trimmedName} - Changes: {string.Join(", ", changes)}";
+
+                await _logger.CreateEditRecordLogAsync(
+                    userId: currentUserId.Value,
+                    tableName: "Product",
+                    recordId: id,
+                    details: details
+                );
+            }
+
+            return Ok(new
+            {   
+                message = "Product updated successfully.",
+                product = existingProduct
+            });
+        }
+               
+        // GET api/Products/{id}/inventory-count
+        [HttpGet("{id:int}/inventory-count")]
+        public async Task<IActionResult> GetInventoryCount(int id)
+        {
+            if (id <= 0)
+                return BadRequest("Invalid product ID.");
+
+            var inventoryCount = await _context.Inventories
+                .Where(i => i.ProductId == id && i.InventoryQuantity.HasValue && i.InventoryQuantity.Value > 0)
+                .SumAsync(i => (int?)i.InventoryQuantity) ?? 0;
+
+            return Ok(new { inventoryCount });
         }
 
         // DELETE api/Products/{id}
@@ -214,8 +471,51 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
             if (id <= 0)
                 return BadRequest("Invalid product ID.");
 
+            // =================== GET PRODUCT DETAILS BEFORE SOFT DELETION ===================
+            var productToDelete = await _context.Products
+                .Include(p => p.Supplier)
+                .Include(p => p.Category)
+                .Include(p => p.ProductType)
+                .FirstOrDefaultAsync(p => p.ProductId == id && p.IsActive);
+
+            if (productToDelete == null)
+                return NotFound("Product not found.");
+
+            string deletedProductName = productToDelete.ProductName ?? "Unknown";
+            string supplierName = productToDelete.Supplier?.SupplierName ?? "Unknown";
+            string categoryName = productToDelete.Category?.CategoryName ?? "Unknown";
+            decimal? price = productToDelete.ProductPrice;
+
+            // Get ingredient names
+            var ingredientNames = await _context.IngredientProducts
+                .Where(ip => ip.ProductId == id)
+                .Include(ip => ip.Ingredient)
+                .Select(ip => ip.Ingredient!.IngredientName)
+                .ToListAsync();
+
+            var currentUserId = await GetCurrentUserIdAsync();
+
             var success = await _repo.DeleteProductAsync(id);
             if (!success) return NotFound();
+
+            // =================== CREATE DETAILED LOG ===================
+            if (currentUserId.HasValue)
+            {
+                var details = $"Product: {deletedProductName}, " +
+                              $"Price: BHD {price:F3}, " +
+                              $"Supplier: {supplierName}, " +
+                              $"Category: {categoryName}, " +
+                              $"Ingredients: [{string.Join(", ", ingredientNames)}] " +
+                              $"(Soft deleted - marked as inactive)";
+
+                await _logger.CreateDeleteRecordLogAsync(
+                    userId: currentUserId.Value,
+                    tableName: "Product",
+                    recordId: id,
+                    details: details
+                );
+            }
+
             return Ok(new { deleted = true });
         }
 
@@ -228,8 +528,9 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                 if (id <= 0)
                     return BadRequest("Invalid product ID.");
 
-                // Get basic product details
+                // Get basic product details - ONLY ACTIVE PRODUCTS
                 var product = await _context.Products
+                    .Where(p => p.IsActive)
                     .Include(p => p.Category)
                     .Include(p => p.ProductType)
                     .Include(p => p.Supplier)
@@ -251,7 +552,7 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                     ProductTypeName = product.ProductType?.ProductTypeName,
                     CategoryId = product.CategoryId ?? 0,
                     CategoryName = product.Category?.CategoryName,
-                    ProductImage = product.ProductImage // NULL is fine here
+                    ProductImage = product.ProductImage
                 };
 
                 // Fetch ingredients for this product from IngredientProduct junction table

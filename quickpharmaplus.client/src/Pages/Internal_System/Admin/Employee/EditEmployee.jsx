@@ -829,7 +829,7 @@ export default function EditEmployee() {
                         </div>
                     </div>
 
-                    <AddButton text="Save Changes" />
+                    <AddButton text="Save Changes" icon="file-earmark-check" />
                 </form>
             </FormWrapper>
         </div>
