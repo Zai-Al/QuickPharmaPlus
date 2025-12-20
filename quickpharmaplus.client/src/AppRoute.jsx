@@ -37,6 +37,7 @@ import CreateOrder from "./Pages/Internal_System/Orders/CreateOrder.jsx";
 import CreateAutomatedOrder from "./Pages/Internal_System/Orders/CreateAutomatedOrder.jsx";
 import ProductsList from "./Pages/Internal_System/Products/ProductsList.jsx";
 import AddProduct from "./Pages/Internal_System/Products/AddProduct.jsx";
+import EditProduct from "./Pages/Internal_System/Products/EditProduct.jsx";
 import ViewProduct from "./Pages/Internal_System/Products/ViewProductDetails.jsx";
 import CategoryList from "./Pages/Internal_System/Admin/Category/CategoryList.jsx";
 import AddCategory from "./Pages/Internal_System/Admin/Category/AddCategory.jsx";
@@ -236,6 +237,15 @@ export default function AppRoutes() {
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
                                         <AddProduct />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
+                                path="/product/edit/:id"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
+                                        <EditProduct />
                                     </ProtectedRoute>
                                 }
                             />

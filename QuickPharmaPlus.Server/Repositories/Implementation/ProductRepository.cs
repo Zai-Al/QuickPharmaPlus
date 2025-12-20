@@ -77,6 +77,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
 
             // === QUERY START ===
             var query = _context.Products
+                .Where(p => p.IsActive) // ONLY FETCH ACTIVE PRODUCTS
                 .Include(p => p.Category)
                 .Include(p => p.ProductType)
                 .Include(p => p.Supplier)
@@ -132,7 +133,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     SupplierName = p.Supplier != null ? p.Supplier.SupplierName : null,
                     ProductTypeId = p.ProductTypeId,
                     ProductTypeName = p.ProductType != null ? p.ProductType.ProductTypeName : null,
-                    CategoryId = p.CategoryId ?? 0, // FIX: Handle nullable CategoryId
+                    CategoryId = p.CategoryId ?? 0,
                     CategoryName = p.Category != null ? p.Category.CategoryName : null,
                     InventoryCount = _context.Inventories.Count(i => i.ProductId == p.ProductId)
                 })
@@ -148,6 +149,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
         public async Task<ProductDetailDto?> GetProductByIdAsync(int id)
         {
             var p = await _context.Products
+                .Where(x => x.IsActive) // ONLY FETCH ACTIVE PRODUCTS
                 .Include(x => x.Category)
                 .Include(x => x.ProductType)
                 .Include(x => x.Supplier)
@@ -166,7 +168,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 SupplierName = p.Supplier?.SupplierName,
                 ProductTypeId = p.ProductTypeId,
                 ProductTypeName = p.ProductType?.ProductTypeName,
-                CategoryId = p.CategoryId ?? 0, // FIX: Handle nullable CategoryId
+                CategoryId = p.CategoryId ?? 0,
                 CategoryName = p.Category?.CategoryName,
                 ProductImage = p.ProductImage
             };
@@ -174,6 +176,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
 
         public async Task<Product> AddProductAsync(Product product)
         {
+            product.IsActive = true; // SET AS ACTIVE BY DEFAULT
             _context.Products.Add(product);
             await _context.SaveChangesAsync();
             return product;
@@ -202,25 +205,23 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             var existing = await _context.Products.FirstOrDefaultAsync(p => p.ProductId == id);
             if (existing == null) return false;
 
-            var relatedInventories = _context.Inventories.Where(i => i.ProductId == id);
-            _context.Inventories.RemoveRange(relatedInventories);
-
-            _context.Products.Remove(existing);
+            // SOFT DELETE: SET IsActive TO FALSE INSTEAD OF REMOVING
+            existing.IsActive = false;
             await _context.SaveChangesAsync();
             return true;
         }
 
         public async Task<PagedResult<ProductListDto>> GetExternalProductsAsync(
-    int pageNumber,
-    int pageSize,
-    string? search = null,
-    int[]? supplierIds = null,
-    int[]? categoryIds = null,
-    int[]? productTypeIds = null,
-    int[]? branchIds = null,
-    decimal? minPrice = null,
-    decimal? maxPrice = null,
-    string? sortBy = null)
+            int pageNumber,
+            int pageSize,
+            string? search = null,
+            int[]? supplierIds = null,
+            int[]? categoryIds = null,
+            int[]? productTypeIds = null,
+            int[]? branchIds = null,
+            decimal? minPrice = null,
+            decimal? maxPrice = null,
+            string? sortBy = null)
         {
             // --- basic guards ---
             if (pageNumber < 1) pageNumber = 1;
@@ -254,6 +255,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
 
             // --- base query ---
             var query = _context.Products
+                .Where(p => p.IsActive) // ONLY FETCH ACTIVE PRODUCTS
                 .Include(p => p.Category)
                 .Include(p => p.ProductType)
                 .Include(p => p.Supplier)
@@ -264,7 +266,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 query = query.Where(p => p.SupplierId.HasValue && supplierIds.Contains(p.SupplierId.Value));
 
             if (categoryIds != null && categoryIds.Length > 0)
-                query = query.Where(p => p.CategoryId.HasValue && categoryIds.Contains(p.CategoryId.Value)); // FIX: Handle nullable CategoryId
+                query = query.Where(p => p.CategoryId.HasValue && categoryIds.Contains(p.CategoryId.Value));
 
             if (productTypeIds != null && productTypeIds.Length > 0)
                 query = query.Where(p => p.ProductTypeId.HasValue && productTypeIds.Contains(p.ProductTypeId.Value));
@@ -367,7 +369,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     SupplierName = p.Supplier != null ? p.Supplier.SupplierName : null,
                     ProductTypeId = p.ProductTypeId,
                     ProductTypeName = p.ProductType != null ? p.ProductType.ProductTypeName : null,
-                    CategoryId = p.CategoryId ?? 0, // FIX: Handle nullable CategoryId
+                    CategoryId = p.CategoryId ?? 0,
                     CategoryName = p.Category != null ? p.Category.CategoryName : null,
 
                     // UPDATED: SUM actual available stock quantity, ignore expired + ignore 0
@@ -405,6 +407,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             var normalizedName = name.Trim().ToLower();
 
             var query = _context.Products
+                .Where(p => p.IsActive) // ONLY CHECK ACTIVE PRODUCTS
                 .Where(p => (p.ProductName ?? "").ToLower() == normalizedName);
 
             if (excludeId.HasValue)

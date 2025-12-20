@@ -16,10 +16,10 @@ namespace QuickPharmaPlus.Server.ModelsDTO.Product
         public byte[]? ProductImage { get; set; }
         
         // List of ingredients for this product
-        public List<IngredientDto> Ingredients { get; set; } = new List<IngredientDto>();
+        public List<IngredientDto>? Ingredients { get; set; } = new List<IngredientDto>();
         
         // List of known interactions for this product's ingredients
-        public List<ProductInteractionDto> KnownInteractions { get; set; } = new List<ProductInteractionDto>();
+        public List<ProductInteractionDto>? KnownInteractions { get; set; } = new List<ProductInteractionDto>();
     }
 
     public class IngredientDto

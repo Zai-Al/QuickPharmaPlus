@@ -16,7 +16,7 @@ namespace QuickPharmaPlus.Server.ModelsDTO.Product
         public int? ProductTypeId { get; set; }
         public string? ProductTypeName { get; set; }
 
-        public int CategoryId { get; set; }
+        public int? CategoryId { get; set; }
         public string? CategoryName { get; set; }
 
         // Include product image bytes so the API can return the stored image.
