@@ -32,6 +32,7 @@ import AddEmployee from "./Pages/Internal_System/Admin/Employee/AddEmployee.jsx"
 import EditEmployee from "./Pages/Internal_System/Admin/Employee/EditEmployee.jsx";
 import SupplierList from "./Pages/Internal_System/Suppliers/SupplierList.jsx";
 import AddSupplier from "./Pages/Internal_System/Suppliers/AddSupplier.jsx";
+import EditSupplier from "./Pages/Internal_System/Suppliers/EditSupplier.jsx";
 import OrdersList from "./Pages/Internal_System/Orders/OrdersList.jsx";
 import CreateOrder from "./Pages/Internal_System/Orders/CreateOrder.jsx";
 import CreateAutomatedOrder from "./Pages/Internal_System/Orders/CreateAutomatedOrder.jsx";
@@ -191,6 +192,15 @@ export default function AppRoutes() {
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
                                         <AddSupplier />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
+                                path="/suppliers/edit/:id"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
+                                        <EditSupplier />
                                     </ProtectedRoute>
                                 }
                             />

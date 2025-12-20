@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import "./AddSupplier.css";
+import { useNavigate, useParams } from "react-router-dom";
+import "./AddSupplier.css"; // Reusing the same CSS
 
 import FormWrapper from "../../../Components/InternalSystem/GeneralComponents/Form";
 import AddButton from "../../../Components/Form/FormAddButton";
 import FormHeader from "../../../Components/InternalSystem/FormHeader";
 
-export default function AddSupplier() {
+export default function EditSupplier() {
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
+    const { id } = useParams(); // Get supplier ID from URL
+    const baseURL = import.meta.env.VITE_API_BASE_URL;
 
     // =================== STATE ===================
     const [supplierName, setSupplierName] = useState("");
@@ -23,6 +24,7 @@ export default function AddSupplier() {
 
     const [successMessage, setSuccessMessage] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
+    const [loading, setLoading] = useState(true);
 
     // =================== VALIDATION STATE ===================
     const [errors, setErrors] = useState({});
@@ -39,17 +41,18 @@ export default function AddSupplier() {
     const cityRef = useRef(null);
 
     // =================== VALIDATION PATTERNS ===================
-    const namePattern = /^[A-Za-z\s.-]+$/;  // Letters, spaces, dots, and dash
+    const namePattern = /^[A-Za-z\s.-]+$/;
     const emailPattern = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    const phonePattern = /^[0-9+\s-]+$/;  // Numbers, +, spaces, and dash
-    const blockPattern = /^[0-9]+$/;  // Numbers only
-    const roadPattern = /^[A-Za-z0-9\s/.-]+$/;  // Letters, numbers, space, slash, dot, dash
-    const buildingPattern = /^[0-9]+$/;  // Numbers only
+    const phonePattern = /^[0-9+\s-]+$/;
+    const blockPattern = /^[0-9]+$/;
+    const roadPattern = /^[A-Za-z0-9\s/.-]+$/;
+    const buildingPattern = /^[0-9]+$/;
 
     // =================== FETCH DATA ON MOUNT ===================
     useEffect(() => {
         fetchCities();
-    }, []);
+        fetchSupplierData();
+    }, [id]);
 
     // Close city dropdown on outside click
     useEffect(() => {
@@ -85,6 +88,42 @@ export default function AddSupplier() {
             setErrorMessage("Failed to load cities.");
         } finally {
             setLoadingCities(false);
+        }
+    };
+
+    const fetchSupplierData = async () => {
+        try {
+            setLoading(true);
+            const response = await fetch(`${baseURL}/api/Suppliers/${id}`, {
+                credentials: "include"
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to fetch supplier data");
+            }
+
+            const data = await response.json();
+
+            // Populate form fields with existing data
+            setSupplierName(data.supplierName || "");
+            setRepName(data.supplierRepresentative || "");
+            setContactNumber(data.supplierContact || "");
+            setEmail(data.supplierEmail || "");
+
+            // Handle address data
+            if (data.address) {
+                setCity(data.address.city?.cityName || "");
+                setCityQuery(data.address.city?.cityName || "");
+                setBlock(data.address.block || "");
+                setRoad(data.address.street || "");
+                setBuilding(data.address.buildingNumber || "");
+            }
+
+            setLoading(false);
+        } catch (err) {
+            console.error("Error fetching supplier:", err);
+            setErrorMessage("Failed to load supplier data.");
+            setLoading(false);
         }
     };
 
@@ -159,7 +198,6 @@ export default function AddSupplier() {
     const handleSupplierNameChange = (e) => {
         const value = e.target.value;
 
-        // Block invalid input immediately
         if (value && !namePattern.test(value)) {
             setErrors(prev => ({ ...prev, supplierName: "Only letters, spaces, dots (.), and dashes (-) allowed." }));
             return;
@@ -175,7 +213,6 @@ export default function AddSupplier() {
     const handleRepNameChange = (e) => {
         const value = e.target.value;
 
-        // Block invalid input immediately
         if (value && !namePattern.test(value)) {
             setErrors(prev => ({ ...prev, repName: "Only letters, spaces, dots (.), and dashes (-) allowed." }));
             return;
@@ -191,7 +228,6 @@ export default function AddSupplier() {
     const handleContactNumberChange = (e) => {
         const value = e.target.value;
 
-        // Block invalid input
         if (value && !phonePattern.test(value)) {
             setErrors(prev => ({ ...prev, contactNumber: "Only numbers, +, spaces, and - allowed." }));
             return;
@@ -216,7 +252,6 @@ export default function AddSupplier() {
     const handleBlockChange = (e) => {
         const value = e.target.value;
 
-        // Block non-numeric input
         if (value && !blockPattern.test(value)) {
             setErrors(prev => ({ ...prev, block: "Only numbers allowed." }));
             return;
@@ -232,7 +267,6 @@ export default function AddSupplier() {
     const handleRoadChange = (e) => {
         const value = e.target.value;
 
-        // Block invalid characters
         if (value && !roadPattern.test(value)) {
             setErrors(prev => ({ ...prev, road: "Invalid characters detected." }));
             return;
@@ -248,7 +282,6 @@ export default function AddSupplier() {
     const handleBuildingChange = (e) => {
         const value = e.target.value;
 
-        // Block non-numeric input
         if (value && !buildingPattern.test(value)) {
             setErrors(prev => ({ ...prev, building: "Only numbers allowed." }));
             return;
@@ -349,10 +382,8 @@ export default function AddSupplier() {
             return;
         }
 
-        // Find the selected city ID
-        const selectedCityOption = cityOptions.find(c => c.cityName === city);
-
         const payload = {
+            supplierId: parseInt(id),
             supplierName: supplierName.trim(),
             representative: repName.trim(),
             contact: contactNumber.trim(),
@@ -364,33 +395,41 @@ export default function AddSupplier() {
         };
 
         try {
-            const response = await fetch(`${baseURL}/api/Suppliers`, {
-                method: "POST",
+            const response = await fetch(`${baseURL}/api/Suppliers/${id}`, {
+                method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
                 body: JSON.stringify(payload),
             });
 
             if (response.ok) {
-                setSuccessMessage("Supplier added successfully!");
+                setSuccessMessage("Supplier updated successfully!");
                 setErrorMessage("");
                 setTimeout(() => navigate("/suppliers"), 1500);
             } else {
                 const errorText = await response.text();
-                setErrorMessage(errorText || "Failed to add supplier.");
+                setErrorMessage(errorText || "Failed to update supplier.");
                 setSuccessMessage("");
             }
         } catch (err) {
-            console.error("Error adding supplier:", err);
+            console.error("Error updating supplier:", err);
             setErrorMessage("Server error. Please try again.");
             setSuccessMessage("");
         }
     };
 
+    if (loading) {
+        return (
+            <div className="add-supplier-page">
+                <div className="alert alert-info">Loading supplier data...</div>
+            </div>
+        );
+    }
+
     return (
         <div className="add-supplier-page">
             {/* PAGE HEADER */}
-            <FormHeader title="Add New Supplier Record" to="/suppliers" />
+            <FormHeader title="Edit Supplier Record" to="/suppliers" />
 
             {/* SUCCESS + ERROR */}
             {successMessage && (
@@ -407,7 +446,7 @@ export default function AddSupplier() {
                 </div>
             )}
 
-            <FormWrapper title="Enter New Supplier Details:">
+            <FormWrapper title="Edit Supplier Details:">
                 <form className="add-supplier-form" onSubmit={handleSubmit}>
 
                     {/* SUPPLIER NAME */}
@@ -538,7 +577,7 @@ export default function AddSupplier() {
                     </div>
 
                     {/* BUTTON */}
-                    <AddButton text="Add New Supplier" />
+                    <AddButton text="Save Changes" icon="file-earmark-check" />
 
                 </form>
             </FormWrapper>
