@@ -2,34 +2,52 @@
 export function buildCreateOrderFormData(draft, userId) {
     const fd = new FormData();
 
-    fd.append("UserId", String(userId));
+    fd.set("UserId", String(userId));
 
     // ---------- SHIPPING ----------
-    const s = draft.shipping || {};
+    const s = draft?.shipping || {};
 
-    fd.append("Mode", s.Mode || "pickup");
-    fd.append("UseSavedAddress", String(!!s.UseSavedAddress));
-    fd.append("IsUrgent", String(!!s.IsUrgent));
+    const mode = s.Mode ?? s.mode ?? "pickup";
+    fd.set("Mode", String(mode));
 
-    if (s.PickupBranchId != null) fd.append("PickupBranchId", String(s.PickupBranchId));
-    if (s.CityId != null) fd.append("CityId", String(s.CityId));
-    if (s.Block) fd.append("Block", s.Block);
-    if (s.Road) fd.append("Road", s.Road);
-    if (s.BuildingFloor) fd.append("BuildingFloor", s.BuildingFloor);
-    if (s.ShippingDate) fd.append("ShippingDate", s.ShippingDate);
-    if (s.SlotId != null) fd.append("SlotId", String(s.SlotId));
+    const useSaved = s.UseSavedAddress ?? s.useSavedAddress ?? false;
+    fd.set("UseSavedAddress", String(!!useSaved));
+
+    const urgent = s.IsUrgent ?? s.isUrgent ?? false;
+    fd.set("IsUrgent", String(!!urgent));
+
+    const pickupBranchId = s.PickupBranchId ?? s.pickupBranchId;
+    if (pickupBranchId != null) fd.set("PickupBranchId", String(pickupBranchId));
+
+    const cityId = s.CityId ?? s.cityId;
+    if (cityId != null) fd.set("CityId", String(cityId));
+
+    const block = s.Block ?? s.block;
+    if (block) fd.set("Block", String(block));
+
+    const road = s.Road ?? s.road;
+    if (road) fd.set("Road", String(road));
+
+    const buildingFloor = s.BuildingFloor ?? s.buildingFloor;
+    if (buildingFloor) fd.set("BuildingFloor", String(buildingFloor));
+
+    const shippingDate = s.ShippingDate ?? s.shippingDate;
+    if (shippingDate) fd.set("ShippingDate", String(shippingDate));
+
+    const slotId = s.SlotId ?? s.slotId;
+    if (slotId != null) fd.set("SlotId", String(slotId));
 
     // ---------- PRESCRIPTION ----------
-    const p = draft.prescription || {};
+    const p = draft?.prescription || {};
 
-    if (p.ApprovedPrescriptionId != null) {
-        fd.append("ApprovedPrescriptionId", String(p.ApprovedPrescriptionId));
-    }
+    const approvedId = p.ApprovedPrescriptionId ?? p.approvedPrescriptionId;
+    if (approvedId != null) fd.set("ApprovedPrescriptionId", String(approvedId));
 
-    fd.append("IsHealthProfile", String(!!p.IsHealthProfile));
+    const isHP = p.IsHealthProfile ?? p.isHealthProfile ?? false;
+    fd.set("IsHealthProfile", String(!!isHP));
 
-    // IMPORTANT: you said prescriptions are already uploaded
-    fd.append("UploadNewPrescription", "false");
+    // Not uploading from success page
+    fd.set("UploadNewPrescription", "false");
 
     return fd;
 }

@@ -76,7 +76,8 @@ import Product from "./Pages/External_System/Products/Product.jsx";
 import ProductDetails from "./Pages/External_System/Products/ProductDetails.jsx";
 import WishList from "./Pages/External_System/Cart_And_Wish_List/WishList.jsx";
 import Checkout from "./Pages/External_System/Checkout/Checkout.jsx";
- 
+import CheckoutSuccess from "./Pages/External_System/Checkout/CheckoutSession.jsx";
+
 
 
 export default function AppRoutes() {
@@ -508,7 +509,9 @@ export default function AppRoutes() {
                             </ProtectedRoute>
                             }
                             />
-                            
+
+                            <Route path="/payment-success" element={<CheckoutSuccess />} />
+
 
                         </Routes>
                     </Layout>

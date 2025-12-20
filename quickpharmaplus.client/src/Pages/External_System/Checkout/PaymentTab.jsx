@@ -16,6 +16,7 @@ export default function PaymentTab({
     isUrgent = false,
     method = "cash",
     onMethodChange,
+    onPayOnline,
 }) {
     // --- Amount calculations ---
     const subtotal = items.reduce(
@@ -96,10 +97,21 @@ export default function PaymentTab({
                     </div>
 
                     {method === "online" && (
-                        <div className="alert alert-warning small mb-0">
-                            Stripe is disabled for now. Switch back to <b>Cash</b> to test checkout.
+                        <div className="d-flex flex-column gap-2">
+                            <div className="alert alert-info small mb-0">
+                                You will be redirected to Stripe to complete payment.
+                            </div>
+
+                            <button
+                                type="button"
+                                className="btn qp-add-btn"
+                                onClick={() => onPayOnline?.()}
+                            >
+                                Pay Online
+                            </button>
                         </div>
                     )}
+
                 </div>
             </div>
 

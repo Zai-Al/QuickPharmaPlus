@@ -29,5 +29,11 @@ namespace QuickPharmaPlus.Server.ModelsDTO.CheckoutOrder
         public bool UploadNewPrescription { get; set; } = false;
         public IFormFile? PrescriptionDocument { get; set; }
         public IFormFile? CprDocument { get; set; }
+
+        // PAYMENT
+        public string? PaymentMethod { get; set; } // "cash" | "online"
+        public string? StripeSessionId { get; set; }
+        public string? StripePaymentIntentId { get; set; }
+
     }
 }

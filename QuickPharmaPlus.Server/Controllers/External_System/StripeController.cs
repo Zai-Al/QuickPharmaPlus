@@ -17,13 +17,13 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             {
                 PaymentMethodTypes = new List<string> { "card" },
                 Mode = "payment",
-                SuccessUrl = $"{domain}/payment-success",
+                SuccessUrl = $"{domain}/payment-success?session_id={{CHECKOUT_SESSION_ID}}",
                 CancelUrl = $"{domain}/payment-failed",
-                Locale = "auto", // This will auto-detect the user's locale or use a valid default
+                //Locale = "auto", // This will auto-detect the user's locale or use a valid default
                 LineItems = new List<SessionLineItemOptions>()
             };
 
-            foreach (var item in request.Items)
+            foreach (var item in request.Items ?? new List<ItemDTO>())
             {
                 options.LineItems.Add(new SessionLineItemOptions
                 {
@@ -59,29 +59,69 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
 
             try
             {
+                if (request == null || request.Items == null || request.Items.Count == 0)
+                    return BadRequest(new { error = "No items provided." });
+
                 var service = new SessionService();
-                Session session = service.Create(options);
+                var session = service.Create(options);
                 return Ok(new { url = session.Url });
             }
             catch (StripeException ex)
             {
                 return BadRequest(new { error = "Payment session creation failed", message = ex.Message });
             }
+            catch (Exception ex)
+            {
+                // IMPORTANT: don’t crash the whole API on unexpected errors
+                return StatusCode(500, new { error = "Unexpected server error", message = ex.Message });
+            }
+
         }
-    }
 
-    public class CheckoutRequest
-    {
-        public List<ItemDTO> Items { get; set; } = new();
-        public decimal DeliveryFee { get; set; }
-        public decimal Subtotal { get; set; }
-        public decimal Total { get; set; }
-    }
 
-    public class ItemDTO
-    {
-        public string Name { get; set; } = "";
-        public decimal Price { get; set; }
-        public int Quantity { get; set; }
+        // GET api/stripe/verify-session?sessionId=...
+        [HttpGet("verify-session")]
+        public IActionResult VerifySession([FromQuery] string sessionId)
+        {
+            if (string.IsNullOrWhiteSpace(sessionId))
+                return BadRequest(new { ok = false, message = "Missing sessionId." });
+
+            try
+            {
+                var service = new SessionService();
+                var session = service.Get(sessionId);
+
+                // Stripe checkout session is “paid” if PaymentStatus == "paid"
+                var paid = string.Equals(session.PaymentStatus, "paid", StringComparison.OrdinalIgnoreCase);
+
+                return Ok(new
+                {
+                    ok = true,
+                    paid,
+                    sessionId = session.Id,
+                    paymentIntentId = session.PaymentIntentId
+                });
+            }
+            catch (StripeException ex)
+            {
+                return BadRequest(new { ok = false, message = ex.Message });
+            }
+        }
+
+
+        public class CheckoutRequest
+        {
+            public List<ItemDTO> Items { get; set; } = new();
+            public decimal DeliveryFee { get; set; }
+            public decimal Subtotal { get; set; }
+            public decimal Total { get; set; }
+        }
+
+        public class ItemDTO
+        {
+            public string Name { get; set; } = "";
+            public decimal Price { get; set; }
+            public int Quantity { get; set; }
+        }
     }
 }
