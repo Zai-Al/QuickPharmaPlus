@@ -821,7 +821,7 @@ export default function ShippingTab({
                     <p className="text-danger small mb-3">* Delivery fee is 1 BHD</p>
 
                     {/* Saved address checkbox */}
-                    <div className="form-check mb-3">
+                    <div className="form-checker-css mb-3">
                         <input
                             className="form-check-input"
                             type="checkbox"
@@ -830,7 +830,7 @@ export default function ShippingTab({
                             onChange={toggleUseSavedAddress}
                             disabled={!savedAddress}
                         />
-                        <label htmlFor="use-saved-address" className="form-check-label">
+                        <label htmlFor="use-saved-address" className="form-check-label ms-2">
                             Choose saved address from Profile.
                             {!savedAddress && (
                                 <span className="text-muted"> (No saved address found)</span>
@@ -941,7 +941,7 @@ export default function ShippingTab({
                     <div className="mt-4">
                         <h5 className="fw-bold mb-2">Shipping Schedule</h5>
 
-                        <div className="form-check mb-1">
+                        <div className="form-checker-css my-4">
                             <input
                                 className="form-check-input"
                                 type="checkbox"
@@ -955,8 +955,8 @@ export default function ShippingTab({
                                     setSlotOptions([]);
                                 }}
                             />
-                            <label htmlFor="urgent" className="form-check-label">
-                                Set Delivery Urgency
+                            <label htmlFor="urgent" className="form-check-label ms-2">
+                                Set Delivery Urgency (pay 1 BHD extra to get order within an hour)
                             </label>
                         </div>
 

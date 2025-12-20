@@ -43,3 +43,9 @@
     border-top: 1px solid #ddd;
     margin: 3.5rem 0;
 }
+
+.form-checker-css {
+    display: flex;
+    align-items: center;
+    justify-content: text-start;
+}

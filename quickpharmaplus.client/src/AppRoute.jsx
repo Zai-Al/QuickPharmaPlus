@@ -77,6 +77,7 @@ import ProductDetails from "./Pages/External_System/Products/ProductDetails.jsx"
 import WishList from "./Pages/External_System/Cart_And_Wish_List/WishList.jsx";
 import Checkout from "./Pages/External_System/Checkout/Checkout.jsx";
 import CheckoutSuccess from "./Pages/External_System/Checkout/CheckoutSession.jsx";
+import PaymentFailed from "./Pages/External_System/Checkout/PaymentFailed.jsx";
 
 
 
@@ -512,6 +513,7 @@ export default function AppRoutes() {
 
                             <Route path="/payment-success" element={<CheckoutSuccess />} />
 
+                            <Route path="/payment-failed" element={<PaymentFailed />} />
 
                         </Routes>
                     </Layout>

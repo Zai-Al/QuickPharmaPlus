@@ -206,6 +206,14 @@ export default function Checkout() {
         const fromSession = loadDraftFromSession();
         if (fromSession) setDraft(fromSession);
         // eslint-disable-next-line react-hooks/exhaustive-deps
+
+        const pay = sp.get("pay");
+        if (pay === "cancel") {
+            setPlaceOrderError("Online payment was cancelled. Please try again.");
+            setActiveStep("payment");
+            leavingForStripeRef.current = false; // important: user came back
+        }
+
     }, []);
 
     // ----- PRESCRIPTION STATE -----
@@ -618,31 +626,39 @@ export default function Checkout() {
             return;
         }
 
-
         // mark that we are leaving intentionally so unmount doesn't clear session
         leavingForStripeRef.current = true;
 
         // force-save draft right before redirect (extra safety)
         saveDraftToSession({ ...draft, _userId: userId });
 
-
         // build Stripe request payload
         const subtotal = (itemsFromCart || []).reduce(
             (sum, it) => sum + (it.price || 0) * (it.quantity || 0),
             0
         );
-        const deliveryFee = shippingState.mode === "delivery" ? 1 : 0;
-        const total = subtotal + deliveryFee;
 
+        const isDelivery = (shippingState.mode || "").toLowerCase() === "delivery";
+        const isUrgent = isDelivery && !!shippingState.isUrgent;
+
+        const deliveryFee = isDelivery ? 1 : 0;
+        const urgentFee = isUrgent ? 1 : 0;
+
+        const total = subtotal + deliveryFee + urgentFee;
+
+        // IMPORTANT: PascalCase keys to match your C# DTO (CheckoutRequest)
         const body = {
-            items: (itemsFromCart || []).map((it) => ({
-                name: it.name ?? "Item",
-                price: Number(it.price || 0),
-                quantity: Number(it.quantity || 1),
+            Items: (itemsFromCart || []).map((it) => ({
+                Name: it.name ?? "Item",
+                Price: Number(it.price || 0),
+                Quantity: Number(it.quantity || 1),
             })),
-            deliveryFee,
-            subtotal,
-            total,
+            DeliveryFee: deliveryFee,
+            Subtotal: subtotal,
+            Total: total,
+
+            // THIS is what your StripeController checks
+            IsUrgent: isUrgent,
         };
 
         try {
@@ -654,8 +670,11 @@ export default function Checkout() {
             });
 
             const json = await res.json().catch(() => ({}));
+
             if (!res.ok || !json?.url) {
-                throw new Error(json?.message || json?.error || `Stripe session failed (${res.status}).`);
+                throw new Error(
+                    json?.message || json?.error || `Stripe session failed (${res.status}).`
+                );
             }
 
             window.location.assign(json.url);
@@ -663,7 +682,8 @@ export default function Checkout() {
             leavingForStripeRef.current = false; // stay in checkout flow
             setPlaceOrderError(e?.message || "Stripe redirect failed.");
         }
-    }, [API_BASE, draft, itemsFromCart, shippingState.mode]);
+    }, [API_BASE, draft, itemsFromCart, shippingState, userId]);
+
 
 
     const renderActiveTabContent = () => {

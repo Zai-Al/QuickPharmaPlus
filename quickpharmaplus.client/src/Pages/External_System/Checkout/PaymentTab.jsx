@@ -19,15 +19,20 @@ export default function PaymentTab({
     onPayOnline,
 }) {
     // --- Amount calculations ---
+    // --- Amount calculations ---
     const subtotal = items.reduce(
         (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
         0
     );
 
-    // Your rule: delivery fee is 1 BHD (and urgent does NOT add extra fee unless you want it)
+    // Delivery fee: 1 BHD if delivery
     const deliveryFee = shippingMode === "delivery" ? 1 : 0;
 
-    const total = subtotal + deliveryFee;
+    // Urgent fee: 1 BHD ONLY if delivery + urgent
+    const urgentFee = shippingMode === "delivery" && isUrgent ? 1 : 0;
+
+    const total = subtotal + deliveryFee + urgentFee;
+
 
     return (
         <div className="text-start payment-container">
@@ -46,6 +51,12 @@ export default function PaymentTab({
                     <span>Delivery Fee</span>
                     <span className="fw-semibold">{formatCurrency(deliveryFee)}</span>
                 </div>
+
+                <div className="d-flex justify-content-between mb-2">
+                    <span>Urgent Fee</span>
+                    <span className="fw-semibold">{formatCurrency(urgentFee)}</span>
+                </div>
+
 
                 <hr />
 
