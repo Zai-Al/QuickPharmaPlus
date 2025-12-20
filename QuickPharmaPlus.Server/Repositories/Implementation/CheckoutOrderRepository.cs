@@ -4,6 +4,8 @@ using QuickPharmaPlus.Server.ModelsDTO.CheckoutOrder;
 using QuickPharmaPlus.Server.ModelsDTO.Prescription;
 using QuickPharmaPlus.Server.ModelsDTO.Prescription.Checkout;
 using QuickPharmaPlus.Server.Repositories.Interface;
+using Stripe.Checkout;
+
 
 namespace QuickPharmaPlus.Server.Repositories.Implementation
 {
@@ -254,18 +256,48 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 _db.Shippings.Add(shipping);
                 await _db.SaveChangesAsync();
 
-                // ===== Payment (CASH for now) =====
-                // IMPORTANT: adjust property names to match your Payment model
+                
+                // ===== Payment (cash OR stripe online) =====
+                var method = (req.PaymentMethod ?? "cash").Trim().ToLowerInvariant();
+
+                int paymentMethodId;
+                bool paymentSuccess = true;
+                string? stripeIntentId = null;
+
+                if (method == "online")
+                {
+                    if (string.IsNullOrWhiteSpace(req.StripeSessionId))
+                        return new CheckoutCreateOrderResponseDto { Created = false, Message = "Missing Stripe session id." };
+
+                    var sessionService = new SessionService();
+                    var session = sessionService.Get(req.StripeSessionId);
+
+                    if (!string.Equals(session.PaymentStatus, "paid", StringComparison.OrdinalIgnoreCase))
+                        return new CheckoutCreateOrderResponseDto { Created = false, Message = "Stripe payment not completed." };
+
+                    paymentMethodId = 2; // ONLINE (make sure this exists in PaymentMethod table)
+                    stripeIntentId = session.PaymentIntentId;
+                }
+                else
+                {
+                    paymentMethodId = 1; // CASH
+                }
+
                 var payment = new Payment
                 {
-                    PaymentMethodId = 1,      // 1 = cash
-                    PaymentTimestamp = nowBH, // time of order
+                    PaymentMethodId = paymentMethodId,
+                    PaymentTimestamp = nowBH,
                     PaymentAmount = orderTotal,
-                    PaymentIsSuccessful = true
+                    PaymentIsSuccessful = paymentSuccess,
+
+                    // OPTIONAL: only if your Payment table has these columns
+                    // StripeSessionId = req.StripeSessionId,
+                    // StripePaymentIntentId = stripeIntentId
                 };
 
                 _db.Payments.Add(payment);
                 await _db.SaveChangesAsync();
+
 
                 // ===== Order =====
                 // IMPORTANT: adjust property names to match your Order model

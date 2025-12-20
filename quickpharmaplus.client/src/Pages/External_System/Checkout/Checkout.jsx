@@ -15,11 +15,11 @@ import PaymentTab from "./PaymentTab";
 import "../Shared_Components/External_Style.css";
 
 const DRAFT_KEY = "qp_checkout_draft_v1";
-/*
+
 function saveDraftToSession(draft) {
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
 }
-*/
+
 function loadDraftFromSession() {
     const raw = sessionStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
@@ -89,6 +89,10 @@ export default function Checkout() {
             }
         );
     });
+
+    useEffect(() => {
+        saveDraftToSession(draft);
+    }, [draft]);
 
     // Tracks whether we intentionally left to Stripe.
     const leavingForStripeRef = useRef(false);
@@ -593,17 +597,75 @@ export default function Checkout() {
         // 4) Other steps
         goNextStep();
     };
-/*
-    // (Stripe helpers kept but unused for now)
-    const handleBeforeStripeRedirect = useCallback(() => {
-        leavingForStripeRef.current = true;
-        saveDraftToSession(draft);
-    }, [draft]);
+    /*
+        // (Stripe helpers kept but unused for now)
+        const handleBeforeStripeRedirect = useCallback(() => {
+            leavingForStripeRef.current = true;
+            saveDraftToSession(draft);
+        }, [draft]);
+    
+        const handleStripeCancelledReturn = useCallback(() => {
+            leavingForStripeRef.current = false;
+        }, []);
+        */
 
-    const handleStripeCancelledReturn = useCallback(() => {
-        leavingForStripeRef.current = false;
-    }, []);
-    */
+    const handlePayOnline = useCallback(async () => {
+        setPlaceOrderError("");
+
+        // must have valid shipping before paying
+        if (!shippingState.isValid) {
+            setPlaceOrderError("Shipping is not valid. Please re-check the Shipping step.");
+            return;
+        }
+
+
+        // mark that we are leaving intentionally so unmount doesn't clear session
+        leavingForStripeRef.current = true;
+
+        // force-save draft right before redirect (extra safety)
+        saveDraftToSession({ ...draft, _userId: userId });
+
+
+        // build Stripe request payload
+        const subtotal = (itemsFromCart || []).reduce(
+            (sum, it) => sum + (it.price || 0) * (it.quantity || 0),
+            0
+        );
+        const deliveryFee = shippingState.mode === "delivery" ? 1 : 0;
+        const total = subtotal + deliveryFee;
+
+        const body = {
+            items: (itemsFromCart || []).map((it) => ({
+                name: it.name ?? "Item",
+                price: Number(it.price || 0),
+                quantity: Number(it.quantity || 1),
+            })),
+            deliveryFee,
+            subtotal,
+            total,
+        };
+
+        try {
+            const res = await fetch(`${API_BASE}/api/stripe/create-checkout-session`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify(body),
+            });
+
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || !json?.url) {
+                throw new Error(json?.message || json?.error || `Stripe session failed (${res.status}).`);
+            }
+
+            window.location.assign(json.url);
+        } catch (e) {
+            leavingForStripeRef.current = false; // stay in checkout flow
+            setPlaceOrderError(e?.message || "Stripe redirect failed.");
+        }
+    }, [API_BASE, draft, itemsFromCart, shippingState.mode]);
+
+
     const renderActiveTabContent = () => {
         switch (activeStep) {
             case "summary":
@@ -644,6 +706,7 @@ export default function Checkout() {
                                 payment: { ...(p.payment || {}), method: m },
                             }))
                         }
+                        onPayOnline={handlePayOnline}
                     />
                 );
 
