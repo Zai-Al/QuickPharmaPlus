@@ -193,8 +193,15 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 subtotal += unit * it.CartQuantity;
             }
 
+            // delivery fee
             decimal deliveryFee = (req.Mode == "delivery") ? 1m : 0m;
-            decimal orderTotal = subtotal + deliveryFee;
+
+            // urgent fee (ONLY if delivery + urgent)
+            decimal urgentFee = (req.Mode == "delivery" && req.IsUrgent) ? 1m : 0m;
+
+            // FINAL TOTAL
+            decimal orderTotal = subtotal + deliveryFee + urgentFee;
+
 
             // 5) Create everything in a transaction
             using var tx = await _db.Database.BeginTransactionAsync();

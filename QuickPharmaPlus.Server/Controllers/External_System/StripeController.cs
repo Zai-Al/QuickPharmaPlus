@@ -18,7 +18,7 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                 PaymentMethodTypes = new List<string> { "card" },
                 Mode = "payment",
                 SuccessUrl = $"{domain}/payment-success?session_id={{CHECKOUT_SESSION_ID}}",
-                CancelUrl = $"{domain}/payment-failed",
+                CancelUrl = $"{domain}/checkout?tab=payment&pay=cancel",
                 //Locale = "auto", // This will auto-detect the user's locale or use a valid default
                 LineItems = new List<SessionLineItemOptions>()
             };
@@ -52,6 +52,22 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                         ProductData = new SessionLineItemPriceDataProductDataOptions
                         {
                             Name = "Delivery Fee"
+                        }
+                    }
+                });
+            }
+            if (request.IsUrgent)
+            {
+                options.LineItems.Add(new SessionLineItemOptions
+                {
+                    Quantity = 1,
+                    PriceData = new SessionLineItemPriceDataOptions
+                    {
+                        UnitAmount = 100, // 1 BHD (fils)
+                        Currency = "usd", // keep consistent with your current setup
+                        ProductData = new SessionLineItemPriceDataProductDataOptions
+                        {
+                            Name = "Urgent Delivery Fee"
                         }
                     }
                 });
@@ -115,6 +131,7 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             public decimal DeliveryFee { get; set; }
             public decimal Subtotal { get; set; }
             public decimal Total { get; set; }
+            public bool IsUrgent { get; set; }
         }
 
         public class ItemDTO
