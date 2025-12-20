@@ -40,6 +40,8 @@ public partial class Product
     [Column("Category_id")]
     public int? CategoryId { get; set; }
 
+    public bool IsActive { get; set; }
+
     [InverseProperty("Product")]
     public virtual ICollection<Cart> Carts { get; set; } = new List<Cart>();
 
