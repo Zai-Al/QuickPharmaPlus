@@ -30,6 +30,79 @@
     text-align: center;
 }
 
+/* ========================================================= */
+/* ============  CUSTOM COLUMN WIDTHS (SUPPLIERS ONLY)  ==== */
+/* ========================================================= */
+
+/* Target ONLY the table inside .suppliers-page */
+.suppliers-page .data-table {
+    table-layout: fixed; /* Makes column widths respect our settings */
+}
+
+/* Column widths based on content */
+.suppliers-page .data-table th:nth-child(1),
+.suppliers-page .data-table td:nth-child(1) {
+    width: 14%; /* Name */
+}
+
+.suppliers-page .data-table th:nth-child(2),
+.suppliers-page .data-table td:nth-child(2) {
+    width: 12%; /* Representative */
+}
+
+.suppliers-page .data-table th:nth-child(3),
+.suppliers-page .data-table td:nth-child(3) {
+    width: 10%; /* Contact */
+}
+
+.suppliers-page .data-table th:nth-child(4),
+.suppliers-page .data-table td:nth-child(4) {
+    width: 18%; /* Email - increased from 15% */
+}
+
+.suppliers-page .data-table th:nth-child(5),
+.suppliers-page .data-table td:nth-child(5) {
+    width: 20%; /* Address - reduced from 25% */
+}
+
+.suppliers-page .data-table th:nth-child(6),
+.suppliers-page .data-table td:nth-child(6) {
+    width: 8%; /* Number of Products */
+    text-align: center;
+}
+
+.suppliers-page .data-table th:nth-child(7),
+.suppliers-page .data-table td:nth-child(7) {
+    width: 9%; /* Edit button */
+    text-align: center;
+}
+
+.suppliers-page .data-table th:nth-child(8),
+.suppliers-page .data-table td:nth-child(8) {
+    width: 9%; /* Delete button */
+    text-align: center;
+}
+
+/* Email column - allow wrapping for long emails */
+.suppliers-page .data-table td:nth-child(4) {
+    word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    line-height: 1.4;
+    padding: 0.75rem 0.5rem;
+}
+
+/* Address column - text wrap nicely */
+.suppliers-page .data-table td:nth-child(5) {
+    word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    line-height: 1.4;
+    padding: 0.75rem 0.5rem;
+}
+
 /* ----------------------------------------- */
 /*                  MODAL                    */
 /* ----------------------------------------- */
@@ -50,8 +123,6 @@
     margin-bottom: 7px;
     font-weight: 500;
 }
-
-
 
 /* ----------------------------------------- */
 /*        VALIDATION ERROR STYLING           */

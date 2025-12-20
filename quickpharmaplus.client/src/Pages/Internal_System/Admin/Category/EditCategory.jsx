@@ -254,7 +254,7 @@ export default function EditCategory() {
                     />
 
                     {/* SAVE */}
-                    <AddButton text="Save Changes" type="submit" />
+                    <AddButton text="Save Changes" type="submit" icon="file-earmark-check" />
 
                 </form>
             </FormWrapper>

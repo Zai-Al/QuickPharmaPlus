@@ -1044,7 +1044,7 @@ export default function EditProduct() {
                     />
 
                     {/* BUTTON */}
-                    <AddButton text="Save Changes" type="submit" />
+                    <AddButton text="Save Changes" type="submit" icon="file-earmark-check" />
                 </form>
             </FormWrapper>
         </div>

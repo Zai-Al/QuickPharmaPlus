@@ -1,14 +1,13 @@
 import { Link } from "react-router-dom";
 import "./Buttons.css";
 
-export default function AddButton({ to, text, icon = "plus-circle" }) {
+export default function SaveButton() {
     return (
         <Link
-            to={to}
             className="btn page-add-btn-custom d-flex align-items-center gap-2"
         >
-            <i className={`bi bi-${icon} fs-5`}></i>
-            {text}
+            <i className="bi bi-save fs-5 me-1" ></i>
+            Save Changes
         </Link>
     );
 }

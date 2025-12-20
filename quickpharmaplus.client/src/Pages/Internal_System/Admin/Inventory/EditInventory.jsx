@@ -482,7 +482,7 @@ export default function EditInventory() {
                     </div>
 
                     {/* BUTTON */}
-                    <AddButton text="Save Changes" type="submit" />
+                    <AddButton text="Save Changes" type="submit" icon="file-earmark-check" />
                 </form>
             </FormWrapper>
         </div>

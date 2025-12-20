@@ -220,7 +220,7 @@ export default function SupplierList() {
     ];
 
     const renderMap = {
-        edit: (row) => <EditButton to={`/supplier/edit/${row.id}`} />,
+        edit: (row) => <EditButton to={`/suppliers/edit/${row.id}`} />,
         delete: (row) => (
             <DeleteButton
                 onClick={() => {
