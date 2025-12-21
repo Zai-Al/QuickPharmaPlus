@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.Security.Claims;
+using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -6,7 +8,6 @@ using QuickPharmaPlus.Server.Identity;
 using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.ModelsDTO.SupplierOrder;
 using QuickPharmaPlus.Server.Repositories.Interface;
-using System.Text.RegularExpressions;
 
 namespace QuickPharmaPlus.Server.Controllers.Internal_System
 {
@@ -76,6 +77,10 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
         // =============================================================
         // GET: api/SupplierOrder?pageNumber=1&pageSize=10&search=...
         // =============================================================
+        // =============================================================
+        // GET: api/SupplierOrder?pageNumber=1&pageSize=10&search=...
+        // =============================================================
+        [Authorize(Roles = "Admin,Pharmacist,Manager")]
         [HttpGet]
         public async Task<IActionResult> GetAll(
             int pageNumber = 1,
@@ -86,7 +91,10 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
             int? statusId = null,
             int? typeId = null)
         {
-            // Validation
+            // ============================
+            // BASIC VALIDATION
+            // ============================
+
             if (pageNumber <= 0 || pageSize <= 0)
                 return BadRequest("Page number and page size must be positive.");
 
@@ -99,14 +107,52 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
             if (typeId.HasValue && typeId.Value <= 0)
                 return BadRequest("Invalid type ID.");
 
+            // ============================
+            // ROLE-BASED BRANCH ISOLATION
+            // ============================
+
+            var identityUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(identityUserId))
+                return Unauthorized();
+
+            bool isAdmin = User.IsInRole("Admin");
+
+            int? effectiveBranchId;
+
+            if (isAdmin)
+            {
+                // Admin can see all or filter by branch
+                effectiveBranchId = branchId;
+            }
+            else
+            {
+                // Non-admin → force branch from DOMAIN User table
+                var domainUser = await _context.Users
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.IdentityUserId == identityUserId);
+
+                if (domainUser == null)
+                    return Forbid("Domain user record not found.");
+
+                if (!domainUser.BranchId.HasValue)
+                    return Forbid("User is not assigned to a branch.");
+
+                effectiveBranchId = domainUser.BranchId.Value;
+            }
+
+            // ============================
+            // FETCH DATA
+            // ============================
+
             var result = await _repo.GetAllSupplierOrdersAsync(
                 pageNumber,
                 pageSize,
                 search,
                 orderDate,
-                branchId,
+                effectiveBranchId,
                 statusId,
-                typeId);
+                typeId
+            );
 
             return Ok(new
             {
@@ -116,6 +162,7 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                 pageSize
             });
         }
+
 
         // =============================================================
         // GET: api/SupplierOrder/{id}

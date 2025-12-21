@@ -1,4 +1,5 @@
-﻿import { useState, useEffect, useRef } from "react";
+﻿import { useEffect, useState, useRef, useContext } from "react";
+import { AuthContext } from "../../../Context/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import "./OrdersList.css";
@@ -19,10 +20,15 @@ import FilterSection from "../../../Components/InternalSystem/GeneralComponents/
 
 import Pagination from "../../../Components/InternalSystem/GeneralComponents/Pagination";
 
-export default function OrdersList() {
+export default function InventoryList() {
     const baseURL = import.meta.env.VITE_API_BASE_URL;
+    const { user } = useContext(AuthContext);
     const location = useLocation();
     const navigate = useNavigate();
+
+    // =================== CHECK USER ROLE ===================
+    const roles = user?.roles || [];
+    const isAdmin = roles.includes("Admin");
 
     /* ----------------------------------------- */
     /*          LOCAL STATE FOR TABS              */
@@ -810,19 +816,26 @@ export default function OrdersList() {
                             </ul>
                         )}
                     </div>
-                    <div className="mb-2">
-                        <div className="filter-label fst-italic small">Select branch for automatic search</div>
-                        <FilterDropdown
-                            placeholder="Filter Orders by Branch"
-                            options={branchOptions}
-                            value={selectedBranch}
-                            onChange={(e) => {
-                                setSelectedBranch(e.target.value);
-                                setCurrentPage(1); // Reset to page 1
-                            }}
-                        />
-                        <div style={{ height: "20px" }}></div>
-                    </div>
+                    {isAdmin && (
+                        <div className="mb-2">
+                            <div className="filter-label fst-italic small">
+                                Select branch for automatic search
+                            </div>
+
+                            <FilterDropdown
+                                placeholder="Filter Orders by Branch"
+                                options={branchOptions}
+                                value={selectedBranch}
+                                onChange={(e) => {
+                                    setSelectedBranch(e.target.value);
+                                    setCurrentPage(1); // Reset to page 1
+                                }}
+                            />
+
+                            <div style={{ height: "20px" }}></div>
+                        </div>
+                    )}
+
                 </FilterLeft>
             </FilterSection>
 

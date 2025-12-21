@@ -1,4 +1,6 @@
-﻿import { useEffect, useState, useRef } from "react";
+﻿import { useEffect, useState, useRef, useContext } from "react";
+import { AuthContext } from "../../../../Context/AuthContext";
+
 import "./InventoryList.css";
 
 // Shared components
@@ -19,6 +21,12 @@ import FilterDropdown from "../../../../Components/InternalSystem/GeneralCompone
 
 export default function InventoryList() {
     const baseURL = import.meta.env.VITE_API_BASE_URL;
+    const { user } = useContext(AuthContext);
+
+    // =================== CHECK USER ROLE ===================
+    const roles = user?.roles || [];
+    const isAdmin = roles.includes("Admin");
+
 
     // UI / data state
     const [loading, setLoading] = useState(false);
@@ -60,9 +68,12 @@ export default function InventoryList() {
         { key: "quantity", label: "Quantity" },
         { key: "expiryDate", label: "Expiry Date" },
         { key: "branchAddress", label: "Branch Address" },
-        { key: "edit", label: "Edit" },
-        { key: "delete", label: "Delete" }
+        ...(isAdmin ? [
+            { key: "edit", label: "Edit" },
+            { key: "delete", label: "Delete" }
+        ] : [])
     ];
+
 
     const renderMap = {
         edit: (row) => <EditButton to={`/inventory/edit/${row.inventoryId}`} />,
@@ -408,25 +419,34 @@ export default function InventoryList() {
                             }}
                         />
 
-                        <PageAddButton to="/inventory/add" text="Add New Inventory" />
+                        {isAdmin && (
+                            <PageAddButton to="/inventory/add" text="Add New Inventory" />
+                        )}
+
                     </div>
                 </FilterRight>
             </FilterSection>
 
             <FilterSection>
                 <FilterLeft>
-                    <div className="mb-2">
-                        <div className="filter-label fst-italic small">Select branch for automatic search</div>
-                        <FilterDropdown
-                            placeholder="Filter Inventory by Branch"
-                            options={branchOptions}
-                            value={selectedBranch || ""}
-                            onChange={(e) => {
-                                setSelectedBranch(e.target.value); // This is the branchId
-                                setCurrentPage(1);
-                            }}
-                        />
-                    </div>
+                    {isAdmin && (
+                        <div className="mb-2">
+                            <div className="filter-label fst-italic small">
+                                Select branch for automatic search
+                            </div>
+
+                            <FilterDropdown
+                                placeholder="Filter Inventory by Branch"
+                                options={branchOptions}
+                                value={selectedBranch || ""}
+                                onChange={(e) => {
+                                    setSelectedBranch(e.target.value); // This is the branchId
+                                    setCurrentPage(1);
+                                }}
+                            />
+                        </div>
+                    )}
+
 
                     <div className="mb-2">
                         <div className="filter-label fst-italic small">Select expiry date for automatic search</div>

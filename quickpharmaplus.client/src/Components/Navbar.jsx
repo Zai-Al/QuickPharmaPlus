@@ -115,6 +115,10 @@ export default function Navbar({ user: propUser, cartCount = 0,
                             </li>
 
                             <li className="nav-item">
+                                <NavLink to="/inventory" className="nav-link px-3">Inventory</NavLink>
+                            </li>
+
+                            <li className="nav-item">
                                 <NavLink to="/products" className="nav-link px-3">Products</NavLink>
                             </li>
 

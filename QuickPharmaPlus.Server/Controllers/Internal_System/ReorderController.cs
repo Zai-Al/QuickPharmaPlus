@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.Security.Claims;
+using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -6,13 +8,12 @@ using QuickPharmaPlus.Server.Identity;
 using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.ModelsDTO.Reorder;
 using QuickPharmaPlus.Server.Repositories.Interface;
-using System.Text.RegularExpressions;
 
 namespace QuickPharmaPlus.Server.Controllers.Internal_System
 {
     [Route("api/[controller]")]
     [ApiController]
-    //[Authorize(Roles = "Admin,Pharmacist,Manager")]
+    [Authorize(Roles = "Admin,Pharmacist,Manager")]
     public class ReorderController : ControllerBase
     {
         private readonly IReorderRepository _repo;
@@ -76,13 +77,17 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
         // =============================================================
         // GET: api/Reorder?pageNumber=1&pageSize=10&search=...
         // =============================================================
+        [Authorize(Roles = "Admin,Pharmacist,Manager")]
         [HttpGet]
         public async Task<IActionResult> GetAll(
             int pageNumber = 1,
             int pageSize = 10,
             string? search = null)
         {
-            // Validation
+            // ============================
+            // BASIC VALIDATION
+            // ============================
+
             if (pageNumber <= 0 || pageSize <= 0)
                 return BadRequest("Page number and page size must be positive.");
 
@@ -105,7 +110,46 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                 }
             }
 
-            var result = await _repo.GetAllReordersAsync(pageNumber, pageSize, search);
+            // ============================
+            // ROLE-BASED BRANCH ISOLATION
+            // ============================
+
+            // Get Identity User ID from claims
+            var identityUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(identityUserId))
+                return Unauthorized();
+
+            bool isAdmin = User.IsInRole("Admin");
+
+            int? effectiveBranchId = null;
+
+            if (!isAdmin)
+            {
+                // Non-admin → resolve branch from DOMAIN User table
+                var domainUser = await _context.Users
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.IdentityUserId == identityUserId);
+
+                if (domainUser == null)
+                    return Forbid("Domain user record not found.");
+
+                if (!domainUser.BranchId.HasValue)
+                    return Forbid("User is not assigned to a branch.");
+
+                effectiveBranchId = domainUser.BranchId.Value;
+            }
+            // Admin → effectiveBranchId stays null (means ALL branches)
+
+            // ============================
+            // FETCH DATA
+            // ============================
+
+            var result = await _repo.GetAllReordersAsync(
+                pageNumber,
+                pageSize,
+                search,
+                effectiveBranchId
+            );
 
             return Ok(new
             {
@@ -115,6 +159,7 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                 pageSize
             });
         }
+
 
         // =============================================================
         // GET: api/Reorder/{id}
