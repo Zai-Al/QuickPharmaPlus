@@ -23,6 +23,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             int pageNumber,
             int pageSize,
             string? search = null,
+            int? branchId = null,
             DateOnly? expiryDate = null)
         {
             if (pageNumber < 1) pageNumber = 1;
@@ -83,6 +84,14 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     i.InventoryExpiryDate.HasValue &&
                     i.InventoryExpiryDate.Value == dateFilter
                 );
+            }
+
+            // =============================================================
+            // BRANCH FILTER
+            // =============================================================
+            if (branchId.HasValue && branchId.Value > 0)
+            {
+                query = query.Where(so => so.BranchId == branchId.Value);
             }
 
             // COUNT AFTER FILTERS APPLIED

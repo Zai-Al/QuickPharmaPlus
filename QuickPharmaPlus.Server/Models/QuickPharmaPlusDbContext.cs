@@ -375,7 +375,7 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
         modelBuilder.Entity<Slot>(entity =>
         {
-            entity.HasKey(e => e.SlotId).HasName("PK__Slot__1AE5AEE640BCFA31");
+            entity.HasKey(e => e.SlotId).HasName("PK__Slot__1AE5AEE6D44E0A8E");
         });
 
         modelBuilder.Entity<Supplier>(entity =>

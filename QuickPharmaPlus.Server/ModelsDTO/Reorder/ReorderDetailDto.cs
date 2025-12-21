@@ -4,7 +4,7 @@
     {
         public int ReorderId { get; set; }
         public int? ReorderThreshold { get; set; }
-        
+
         public int? ProductId { get; set; }
         public string? ProductName { get; set; }
         public string? ProductDescription { get; set; }
@@ -20,5 +20,6 @@
         
         public int BranchId { get; set; }
         public string? BranchName { get; set; }
+        public int? ReoderQuantity { get; internal set; }
     }
 }

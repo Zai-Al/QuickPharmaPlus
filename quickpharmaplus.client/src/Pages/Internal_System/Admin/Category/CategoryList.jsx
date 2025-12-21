@@ -285,7 +285,7 @@ export default function CategoryList() {
 
             {/* STATUS */}
             {loading && <div className="text-center text-muted my-3">Loading categories...</div>}
-            {error && <div className="alert alert-danger">{error}</div>}
+            {error && <div className="alert alert-danger w-50">{error}</div>}
 
             {/* TABLE */}
             <DataTable columns={columns} data={categories} renderMap={renderMap} />

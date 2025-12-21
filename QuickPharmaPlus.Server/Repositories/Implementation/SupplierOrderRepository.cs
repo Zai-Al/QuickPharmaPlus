@@ -27,12 +27,14 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             int pageNumber,
             int pageSize,
             string? search = null,
-            DateOnly? orderDate = null)
+            DateOnly? orderDate = null,
+            int? branchId = null,
+            int? statusId = null,
+            int? typeId = null)
         {
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 1) pageSize = 10;
 
-            // Base query with all related entities including Branch → Address → City
             var query = _context.SupplierOrders
                 .Include(so => so.Supplier)
                 .Include(so => so.Employee)
@@ -92,6 +94,30 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     so.SupplierOrderDate.HasValue &&
                     DateOnly.FromDateTime(so.SupplierOrderDate.Value) == dateFilter
                 );
+            }
+
+            // =============================================================
+            // BRANCH FILTER
+            // =============================================================
+            if (branchId.HasValue && branchId.Value > 0)
+            {
+                query = query.Where(so => so.BranchId == branchId.Value);
+            }
+
+            // =============================================================
+            // STATUS FILTER
+            // =============================================================
+            if (statusId.HasValue && statusId.Value > 0)
+            {
+                query = query.Where(so => so.SupplierOrderStatusId == statusId.Value);
+            }
+
+            // =============================================================
+            // TYPE FILTER
+            // =============================================================
+            if (typeId.HasValue && typeId.Value > 0)
+            {
+                query = query.Where(so => so.SupplierOrderTypeId == typeId.Value);
             }
 
             // Count AFTER filtering

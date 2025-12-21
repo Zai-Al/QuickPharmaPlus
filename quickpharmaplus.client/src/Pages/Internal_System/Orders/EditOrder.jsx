@@ -1,5 +1,5 @@
-﻿import { useState, useEffect, useRef, useContext } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef, useContext } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import "./CreateOrder.css";
 import "../Products/AddProduct.css"; // Import AddProduct CSS for consistency
 
@@ -8,9 +8,10 @@ import AddButton from "../../../Components/Form/FormAddButton";
 import FormHeader from "../../../Components/InternalSystem/FormHeader";
 import { AuthContext } from "../../../Context/AuthContext";
 
-export default function CreateOrder() {
+export default function EditOrder() {
+    const { id } = useParams();
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
+    const baseURL = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
     const { user } = useContext(AuthContext);
 
     // ===================== STATE =====================
@@ -21,6 +22,7 @@ export default function CreateOrder() {
 
     const [successMessage, setSuccessMessage] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
+    const [loading, setLoading] = useState(true);
 
     // =================== VALIDATION STATE ===================
     const [errors, setErrors] = useState({});
@@ -63,7 +65,10 @@ export default function CreateOrder() {
         if (isAdmin) {
             fetchBranches();
         }
-    }, [isAdmin]); // Dependency on isAdmin
+
+        // Fetch order details
+        fetchOrderDetails();
+    }, [id, isAdmin]); // Dependency on id and isAdmin
 
     // Close supplier dropdown on outside click
     useEffect(() => {
@@ -88,6 +93,68 @@ export default function CreateOrder() {
         document.addEventListener("mousedown", onDocClick);
         return () => document.removeEventListener("mousedown", onDocClick);
     }, []);
+
+    // =================== FETCH ORDER DETAILS ===================
+    const fetchOrderDetails = async () => {
+        try {
+            setLoading(true);
+            const response = await fetch(`${baseURL}/api/SupplierOrder/${id}`, {
+                credentials: "include"
+            });
+
+            if (!response.ok) throw new Error("Failed to fetch order details");
+
+            const data = await response.json();
+
+            setSupplierId(data.supplierId?.toString() || "");
+            setProductId(data.productId?.toString() || "");
+            setQuantity(data.supplierOrderQuantity?.toString() || "");
+            setBranchId(data.branchId?.toString() || "");
+
+            // Set supplier query after suppliers are loaded
+            if (data.supplierName) {
+                setSupplierQuery(data.supplierName);
+            }
+
+            // Set product query after products are loaded
+            if (data.productName) {
+                setProductQuery(data.productName);
+            }
+
+        } catch (err) {
+            console.error("Error fetching order details:", err);
+            setErrorMessage("Failed to load order details.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Update supplier query when supplierId and supplierOptions are available
+    useEffect(() => {
+        if (supplierId && supplierOptions.length > 0) {
+            const selectedSupplier = supplierOptions.find(s => s.value.toString() === supplierId.toString());
+            if (selectedSupplier) {
+                setSupplierQuery(selectedSupplier.supplierName);
+            }
+        }
+    }, [supplierId, supplierOptions]);
+
+    // Update product query when productId and productOptions are available
+    useEffect(() => {
+        if (productId && productOptions.length > 0) {
+            const selectedProduct = productOptions.find(p => p.value.toString() === productId.toString());
+            if (selectedProduct) {
+                setProductQuery(selectedProduct.productName);
+            }
+        }
+    }, [productId, productOptions]);
+
+    // Fetch products when supplier changes
+    useEffect(() => {
+        if (supplierId) {
+            fetchProductsForSupplier(supplierId);
+        }
+    }, [supplierId]);
 
     // =================== FETCH FUNCTIONS ===================
     const fetchSuppliers = async () => {
@@ -405,50 +472,63 @@ export default function CreateOrder() {
         }
 
         try {
-            const response = await fetch(`${baseURL}/api/SupplierOrder`, {
-                method: "POST",
+            const response = await fetch(`${baseURL}/api/SupplierOrder/${id}`, {
+                method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
                 body: JSON.stringify(payload),
             });
 
             if (response.ok) {
-                setSuccessMessage("Order created successfully!");
+                setSuccessMessage("Order updated successfully!");
                 setErrorMessage("");
                 setTimeout(() => navigate("/orders"), 1500);
             } else {
                 const errorText = await response.text();
-                setErrorMessage(errorText || "Failed to create order.");
+                setErrorMessage(errorText || "Failed to update order.");
                 setSuccessMessage("");
             }
         } catch (err) {
-            console.error("Error creating order:", err);
+            console.error("Error updating order:", err);
             setErrorMessage("Server error. Please try again.");
             setSuccessMessage("");
         }
     };
 
+    // =================== LOADING STATE ===================
+    if (loading) {
+        return (
+            <div className="add-product-page">
+                <FormHeader title="Edit Supplier Order" to="/orders" />
+                <div className="text-center my-5">
+                    <div className="spinner-border text-primary" />
+                    <p className="mt-2">Loading order details...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="add-product-page">
             {/* HEADER (Title + Cancel Button) */}
-            <FormHeader title="Create New Order" to="/orders" />
+            <FormHeader title="Edit Supplier Order" to="/orders" />
 
             {/* ALERT MESSAGES */}
             {successMessage && (
-                <div className="alert alert-success alert-dismissible inventory-alert w-50">
+                <div className="alert alert-success alert-dismissible inventory-alert w-80">
                     <button className="btn-close" data-bs-dismiss="alert" onClick={() => setSuccessMessage("")}></button>
                     <strong>Success!</strong> {successMessage}
                 </div>
             )}
 
             {errorMessage && (
-                <div className="alert alert-danger alert-dismissible inventory-alert w-50">
+                <div className="alert alert-danger alert-dismissible inventory-alert w-80">
                     <button className="btn-close" data-bs-dismiss="alert" onClick={() => setErrorMessage("")}></button>
                     <strong>Error!</strong> {errorMessage}
                 </div>
             )}
 
-            <FormWrapper title="Enter Order Details:">
+            <FormWrapper title="Edit Order Details:">
                 <form className="add-product-form" onSubmit={handleSubmit}>
 
                     {/* SUPPLIER SEARCHABLE DROPDOWN */}
@@ -587,7 +667,7 @@ export default function CreateOrder() {
                     )}
 
                     {/* BUTTON */}
-                    <AddButton text="Create New Order" type="submit" />
+                    <AddButton text="Save Changes" type="submit" icon="file-earmark-check" />
                 </form>
             </FormWrapper>
         </div>

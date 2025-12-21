@@ -649,14 +649,14 @@ export default function EditEmployee() {
             <FormHeader title="Edit Employee Record" to="/employees" />
 
             {successMessage && (
-                <div className="alert alert-success alert-dismissible">
+                <div className="alert alert-success alert-dismissible w-50">
                     <button className="btn-close" data-bs-dismiss="alert"></button>
                     <strong>Success!</strong> {successMessage}
                 </div>
             )}
 
             {errorMessage && (
-                <div className="alert alert-danger alert-dismissible">
+                <div className="alert alert-danger alert-dismissible w-50">
                     <button className="btn-close" data-bs-dismiss="alert"></button>
                     <strong>Error!</strong> {errorMessage}
                 </div>

@@ -32,6 +32,9 @@ public partial class Reorder
     [Column("Branch_id")]
     public int BranchId { get; set; }
 
+    [Column("Reorder_quantity")]
+    public int? ReorderQuantity { get; set; }
+
     [ForeignKey("BranchId")]
     [InverseProperty("Reorders")]
     public virtual Branch Branch { get; set; } = null!;

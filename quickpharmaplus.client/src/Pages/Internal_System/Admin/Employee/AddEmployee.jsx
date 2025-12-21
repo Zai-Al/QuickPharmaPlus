@@ -8,7 +8,7 @@ import FormHeader from "../../../../Components/InternalSystem/FormHeader";
 
 export default function AddEmployee() {
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
+    const baseURL = import.meta.env.VITE_API_BASE_URL;
 
     // =================== STATE ===================
     const [firstName, setFirstName] = useState("");
@@ -534,14 +534,14 @@ export default function AddEmployee() {
             <FormHeader title="Add New Employee Record" to="/employees" />
 
             {successMessage && (
-                <div className="alert alert-success alert-dismissible">
+                <div className="alert alert-success alert-dismissible w-50">
                     <button className="btn-close" data-bs-dismiss="alert"></button>
                     <strong>Success!</strong> {successMessage}
                 </div>
             )}
 
             {errorMessage && (
-                <div className="alert alert-danger alert-dismissible">
+                <div className="alert alert-danger alert-dismissible w-50">
                     <button className="btn-close" data-bs-dismiss="alert"></button>
                     <strong>Error!</strong> {errorMessage}
                 </div>

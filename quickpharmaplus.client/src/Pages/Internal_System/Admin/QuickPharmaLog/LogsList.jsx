@@ -502,7 +502,7 @@ export default function Logs() {
 
             {/* LOADING / ERROR */}
             {loading && <div className="text-center text-muted my-3">Loading QuickPharma logs...</div>}
-            {error && <div className="alert alert-danger">{error}</div>}
+            {error && <div className="alert alert-danger w-50">{error}</div>}
 
             {/* TABLE */}
             <DataTable

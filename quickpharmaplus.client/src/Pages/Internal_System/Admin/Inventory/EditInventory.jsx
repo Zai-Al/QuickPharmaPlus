@@ -10,7 +10,7 @@ import DatePicker from "../../../../Components/Form/FormDatePicker";
 export default function EditInventory() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
+    const baseURL = import.meta.env.VITE_API_BASE_URL;
 
     // =================== STATE ===================
     const [productId, setProductId] = useState("");
@@ -381,14 +381,14 @@ export default function EditInventory() {
 
             {/* ALERT MESSAGES */}
             {successMessage && (
-                <div className="alert alert-success alert-dismissible inventory-alert">
+                <div className="alert alert-success alert-dismissible inventory-alert w-50">
                     <button className="btn-close" data-bs-dismiss="alert" onClick={() => setSuccessMessage("")}></button>
                     <strong>Success!</strong> {successMessage}
                 </div>
             )}
 
             {errorMessage && (
-                <div className="alert alert-danger alert-dismissible inventory-alert">
+                <div className="alert alert-danger alert-dismissible inventory-alert w-50">
                     <button className="btn-close" data-bs-dismiss="alert" onClick={() => setErrorMessage("")}></button>
                     <strong>Error!</strong> {errorMessage}
                 </div>

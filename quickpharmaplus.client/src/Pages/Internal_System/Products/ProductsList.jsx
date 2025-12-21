@@ -466,7 +466,7 @@ export default function ProductsList() {
 
             {/* TABLE */}
             {loading && <div className="text-center text-muted my-3">Loading products...</div>}
-            {error && <div className="alert alert-danger">{error}</div>}
+            {error && <div className="alert alert-danger w-50">{error}</div>}
             <DataTable columns={columns} data={products} renderMap={renderMap} />
 
             {/* PAGINATION */}

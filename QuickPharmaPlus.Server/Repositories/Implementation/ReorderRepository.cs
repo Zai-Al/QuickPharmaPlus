@@ -134,6 +134,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             {
                 ReorderId = reorder.ReorderId,
                 ReorderThreshold = reorder.ReorderThershold,
+                ReoderQuantity = reorder.ReorderQuantity,
                 ProductId = reorder.ProductId,
                 ProductName = reorder.Product?.ProductName,
                 ProductDescription = reorder.Product?.ProductDescription,
