@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import "./OrdersList.css";
 
-/* ===========================
    INTERNAL SYSTEM COMPONENTS
    =========================== */
 
