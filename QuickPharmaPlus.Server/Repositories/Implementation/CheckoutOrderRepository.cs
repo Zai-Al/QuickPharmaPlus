@@ -5,6 +5,8 @@ using QuickPharmaPlus.Server.ModelsDTO.Prescription;
 using QuickPharmaPlus.Server.ModelsDTO.Prescription.Checkout;
 using QuickPharmaPlus.Server.Repositories.Interface;
 using Stripe.Checkout;
+using QuickPharmaPlus.Server.Services;
+
 
 
 namespace QuickPharmaPlus.Server.Repositories.Implementation
@@ -14,15 +16,19 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
         private readonly QuickPharmaPlusDbContext _db;
         private readonly ICartRepository _cartRepo;
         private readonly IPrescriptionRepository _prescriptionRepo;
+        private readonly IOrderEmailService _orderEmailService;
 
         public CheckoutOrderRepository(
             QuickPharmaPlusDbContext db,
             ICartRepository cartRepo,
-            IPrescriptionRepository prescriptionRepo)
+            IPrescriptionRepository prescriptionRepo,
+            IOrderEmailService orderEmailService)
         {
             _db = db;
             _cartRepo = cartRepo;
             _prescriptionRepo = prescriptionRepo;
+            _orderEmailService = orderEmailService;
+
         }
 
         // Bahrain time helper (Windows: "Arabian Standard Time")
@@ -39,6 +45,26 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 return DateTime.UtcNow.AddHours(3);
             }
         }
+
+        private async Task<int?> ResolveUrgentSlotIdAsync(DateTime nowBH)
+        {
+            // We need a slot that covers "now" through "now + 60 minutes"
+            var start = TimeOnly.FromDateTime(nowBH);
+            var end = TimeOnly.FromDateTime(nowBH.AddHours(1));
+
+            // If we crossed midnight (rare edge case), don't allow urgent
+            if (end < start) return null;
+
+            // NOTE: adjust property names if your Slot entity uses different names
+            // (SlotId, SlotStartTime, SlotEndTime)
+            return await _db.Slots
+                .AsNoTracking()
+                .Where(s => s.SlotStartTime <= start && s.SlotEndTime >= end)
+                .OrderBy(s => s.SlotStartTime)
+                .Select(s => (int?)s.SlotId)
+                .FirstOrDefaultAsync();
+        }
+
 
         public async Task<CheckoutCreateOrderResponseDto> CreateOrderFromCheckoutAsync(CheckoutCreateOrderRequestDto req)
         {
@@ -245,6 +271,20 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 }
                 var nowBH = BahrainNow();
 
+                int? urgentSlotId = null;
+                if (req.Mode == "delivery" && req.IsUrgent)
+                {
+                    urgentSlotId = await ResolveUrgentSlotIdAsync(nowBH);
+                    if (!urgentSlotId.HasValue)
+                    {
+                        return new CheckoutCreateOrderResponseDto
+                        {
+                            Created = false,
+                            Message = "Urgent delivery is not available right now (no slot covers the next 60 minutes)."
+                        };
+                    }
+                }
+
                 // Shipping
                 var shipping = new Shipping
                 {
@@ -253,12 +293,24 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     AddressId = req.Mode == "delivery"
                         ? (req.UseSavedAddress ? profileAddressId : addressId)
                         : null,
+
                     ShippingIsDelivery = (req.Mode == "delivery"),
                     ShippingIsUrgent = (req.Mode == "delivery" ? req.IsUrgent : null),
-                    ShippingSlotId = (req.Mode == "delivery" && !req.IsUrgent) ? req.SlotId : null,
-                    ShippingDate = req.Mode != "delivery" ? null : req.IsUrgent ? nowBH.Date : (req.ShippingDate.HasValue ? req.ShippingDate.Value.ToDateTime(TimeOnly.MinValue) : (DateTime?)null)
 
+                    // urgent => use urgentSlotId, non-urgent => use req.SlotId
+                    ShippingSlotId = (req.Mode == "delivery")
+                        ? (req.IsUrgent ? urgentSlotId : req.SlotId)
+                        : null,
+
+                    ShippingDate = req.Mode != "delivery"
+                        ? null
+                        : req.IsUrgent
+                            ? nowBH.Date
+                            : (req.ShippingDate.HasValue
+                                ? req.ShippingDate.Value.ToDateTime(TimeOnly.MinValue)
+                                : (DateTime?)null)
                 };
+
 
                 _db.Shippings.Add(shipping);
                 await _db.SaveChangesAsync();
@@ -353,6 +405,15 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 await _db.SaveChangesAsync();
 
                 await tx.CommitAsync();
+
+                try
+                {
+                    await _orderEmailService.TrySendOrderCreatedEmailAsync(order.OrderId, req.UserId);
+                }
+                catch (Exception emailEx)
+                {
+                   
+                }
 
                 return new CheckoutCreateOrderResponseDto
                 {

@@ -37,6 +37,13 @@ function toHHmm(t) {
     return `${hh}:${mm}`;
 }
 
+function hhmmToMinutes(hhmm) {
+    if (!hhmm || !hhmm.includes(":")) return null;
+    const [h, m] = hhmm.split(":").map((x) => Number(x));
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+    return h * 60 + m;
+}
+
 function formatSlotLabel(s) {
     const start = toHHmm(s?.start ?? s?.Start);
     const end = toHHmm(s?.end ?? s?.End);
@@ -108,6 +115,10 @@ export default function ShippingTab({
     const [unavailableModalBody, setUnavailableModalBody] = useState(null);
     const lastPopupKeyRef = useRef("");
 
+    const [urgentAvailable, setUrgentAvailable] = useState(false);
+    const [urgentReason, setUrgentReason] = useState("");
+
+
     // errors shown
     const [errors, setErrors] = useState({});
 
@@ -115,6 +126,60 @@ export default function ShippingTab({
     // HYDRATE FROM initialState
     // =========================
     const hydratedRef = useRef(false);
+
+    useEffect(() => {
+        if (!isDelivery) {
+            setUrgentAvailable(false);
+            setUrgentReason("");
+            if (isUrgent) setIsUrgent(false);
+            return;
+        }
+
+        if (!resolvedBranchId) {
+            setUrgentAvailable(false);
+            setUrgentReason("Select your city/branch first.");
+            if (isUrgent) setIsUrgent(false);
+            return;
+        }
+
+        const todayISO = toISODate(new Date());
+        const todaySlots = slotsByDate?.[todayISO] || [];
+
+        if (todaySlots.length === 0) {
+            setUrgentAvailable(false);
+            setUrgentReason("No slots available today.");
+            if (isUrgent) setIsUrgent(false);
+            return;
+        }
+
+        const now = new Date();
+        const plus60 = new Date(now.getTime() + 60 * 60 * 1000);
+
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        const plusMin = plus60.getHours() * 60 + plus60.getMinutes();
+
+        // if we crossed midnight, don’t allow urgent
+        if (plusMin < nowMin) {
+            setUrgentAvailable(false);
+            setUrgentReason("Urgent delivery is not available at this time.");
+            if (isUrgent) setIsUrgent(false);
+            return;
+        }
+
+        const ok = todaySlots.some((s) => {
+            const sStart = hhmmToMinutes(s.start);
+            const sEnd = hhmmToMinutes(s.end);
+            if (sStart == null || sEnd == null) return false;
+            return sStart <= nowMin && sEnd >= plusMin;
+        });
+
+        setUrgentAvailable(ok);
+        setUrgentReason(ok ? "" : "No time slot covers the next 60 minutes right now.");
+
+        // If user had urgent ON but it becomes invalid, turn it off
+        if (!ok && isUrgent) setIsUrgent(false);
+    }, [isDelivery, resolvedBranchId, slotsByDate, isUrgent]);
+
 
     useEffect(() => {
         if (hydratedRef.current) return;
@@ -595,8 +660,11 @@ export default function ShippingTab({
                     .map((s) => ({
                         value: String(s.slotId ?? s.SlotId ?? ""),
                         label: formatSlotLabel(s),
+                        start: toHHmm(s?.start ?? s?.Start ?? s?.slotStartTime ?? s?.SlotStartTime),
+                        end: toHHmm(s?.end ?? s?.End ?? s?.slotEndTime ?? s?.SlotEndTime),
                     }))
                     .filter((o) => o.value);
+
             }
 
             setSlotsByDate(map);
@@ -947,6 +1015,7 @@ export default function ShippingTab({
                                 type="checkbox"
                                 id="urgent"
                                 checked={isUrgent}
+                                disabled={!urgentAvailable}
                                 onChange={() => {
                                     setIsUrgent((p) => !p);
                                     // when toggling urgency, reset date/slot only
@@ -959,6 +1028,12 @@ export default function ShippingTab({
                                 Set Delivery Urgency (pay 1 BHD extra to get order within an hour)
                             </label>
                         </div>
+
+                        {!urgentAvailable && (
+                            <div className="small text-muted mb-3">
+                                {urgentReason}
+                            </div>
+                        )}
 
                         {!isUrgent && (
                             <div className="row g-3">
