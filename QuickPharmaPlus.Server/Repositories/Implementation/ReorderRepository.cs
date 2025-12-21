@@ -26,7 +26,8 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
         public async Task<PagedResult<ReorderListDto>> GetAllReordersAsync(
             int pageNumber,
             int pageSize,
-            string? search = null)
+            string? search = null, 
+            int? branchId = null)
         {
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 1) pageSize = 10;
@@ -40,6 +41,15 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     .ThenInclude(b => b.Address)
                         .ThenInclude(a => a.City)
                 .AsQueryable();
+
+            // =============================================================
+            // BRANCH FILTER (ENFORCED BY CONTROLLER)
+            // =============================================================
+            if (branchId.HasValue)
+            {
+                query = query.Where(r => r.BranchId == branchId.Value);
+            }
+
 
             // =============================================================
             // SAFE SEARCH SANITIZATION

@@ -7,7 +7,7 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
     public interface IReorderRepository
     {
         // Paged + filtered reorder list (supports ID and search)
-        Task<PagedResult<ReorderListDto>> GetAllReordersAsync(int pageNumber, int pageSize, string? search = null);
+        Task<PagedResult<ReorderListDto>> GetAllReordersAsync(int pageNumber, int pageSize, string? search = null, int? branchId = null);
 
         // Single reorder details
         Task<ReorderDetailDto?> GetReorderByIdAsync(int id);

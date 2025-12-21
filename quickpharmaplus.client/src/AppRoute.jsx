@@ -384,7 +384,7 @@ export default function AppRoutes() {
                             <Route
                                 path="/inventory"
                                 element={
-                                    <ProtectedRoute allowedRoles={["Admin"]}>
+                                    <ProtectedRoute allowedRoles={["Admin", "Manager",   "Pharmacist"]}>
                                         <InventoryList />
                                     </ProtectedRoute>
                                 }
