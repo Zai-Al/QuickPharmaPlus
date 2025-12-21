@@ -3,10 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import "./OrdersList.css";
 
-/* ===========================
-   INTERNAL SYSTEM COMPONENTS
-   =========================== */
-
 import DataTable from "../../../Components/InternalSystem/Table/DataTable";
 import EditButton from "../../../Components/InternalSystem/Buttons/EditButton";
 import PageAddButton from "../../../Components/InternalSystem/Buttons/PageAddButton";
@@ -76,6 +72,7 @@ export default function OrdersList() {
     const [selectedStatus, setSelectedStatus] = useState("");
     const [selectedType, setSelectedType] = useState("");
     const [filterDate, setFilterDate] = useState(null);
+    const [selectedBranch, setSelectedBranch] = useState("");
 
     // Dropdown options
     const [supplierOptions, setSupplierOptions] = useState([]);
@@ -83,6 +80,7 @@ export default function OrdersList() {
     const [employeeOptions, setEmployeeOptions] = useState([]);
     const [statusOptions, setStatusOptions] = useState([]);
     const [typeOptions, setTypeOptions] = useState([]);
+    const [branchOptions, setBranchOptions] = useState([]);
 
     // Searchable dropdown states - Supplier
     const [supplierQuery, setSupplierQuery] = useState("");
@@ -145,7 +143,11 @@ export default function OrdersList() {
     ];
 
     const renderMap = {
-        edit: (row) => <EditButton to={`/orders/edit/${row.id}`} />,
+        edit: (row) => (
+            <EditButton
+                to={isReorderPage ? `/reorders/edit/${row.id}` : `/orders/edit/${row.id}`}
+            />
+        ),
         delete: (row) => (
             <DeleteButton
                 onClick={() => {
@@ -165,6 +167,7 @@ export default function OrdersList() {
         fetchEmployeesForFilter();
         fetchStatusesForFilter();
         fetchTypesForFilter();
+        fetchBranchesForFilter();
     }, []);
 
     /* ----------------------------------------- */
@@ -192,7 +195,7 @@ export default function OrdersList() {
         }, 300);
 
         return () => clearTimeout(filterDebounceRef.current);
-    }, [idSearch, selectedSupplier, selectedProduct, selectedEmployee, selectedStatus, selectedType, filterDate, currentPage, isReorderPage, allSupplierOrders, allReorders]);
+    }, [idSearch, selectedSupplier, selectedProduct, selectedEmployee, selectedStatus, selectedType, filterDate, currentPage, isReorderPage, allSupplierOrders, allReorders, selectedBranch]);
 
     /* ----------------------------------------- */
     /*     SYNC DROPDOWN QUERIES WITH SELECTION  */
@@ -310,6 +313,22 @@ export default function OrdersList() {
         } catch (err) {
             console.error("Error fetching types:", err);
             setError(`An error occurred while loading order types: ${err.message}`);
+        }
+    }
+
+    async function fetchBranchesForFilter() {
+        try {
+            const res = await fetch(`${baseURL}/api/Branch?pageNumber=1&pageSize=100`, { credentials: "include" });
+            if (!res.ok) return;
+            const data = await res.json();
+            const branches = data.items || [];
+            setBranchOptions(branches.map(b => ({
+                value: b.branchId,
+                label: b.cityName ?? `Branch ${b.branchId}`
+            })));
+        } catch (err) {
+            console.error("Error fetching branches:", err);
+            setError(`An error occurred while loading branches: ${err.message}`);
         }
     }
 
@@ -442,6 +461,9 @@ export default function OrdersList() {
         if (!isReorderPage && selectedType) {
             filtered = filtered.filter(item => item.supplierOrderTypeId == selectedType);
         }
+        if (selectedBranch) {
+            filtered = filtered.filter(item => item.branchId == selectedBranch);
+        }
 
         // Calculate pagination based on filtered results
         const totalFiltered = filtered.length;
@@ -522,6 +544,16 @@ export default function OrdersList() {
         }
     };
 
+    const handleStatusChange = (e) => {
+        setSelectedStatus(e.target.value);
+        setCurrentPage(1); // Reset to page 1
+    };
+
+    const handleTypeChange = (e) => {
+        setSelectedType(e.target.value);
+        setCurrentPage(1); // Reset to page 1
+    };
+
     /* ----------------------------------------- */
     /*          FILTERED DROPDOWN LISTS          */
     /* ----------------------------------------- */
@@ -564,16 +596,6 @@ export default function OrdersList() {
         setCurrentPage(1); // Reset to page 1
     };
 
-    const handleStatusChange = (e) => {
-        setSelectedStatus(e.target.value);
-        setCurrentPage(1); // Reset to page 1
-    };
-
-    const handleTypeChange = (e) => {
-        setSelectedType(e.target.value);
-        setCurrentPage(1); // Reset to page 1
-    };
-
     /* ----------------------------------------- */
     /*          CLEAR FILTERS                    */
     /* ----------------------------------------- */
@@ -585,6 +607,7 @@ export default function OrdersList() {
         setSelectedStatus("");
         setSelectedType("");
         setFilterDate(null);
+        setSelectedBranch("");
 
         setSupplierQuery("");
         setProductQuery("");
@@ -615,10 +638,12 @@ export default function OrdersList() {
         }
 
         try {
+            // Determine the endpoint based on the current tab
             const endpoint = isReorderPage
-                ? `${baseURL}/api/Reorder/${deleteId}`
-                : `${baseURL}/api/SupplierOrder/${deleteId}`;
+                ? `${baseURL}/api/Reorder/${deleteId}` // Reorder delete endpoint
+                : `${baseURL}/api/SupplierOrder/${deleteId}`; // Order delete endpoint
 
+            // Make the DELETE request
             const res = await fetch(endpoint, {
                 method: "DELETE",
                 credentials: "include"
@@ -628,14 +653,15 @@ export default function OrdersList() {
 
             // Refetch data after deletion
             if (isReorderPage) {
-                fetchReorders();
+                await fetchReorders();
             } else {
-                fetchSupplierOrders();
+                await fetchSupplierOrders();
             }
         } catch (err) {
             console.error("Delete error:", err);
             setError(`An error occurred while deleting the record: ${err.message}`);
         } finally {
+            // Reset delete state and close modal
             setDeleteId(null);
             setShowModal(false);
         }
@@ -784,6 +810,19 @@ export default function OrdersList() {
                             </ul>
                         )}
                     </div>
+                    <div className="mb-2">
+                        <div className="filter-label fst-italic small">Select branch for automatic search</div>
+                        <FilterDropdown
+                            placeholder="Filter Orders by Branch"
+                            options={branchOptions}
+                            value={selectedBranch}
+                            onChange={(e) => {
+                                setSelectedBranch(e.target.value);
+                                setCurrentPage(1); // Reset to page 1
+                            }}
+                        />
+                        <div style={{ height: "20px" }}></div>
+                    </div>
                 </FilterLeft>
             </FilterSection>
 
@@ -842,6 +881,7 @@ export default function OrdersList() {
                         className={`nav-link ${!isReorderPage ? "active" : ""}`}
                         onClick={() => {
                             setIsReorderPage(false);
+                            handleClearFilters(); // Clear filters when switching tabs
                         }}
                     >
                         Orders List
@@ -853,6 +893,7 @@ export default function OrdersList() {
                         className={`nav-link ${isReorderPage ? "active" : ""}`}
                         onClick={() => {
                             setIsReorderPage(true);
+                            handleClearFilters(); // Clear filters when switching tabs
                         }}
                     >
                         Reorder Requests

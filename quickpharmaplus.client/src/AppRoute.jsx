@@ -35,7 +35,10 @@ import AddSupplier from "./Pages/Internal_System/Suppliers/AddSupplier.jsx";
 import EditSupplier from "./Pages/Internal_System/Suppliers/EditSupplier.jsx";
 import OrdersList from "./Pages/Internal_System/Orders/OrdersList.jsx";
 import CreateOrder from "./Pages/Internal_System/Orders/CreateOrder.jsx";
+import EditOrder from "./Pages/Internal_System/Orders/EditOrder.jsx";
 import CreateAutomatedOrder from "./Pages/Internal_System/Orders/CreateAutomatedOrder.jsx";
+import EditAutomatedOrder from "./Pages/Internal_System/Orders/EditAutomatedOrder.jsx";
+
 import ProductsList from "./Pages/Internal_System/Products/ProductsList.jsx";
 import AddProduct from "./Pages/Internal_System/Products/AddProduct.jsx";
 import EditProduct from "./Pages/Internal_System/Products/EditProduct.jsx";
@@ -294,6 +297,24 @@ export default function AppRoutes() {
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
                                         <CreateOrder />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
+                                path="/orders/edit/:id"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
+                                        <EditOrder />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
+                                path="/reorders/edit/:id"
+                                element={
+                                    <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
+                                        <EditAutomatedOrder />
                                     </ProtectedRoute>
                                 }
                             />

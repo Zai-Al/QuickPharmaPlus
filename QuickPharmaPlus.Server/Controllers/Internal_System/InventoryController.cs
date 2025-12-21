@@ -33,52 +33,60 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
 
         // GET: api/Inventory
         [HttpGet]
-        public async Task<IActionResult> GetAll(
-            [FromQuery] int pageNumber = 1,
-            [FromQuery] int pageSize = 10,
-            [FromQuery] string? search = null,
-            [FromQuery] DateOnly? expiryDate = null)
+        public async Task<IActionResult> GetAllInventories(
+            int pageNumber = 1,
+            int pageSize = 10,
+            string? search = null,
+            int? branchId = null,
+            DateOnly? expiryDate = null)
         {
-            // Backend SAFE VALIDATION
-
-            // Validate inventory ID search (must be numeric if numeric input)
-            if (!string.IsNullOrWhiteSpace(search))
+            try
             {
-                // If user is searching by number ensure numeric
-                if (search.All(char.IsDigit) == false && Regex.IsMatch(search, @"^\d+$"))
+                // Backend SAFE VALIDATION
+
+                // Validate inventory ID search (must be numeric if numeric input)
+                if (!string.IsNullOrWhiteSpace(search))
                 {
-                    ModelState.AddModelError("search", "Inventory ID must contain numbers only.");
-                    return BadRequest(ModelState);
+                    // If user is searching by number ensure numeric
+                    if (search.All(char.IsDigit) == false && Regex.IsMatch(search, @"^\d+$"))
+                    {
+                        ModelState.AddModelError("search", "Inventory ID must contain numbers only.");
+                        return BadRequest(ModelState);
+                    }
+
+                    // Validate allowed characters for product search
+                    // Letters, numbers, spaces, + and -
+                    if (!Regex.IsMatch(search, @"^[A-Za-z0-9+\- ]*$"))
+                    {
+                        ModelState.AddModelError("search", "Product search may only contain letters, numbers, spaces, + and -.");
+                        return BadRequest(ModelState);
+                    }
                 }
 
-                // Validate allowed characters for product search
-                // Letters, numbers, spaces, + and -
-                if (!Regex.IsMatch(search, @"^[A-Za-z0-9+\- ]*$"))
+                // Validate expiry date sent from UI
+                if (expiryDate.HasValue)
                 {
-                    ModelState.AddModelError("search", "Product search may only contain letters, numbers, spaces, + and -.");
-                    return BadRequest(ModelState);
+                    if (expiryDate.Value.Year < 2000 || expiryDate.Value.Year > 2100)
+                    {
+                        ModelState.AddModelError("expiryDate", "Invalid expiry date.");
+                        return BadRequest(ModelState);
+                    }
                 }
+
+                var result = await _repo.GetAllInventoriesAsync(pageNumber, pageSize, search, branchId, expiryDate);
+
+                return Ok(new
+                {
+                    items = result.Items,
+                    totalCount = result.TotalCount,
+                    pageNumber,
+                    pageSize
+                });
             }
-
-            // Validate expiry date sent from UI
-            if (expiryDate.HasValue)
+            catch (Exception ex)
             {
-                if (expiryDate.Value.Year < 2000 || expiryDate.Value.Year > 2100)
-                {
-                    ModelState.AddModelError("expiryDate", "Invalid expiry date.");
-                    return BadRequest(ModelState);
-                }
+                return StatusCode(500, $"Internal server error: {ex.Message}");
             }
-
-            var result = await _repo.GetAllInventoriesAsync(pageNumber, pageSize, search, expiryDate);
-
-            return Ok(new
-            {
-                items = result.Items,
-                totalCount = result.TotalCount,
-                pageNumber,
-                pageSize
-            });
         }
 
         // GET: api/Inventory/{id}

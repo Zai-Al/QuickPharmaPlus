@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Mail;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
@@ -172,14 +172,18 @@ namespace QuickPharmaPlus.Server
             builder.Services.AddScoped<IPharmacistDashboardRepository, PharmacistDashboardRepository>();
             builder.Services.AddScoped<IDriverDashboardRepository, DriverDashboardRepository>();
             builder.Services.AddScoped<IPrescriptionPlanRepository, PrescriptionPlanRepository>();
-            builder.Services.AddHostedService<QuickPharmaPlus.Server.Services.PrescriptionPlanEmailScheduler>();
             builder.Services.AddScoped<IShippingRepository, ShippingRepository>();
             builder.Services.AddScoped<IPrescriptionPlanEmailLogService, PrescriptionPlanEmailLogService>();
             builder.Services.AddScoped<IOrderRepository, OrderRepository>();
             builder.Services.AddScoped<ICheckoutOrderRepository, CheckoutOrderRepository>();
             builder.Services.AddScoped<IOrderEmailService, OrderEmailService>();
+            builder.Services.AddScoped<IAutomatedReorderEmailService, AutomatedReorderEmailService>();
 
-
+            // =========================
+            // BACKGROUND SERVICES
+            // =========================
+            builder.Services.AddHostedService<QuickPharmaPlus.Server.Services.PrescriptionPlanEmailScheduler>();
+            builder.Services.AddHostedService<QuickPharmaPlus.Server.Services.AutomatedReorderService>();
 
             // =========================
             // STRIPE
@@ -258,7 +262,6 @@ namespace QuickPharmaPlus.Server
             await CreateUser(userManager, "hassan.alkhalifa@gmail.com", "Admin123!", "Admin");
 
             // Managers seeding
-            await CreateUser(userManager, "mansoor.alansari@gmail.com", "Manager123!", "Manager");
             await CreateUser(userManager, "fatima.alqattan@gmail.com", "Manager123!", "Manager");
             await CreateUser(userManager, "ali.alsayegh@gmail.com", "Manager123!", "Manager");
             await CreateUser(userManager, "maryam.aljaber@gmail.com", "Manager123!", "Manager");

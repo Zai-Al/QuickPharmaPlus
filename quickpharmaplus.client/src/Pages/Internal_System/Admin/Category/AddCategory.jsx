@@ -116,14 +116,14 @@ export default function AddCategory() {
             <FormHeader title="Add New Category Record" to="/categories" />
 
             {successMessage && (
-                <div className="alert alert-dismissible alert-success">
+                <div className="alert alert-dismissible alert-success w-50">
                     <button type="button" className="btn-close" data-bs-dismiss="alert"></button>
                     <strong>Success! </strong> {successMessage}
                 </div>
             )}
 
             {errorMessage && (
-                <div className="alert alert-dismissible alert-danger">
+                <div className="alert alert-dismissible alert-danger w-50">
                     <button type="button" className="btn-close" data-bs-dismiss="alert"></button>
                     <strong>Error! </strong> {errorMessage}
                 </div>
