@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using QuickPharmaPlus.Server.Models;
+using QuickPharmaPlus.Server.ModelsDTO;
 using QuickPharmaPlus.Server.ModelsDTO.Checkout;
+using QuickPharmaPlus.Server.ModelsDTO.Order;
 using QuickPharmaPlus.Server.Repositories.Interface;
 
 namespace QuickPharmaPlus.Server.Repositories.Implementation
@@ -15,6 +17,141 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
         {
             _db = db;
         }
+
+        public async Task<PagedResult<MyOrderListDto>> GetMyOrdersAsync(
+            int userId,
+            int pageNumber,
+            int pageSize,
+            string? search = null,
+            int? statusId = null,
+            DateTime? dateFrom = null,
+            DateTime? dateTo = null,
+            string? sortBy = null)
+        {
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 10;
+
+            var q = _db.Orders
+                .AsNoTracking()
+                .Where(o => o.UserId == userId)
+                .Include(o => o.OrderStatus)
+                .Include(o => o.Shipping).ThenInclude(s => s.ShippingSlot)
+                .Include(o => o.Payment).ThenInclude(p => p.PaymentMethod)
+                .AsQueryable();
+
+            // filter: status
+            if (statusId.HasValue && statusId.Value > 0)
+                q = q.Where(o => o.OrderStatusId == statusId.Value);
+
+            // filter: date range (by creation date)
+            if (dateFrom.HasValue)
+                q = q.Where(o => o.OrderCreationDate.HasValue && o.OrderCreationDate.Value >= dateFrom.Value);
+
+            if (dateTo.HasValue)
+                q = q.Where(o => o.OrderCreationDate.HasValue && o.OrderCreationDate.Value <= dateTo.Value);
+
+            // filter: search (order id)
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                search = search.Trim();
+                if (int.TryParse(search, out var oid))
+                    q = q.Where(o => o.OrderId == oid);
+                else
+                    q = q.Where(o => false); // invalid search => empty (same “safe” behavior as ProductRepository) :contentReference[oaicite:6]{index=6}
+            }
+
+            // sorting
+            sortBy = (sortBy ?? "").Trim().ToLowerInvariant();
+            q = sortBy switch
+            {
+                "date-asc" => q.OrderBy(o => o.OrderCreationDate),
+                "date-desc" => q.OrderByDescending(o => o.OrderCreationDate),
+                "total-asc" => q.OrderBy(o => o.OrderTotal),
+                "total-desc" => q.OrderByDescending(o => o.OrderTotal),
+                _ => q.OrderByDescending(o => o.OrderCreationDate).ThenByDescending(o => o.OrderId),
+            };
+
+            var total = await q.CountAsync();
+
+            var items = await q
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .Select(o => new MyOrderListDto
+                {
+                    OrderId = o.OrderId,
+                    OrderCreationDate = o.OrderCreationDate,
+                    OrderTotal = o.OrderTotal,
+                    OrderStatusId = o.OrderStatusId,
+                    OrderStatusName = o.OrderStatus != null ? o.OrderStatus.OrderStatusName : null,
+
+                    IsDelivery = o.Shipping != null ? o.Shipping.ShippingIsDelivery : null,
+                    ShippingDate = o.Shipping != null ? o.Shipping.ShippingDate : null,
+
+                    SlotId = o.Shipping != null ? o.Shipping.ShippingSlotId : null,
+                    SlotName = (o.Shipping != null && o.Shipping.ShippingSlot != null) ? o.Shipping.ShippingSlot.SlotName : null,
+
+                    PaymentMethodName = (o.Payment != null && o.Payment.PaymentMethod != null) ? o.Payment.PaymentMethod.PaymentMethodName : null
+                })
+                .ToListAsync();
+
+            return new PagedResult<MyOrderListDto> { Items = items, TotalCount = total };
+        }
+
+        public async Task<MyOrderDetailsDto?> GetMyOrderDetailsAsync(int userId, int orderId)
+        {
+            var o = await _db.Orders
+                .AsNoTracking()
+                .Where(x => x.UserId == userId && x.OrderId == orderId)
+                .Include(x => x.OrderStatus)
+                .Include(x => x.Shipping).ThenInclude(s => s.ShippingSlot)
+                .Include(x => x.Shipping).ThenInclude(s => s.Branch).ThenInclude(b => b.Address).ThenInclude(a => a.City)
+                .Include(x => x.Payment).ThenInclude(p => p.PaymentMethod)
+                .Include(x => x.ProductOrders).ThenInclude(po => po.Product).ThenInclude(p => p.Category)
+                .Include(x => x.ProductOrders).ThenInclude(po => po.Product).ThenInclude(p => p.ProductType)
+                .FirstOrDefaultAsync();
+
+            if (o == null) return null;
+
+            var dto = new MyOrderDetailsDto
+            {
+                OrderId = o.OrderId,
+                OrderCreationDate = o.OrderCreationDate,
+                OrderTotal = o.OrderTotal,
+                OrderStatusId = o.OrderStatusId,
+                OrderStatusName = o.OrderStatus?.OrderStatusName,
+
+                IsDelivery = o.Shipping?.ShippingIsDelivery,
+                IsUrgent = o.Shipping?.ShippingIsUrgent,
+                ShippingDate = o.Shipping?.ShippingDate,
+
+                SlotId = o.Shipping?.ShippingSlotId,
+                SlotName = o.Shipping?.ShippingSlot?.SlotName,
+                SlotStart = o.Shipping?.ShippingSlot?.SlotStartTime,
+                SlotEnd = o.Shipping?.ShippingSlot?.SlotEndTime,
+
+                BranchId = o.Shipping?.BranchId,
+                BranchName = o.Shipping?.Branch?.Address?.City?.CityName,
+
+                PaymentMethodName = o.Payment?.PaymentMethod?.PaymentMethodName,
+            };
+
+            dto.Items = o.ProductOrders
+                .Select(po => new MyOrderItemDto
+                {
+                    ProductId = po.Product?.ProductId ?? 0,
+                    ProductName = po.Product?.ProductName,
+                    CategoryName = po.Product?.Category?.CategoryName,
+                    ProductTypeName = po.Product?.ProductType?.ProductTypeName,
+                    Price = po.Product?.ProductPrice,
+                    Quantity = po.Quantity,
+                    Image = po.Product?.ProductImage != null? Convert.ToBase64String(po.Product.ProductImage) : null,
+                    IsControlled = po.Product?.IsControlled
+                })
+                .ToList();
+
+            return dto;
+        }
+    
 
         // -----------------------------
         // 1) Validate shipping + stock

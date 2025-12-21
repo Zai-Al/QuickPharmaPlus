@@ -1,4 +1,6 @@
-﻿using QuickPharmaPlus.Server.ModelsDTO.Checkout;
+﻿using QuickPharmaPlus.Server.ModelsDTO;
+using QuickPharmaPlus.Server.ModelsDTO.Checkout;
+using QuickPharmaPlus.Server.ModelsDTO.Order;
 
 namespace QuickPharmaPlus.Server.Repositories.Interface
 {
@@ -11,7 +13,17 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
             int daysAhead = 6
         );
 
-        // you’ll implement later when you’re ready to save order + product orders
-        // Task<int> CreateOrderFromCheckoutAsync(CheckoutCreateOrderDto req);
+        Task<PagedResult<MyOrderListDto>> GetMyOrdersAsync(
+        int userId,
+        int pageNumber,
+        int pageSize,
+        string? search = null,
+        int? statusId = null,
+        DateTime? dateFrom = null,
+        DateTime? dateTo = null,
+        string? sortBy = null
+    );
+
+        Task<MyOrderDetailsDto?> GetMyOrderDetailsAsync(int userId, int orderId);
     }
 }

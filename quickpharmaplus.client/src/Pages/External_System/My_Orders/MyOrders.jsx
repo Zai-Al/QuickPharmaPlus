@@ -1,143 +1,204 @@
 // src/Pages/External_System/MyOrders.jsx
-import { useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "../Shared_Components/PageHeader";
 import TableFormat from "../Shared_Components/TableFormat";
-import { StatusBadge } from "../Shared_Components/StatusUI";
-import formatCurrency from "../Shared_Components/formatCurrency.js";
 import DropDown from "../Shared_Components/DropDown";
+import Pagination from "../../../Components/InternalSystem/GeneralComponents/Pagination";
+import { StatusBadge } from "../Shared_Components/statusUI";
+import formatCurrency from "../Shared_Components/formatCurrency";
+import { AuthContext } from "../../../Context/AuthContext";
 import "../Shared_Components/External_Style.css";
-
-// temporary mock data – later you’ll replace with API data
-const MOCK_ORDERS = [
-    { id: "Order ID 1", dateLabel: "Today", total: 0, status: "Pending Approval" },
-    { id: "Order ID 2", dateLabel: "Today", total: 0, status: "Approved" },
-    { id: "Order ID 3", dateLabel: "Today", total: 0, status: "Completed" },
-    { id: "Order ID 4", dateLabel: "Today", total: 0, status: "Rejected" },
-    { id: "Order ID 5", dateLabel: "Today", total: 0, status: "Out for Delivery" },
-    { id: "Order ID 5", dateLabel: "Today", total: 0, status: "Cancelled" },
-];
 
 export default function MyOrders() {
     const navigate = useNavigate();
+    const { user } = useContext(AuthContext);
 
-    const [statusFilter, setStatusFilter] = useState("");
-    const [dateSort, setDateSort] = useState("");
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
+    const userId = user?.userId || user?.id;
 
-    const orders = MOCK_ORDERS;
-    const totalOrders = orders.length;
+    // backend filters
+    const [statusId, setStatusId] = useState(""); // string id
+    const [sortBy, setSortBy] = useState("date-desc");
 
-    const handleViewDetails = (orderId) => {
-        // adjust route to whatever you’ll use for order details in your router
-        navigate(`/myOrderDetails/${orderId}`);
+    // pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 10;
+
+    // data
+    const [items, setItems] = useState([]);
+    const [totalCount, setTotalCount] = useState(0);
+
+    // status dropdown options from DB
+    const [statusOptions, setStatusOptions] = useState([]);
+    const [loadingStatuses, setLoadingStatuses] = useState(false);
+
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+
+    const totalPages = useMemo(() => {
+        return Math.max(1, Math.ceil((totalCount || 0) / pageSize));
+    }, [totalCount, pageSize]);
+
+    // reset page when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [statusId, sortBy]);
+
+    // fetch statuses once
+    useEffect(() => {
+        const run = async () => {
+            setLoadingStatuses(true);
+            try {
+                const res = await fetch(`${API_BASE}/api/OrderStatuses`, {
+                    credentials: "include",
+                });
+
+                if (!res.ok) {
+                    const t = await res.text().catch(() => "");
+                    throw new Error(t || `Failed to load statuses (${res.status})`);
+                }
+
+                const json = await res.json();
+                setStatusOptions(Array.isArray(json) ? json : []);
+            } catch (e) {
+                setStatusOptions([]);
+            } finally {
+                setLoadingStatuses(false);
+            }
+        };
+
+        run();
+    }, [API_BASE]);
+
+    // fetch orders (backend paging + backend filtering)
+    useEffect(() => {
+        if (!userId) return;
+
+        const fetchOrders = async () => {
+            setLoading(true);
+            setError("");
+
+            try {
+                const qs = new URLSearchParams();
+                qs.set("userId", String(userId));
+                qs.set("pageNumber", String(currentPage));
+                qs.set("pageSize", String(pageSize));
+                if (statusId) qs.set("statusId", String(statusId));
+                if (sortBy) qs.set("sortBy", sortBy);
+
+                const res = await fetch(`${API_BASE}/api/MyOrders?${qs.toString()}`, {
+                    credentials: "include",
+                });
+
+                if (!res.ok) {
+                    const t = await res.text().catch(() => "");
+                    throw new Error(t || `Failed to load orders (${res.status})`);
+                }
+
+                const json = await res.json();
+                setItems(Array.isArray(json?.items) ? json.items : []);
+                setTotalCount(Number(json?.totalCount || 0));
+            } catch (e) {
+                setError(e?.message || "Failed to load orders.");
+                setItems([]);
+                setTotalCount(0);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchOrders();
+    }, [API_BASE, userId, currentPage, pageSize, statusId, sortBy]);
+
+    const resetFilters = () => {
+        setStatusId("");
+        setSortBy("date-desc");
     };
 
-    const handleResetFilters = () => {
-        setStatusFilter("");
-        setDateSort("");
-    };
-
-    // apply simple filtering/sorting for now
-    let displayedOrders = [...orders];
-
-    if (statusFilter) {
-        displayedOrders = displayedOrders.filter(
-            (order) => order.status === statusFilter
-        );
-    }
-
-    if (dateSort === "Oldest to Newest") {
-        displayedOrders = [...displayedOrders].reverse();
-    }
-    // "Newest to Oldest" just keeps the default order for now
-
-    const hasActiveFilters = Boolean(statusFilter || dateSort);
+    const statusDropDownOptions = useMemo(() => {
+        // If your DropDown supports object options:
+        return statusOptions.map((s) => ({
+            value: String(s.orderStatusId),
+            label: s.orderStatusName || `Status #${s.orderStatusId}`,
+        }));
+    }, [statusOptions]);
 
     return (
         <div className="min-vh-100">
-            {/* top blue bar with title */}
             <PageHeader title="My Orders" />
 
             <div className="container py-4">
-                {/* filters + total count row */}
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                    <div className="d-flex gap-3 align-items-center">
-                        {/* Dropdown 1 - Status */}
+                <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
+                    <div className="d-flex gap-2 flex-wrap align-items-center">
                         <DropDown
-                            name="statusFilter"
-                            value={statusFilter}
-                            placeholder="Filter by Status"
-                            options={[
-                                "Pending Approval",
-                                "Approved",
-                                "Completed",
-                                "Rejected",
-                                "Out for Delivery",
-                            ]}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                            className="my-orders-filter form-select-sm"
+                            name="statusId"
+                            value={statusId}
+                            placeholder={loadingStatuses ? "Loading statuses..." : "Filter by Status"}
+                            options={statusDropDownOptions}
+                            onChange={(e) => setStatusId(e.target.value)}
+                            className="form-select form-select-sm"
+                            style={{ width: 240 }}
+                            disabled={loadingStatuses}
                         />
 
-                        {/* Dropdown 2 - Date Sort */}
                         <DropDown
-                            name="dateSort"
-                            value={dateSort}
+                            name="sortBy"
+                            value={sortBy}
                             placeholder="Sort by Date"
-                            options={["Newest to Oldest", "Oldest to Newest"]}
-                            onChange={(e) => setDateSort(e.target.value)}
-                            className="my-orders-filter form-select-sm"
+                            options={[
+                                { value: "date-desc", label: "Newest to Oldest" },
+                                { value: "date-asc", label: "Oldest to Newest" },
+                                { value: "total-desc", label: "Total: High to Low" },
+                                { value: "total-asc", label: "Total: Low to High" },
+                            ]}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="form-select form-select-sm"
+                            style={{ width: 240 }}
                         />
 
-                        {/* Reset button – only shown when something is selected */}
-                        {hasActiveFilters && (
-                            <button
-                                type="button"
-                                className="btn btn-outline-secondary reset-btn"
-                                onClick={handleResetFilters}
-                            >
+                        {(statusId || sortBy !== "date-desc") && (
+                            <button className="btn btn-outline-secondary btn-sm" onClick={resetFilters}>
                                 Reset
                             </button>
                         )}
                     </div>
 
-                    {/* total count on the right */}
-                    <span className="fw-semibold">
-                        Total Number of Orders: {totalOrders}
-                    </span>
+                    <div className="fw-semibold">Total Orders: {totalCount}</div>
                 </div>
 
-                {/* table */}
+                {loading && <div className="alert alert-info py-2">Loading...</div>}
+                {error && <div className="alert alert-danger py-2">{error}</div>}
+
                 <TableFormat
-                    headers={[
-                        "Order ID",
-                        "Order Date",
-                        "Total",
-                        "Order Status",
-                        "", // for the button column
-                    ]}
+                    headers={["Order ID", "Order Date", "Total", "Order Status", ""]}
                     headerBg="#54B2B5"
                 >
-                    {displayedOrders.map((order, index) => (
-                        <tr key={index}>
-                            <td className="align-middle">{order.id}</td>
+                    {items.map((o) => (
+                        <tr key={o.orderId}>
+                            <td>{o.orderId}</td>
 
-                            <td className="align-middle fw-semibold">
-                                {order.dateLabel}
+                            <td className="fw-semibold">
+                                {o.orderCreationDate
+                                    ? new Date(o.orderCreationDate).toLocaleDateString("en-GB", {
+                                        day: "2-digit",
+                                        month: "short",
+                                        year: "numeric",
+                                    })
+                                    : "-"}
                             </td>
 
-                            <td className="align-middle">
-                                {formatCurrency(order.total)}
+                            <td>{formatCurrency(o.orderTotal || 0)}</td>
+
+                            <td>
+                                <StatusBadge status={o.orderStatusName || ""} />
                             </td>
 
-                            <td className="align-middle">
-                                <StatusBadge status={order.status} />
-                            </td>
-
-                            <td className="align-middle">
+                            <td>
                                 <button
                                     className="btn btn-sm qp-add-btn"
-                                    style={{ width: "160px" }}
-                                    onClick={() => handleViewDetails(order.id)}
+                                    style={{ width: 170 }}
+                                    onClick={() => navigate(`/myOrderDetails/${o.orderId}`)}
                                 >
                                     View Order Details
                                 </button>
@@ -145,6 +206,14 @@ export default function MyOrders() {
                         </tr>
                     ))}
                 </TableFormat>
+
+                {totalPages > 1 && (
+                    <Pagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={setCurrentPage}
+                    />
+                )}
             </div>
         </div>
     );
