@@ -1,122 +1,138 @@
-// src/Pages/External_System/My_Orders/OrderDetails.jsx
+// src/Pages/External_System/MyOrderDetails.jsx
+import { useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useState } from "react";
 import PageHeader from "../Shared_Components/PageHeader";
 import OrderItemsTable from "../Shared_Components/OrderItemsTable";
-import DialogModal from "../Shared_Components/DialogModal";
-import DropDown from "../Shared_Components/DropDown";
 import SuccessAlert from "../Shared_Components/SuccessAlert";
-import { StatusBadge } from "../Shared_Components/StatusUI"; 
-
-// temporary mock order – later replace with API call using id
-const MOCK_ORDER = {
-    id: 34343,
-    status: "Out for Delivery",
-    shippingMethod: "Delivery", // or "pickup"
-    deliveryDate: "24 November, 2025",
-    deliveryTime: "9-12 AM",
-    paymentMethod: "Online payment",
-    items: [
-        {
-            id: 1,
-            name: "Product Name",
-            category: "Category",
-            price: 0,
-            quantity: 1,
-            imageSrc: "", // or URL
-        },
-        {
-            id: 2,
-            name: "Product Name",
-            category: "Category",
-            price: 0,
-            quantity: 1,
-            imageSrc: "",
-        },
-        {
-            id: 3,
-            name: "Product Name",
-            category: "Category",
-            price: 0,
-            quantity: 1,
-            imageSrc: "",
-        },
-        {
-            id: 4,
-            name: "Product Name",
-            category: "Category",
-            price: 0,
-            quantity: 1,
-            imageSrc: "",
-        },
-    ],
-};
+import { StatusBadge } from "../Shared_Components/statusUI";
+import { AuthContext } from "../../../Context/AuthContext";
+import "../Shared_Components/External_Style.css";
 
 export default function MyOrderDetails() {
     const navigate = useNavigate();
-    useParams(); // you can use this when you connect to API
+    const { orderId } = useParams();
 
-    const [order, setOrder] = useState(MOCK_ORDER);
+    const { user } = useContext(AuthContext);
+    const userId = user?.userId || user?.id;
 
-    const handleReschedule = () => {
-        setShowRescheduleModal(true);
-    };
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
 
-    const handleCancel = () => {
-        setShowCancelModal(true);
-    };
-
-    const [showCancelModal, setShowCancelModal] = useState(false);
-    const [showRescheduleModal, setShowRescheduleModal] = useState(false);
-
-    // reschedule form state
-    const [newDate, setNewDate] = useState("");
-    const [newTime, setNewTime] = useState("");
+    const [order, setOrder] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [err, setErr] = useState("");
 
     const [showSuccess, setShowSuccess] = useState(false);
     const [successMsg, setSuccessMsg] = useState("");
 
-    const isPending = order.status === "Pending Approval";
-    const isDelivery = order.shippingMethod === "Delivery";
-    const isOutForDelivery = order.status === "Out for Delivery";
-    const isCompleted = order.status === "Completed";
-    const isCancelled = order.status === "Cancelled";
+    useEffect(() => {
+        if (!userId || !orderId) return;
 
-    const handleConfirmCancel = () => {
-        setOrder((prev) => ({
-            ...prev,
-            status: "Cancelled"
-        }));
+        const run = async () => {
+            setLoading(true);
+            setErr("");
 
-        setShowCancelModal(false);
-        setSuccessMsg("Order has been successfully cancelled.");
+            try {
+                const url = `${API_BASE}/api/MyOrders/${encodeURIComponent(
+                    orderId
+                )}?userId=${encodeURIComponent(userId)}`;
+
+                const res = await fetch(url, { credentials: "include" });
+                if (!res.ok) {
+                    const t = await res.text().catch(() => "");
+                    throw new Error(t || `Failed to load order (${res.status})`);
+                }
+
+                const json = await res.json();
+                setOrder(json);
+            } catch (e) {
+                setErr(e?.message || "Failed to load order details.");
+                setOrder(null);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        run();
+    }, [API_BASE, userId, orderId]);
+
+    const isDelivery = !!order?.isDelivery;
+
+    const orderDateLabel = useMemo(() => {
+        if (!order?.orderCreationDate) return "-";
+        return new Date(order.orderCreationDate).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+        });
+    }, [order]);
+
+    const shippingDateLabel = useMemo(() => {
+        if (!order?.shippingDate) return "-";
+        return new Date(order.shippingDate).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+        });
+    }, [order]);
+
+    const slotLabel = useMemo(() => {
+        if (order?.slotStart && order?.slotEnd) return `${order.slotStart} - ${order.slotEnd}`;
+        return order?.slotName || "-";
+    }, [order]);
+
+    const handleDownload = () => {
+        setSuccessMsg("Preparing download...");
         setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 3000);
+        setTimeout(() => setShowSuccess(false), 900);
+        window.print();
     };
 
+    const mappedItemsForTable = useMemo(() => {
+        return (order?.items || []).map((it, idx) => ({
+            id: idx + 1,
+            name: it.productName,
+            category: `${it.categoryName || ""}${it.productTypeName ? ` • ${it.productTypeName}` : ""}`,
+            price: Number(it.price || 0),
+            quantity: Number(it.quantity || 1),
 
-    const handleConfirmReschedule = () => {
-        if (!newDate || !newTime) {
-            alert("Please select both a date and a time.");
-            return;
-        }
-
-        // update frontend only
-        setOrder((prev) => ({
-            ...prev,
-            deliveryDate: newDate,
-            deliveryTime: newTime,
+            // IMPORTANT: Base64 image string from backend
+            imageSrc: it.image ? `data:image/jpeg;base64,${it.image}` : "",
         }));
+    }, [order]);
 
-        setShowRescheduleModal(false);
-        setSuccessMsg("Delivery has been successfully rescheduled.");
-        setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 3000);
-    };
+    if (loading) {
+        return (
+            <div className="min-vh-100">
+                <PageHeader title="Order Details" />
+                <div className="container py-4">
+                    <div className="alert alert-info py-2">Loading...</div>
+                </div>
+            </div>
+        );
+    }
+
+    if (err) {
+        return (
+            <div className="min-vh-100">
+                <PageHeader title="Order Details" />
+                <div className="container py-4">
+                    <div className="alert alert-danger py-2">{err}</div>
+                    <button
+                        type="button"
+                        className="btn btn-outline-secondary"
+                        onClick={() => navigate("/myOrders")}
+                    >
+                        Back to Orders
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (!order) return null;
 
     return (
         <div className="min-vh-100">
-            {/* top bar */}
             <PageHeader title="Order Details" />
 
             <SuccessAlert
@@ -125,142 +141,82 @@ export default function MyOrderDetails() {
                 onClose={() => setShowSuccess(false)}
             />
 
-            <div className="container list-padding">
-                {/* top info row */}
-                <div className="d-flex justify-content-between align-items-start order-summary-margin">
-                    {/* left: order info */}
+            <div className="container py-4">
+                <div className="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
                     <div>
                         <p className="mb-1 text-start">
                             <span className="fw-bold">Order ID: </span>
-                            {order.id}
+                            {order.orderId}
+                        </p>
+
+                        <p className="mb-1 text-start">
+                            <span className="fw-bold">Order Date: </span>
+                            {orderDateLabel}
                         </p>
 
                         <p className="mb-1 text-start">
                             <span className="fw-bold">Order Status: </span>
-                            <StatusBadge status={order.status} />
+                            <StatusBadge status={order.orderStatusName || ""} />
                         </p>
 
                         <p className="mb-1 text-start">
                             <span className="fw-bold">Shipping Method: </span>
-                            {order.shippingMethod}
+                            {isDelivery ? "Delivery" : "Pickup"}
+                        </p>
+
+                        <p className="mb-1 text-start">
+                            <span className="fw-bold">{isDelivery ? "Delivery Branch City: " : "Pickup Branch City: "}</span>
+                            {order.branchName || "-"}
                         </p>
 
                         {isDelivery && (
                             <>
                                 <p className="mb-1 text-start">
                                     <span className="fw-bold">Delivery Date: </span>
-                                    {order.deliveryDate}
+                                    {shippingDateLabel}
                                 </p>
 
                                 <p className="mb-1 text-start">
                                     <span className="fw-bold">Delivery Time: </span>
-                                    {order.deliveryTime}
+                                    {slotLabel}
                                 </p>
                             </>
                         )}
 
                         <p className="mb-0 text-start">
                             <span className="fw-bold">Payment Method: </span>
-                            {order.paymentMethod}
+                            {order.paymentMethodName || "-"}
                         </p>
                     </div>
 
-                   
-                        <div className="d-flex flex-column gap-2">
-                            {/* Only show Reschedule if shipping is delivery */}
-                        {isDelivery && !isOutForDelivery && !isCompleted && !isCancelled && (
-                            <button
-                                    type="button"
-                                    className="btn btn-sm qp-add-btn"
-                                    style={{ minWidth: "130px" }}
-                                    onClick={handleReschedule}
-                                >
-                                    Reschedule
-                                </button>
-                            )}
-                            {isPending && (
-                            <button
-                                type="button"
-                                className="btn btn-sm btn-danger"
-                                style={{ minWidth: "130px" }}
-                                onClick={handleCancel}
-                            >
-                                Cancel Order
-                            </button>
-                        )}
-                        </div>
-                    
+                    <div className="d-flex flex-column gap-2">
+                        <button
+                            type="button"
+                            className="btn btn-sm qp-add-btn"
+                            style={{ minWidth: 170 }}
+                            onClick={handleDownload}
+                        >
+                            Download Order
+                        </button>
+
+                        <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary"
+                            style={{ minWidth: 170 }}
+                            onClick={() => navigate("/myOrders")}
+                        >
+                            Back to Orders
+                        </button>
+                    </div>
                 </div>
 
-                {/* order summary table */}
                 <OrderItemsTable
-                    items={order.items}
+                    items={mappedItemsForTable}
                     currency="BHD"
-                    shippingMethod={order.shippingMethod}
+                    shippingMethod={isDelivery ? "Delivery" : "Pickup"}
                     title="Order Summary"
                 />
-
-                <div className="mt-4 text-center">
-                    <button
-                        type="button"
-                        className="btn btn-outline-secondary"
-                        onClick={() => navigate("/myOrders")} 
-                    >
-                        Back to Orders
-                    </button>
-                </div>
             </div>
-
-            <DialogModal
-                show={showCancelModal}
-                title="Cancel Order"
-                body="Are you sure you want to cancel this order?"
-                confirmLabel="Yes, Cancel"
-                cancelLabel="No"
-                onConfirm={handleConfirmCancel}
-                onCancel={() => setShowCancelModal(false)}
-            />
-
-            {/* Reschedule modal */}
-            <DialogModal
-                show={showRescheduleModal}
-                title="Reschedule Delivery"
-                body={
-                    <div>
-                        <p className="mb-3">
-                            Select a new delivery date and time:
-                        </p>
-
-                        <div className="mb-3">
-                            <DropDown
-                                name="newDate"
-                                value={newDate}
-                                placeholder="Select delivery date"
-                                options={[
-                                    "24 November, 2025",
-                                    "25 November, 2025",
-                                    "26 November, 2025",
-                                ]}
-                                onChange={(e) => setNewDate(e.target.value)}
-                            />
-                        </div>
-
-                        <div className="mb-0">
-                            <DropDown
-                                name="newTime"
-                                value={newTime}
-                                placeholder="Select delivery time"
-                                options={["9-12 AM", "12-3 PM", "3-6 PM"]}
-                                onChange={(e) => setNewTime(e.target.value)}
-                            />
-                        </div>
-                    </div>
-                }
-                confirmLabel="Save Changes"
-                cancelLabel="Close"
-                onConfirm={handleConfirmReschedule}
-                onCancel={() => setShowRescheduleModal(false)}
-            />
         </div>
     );
 }

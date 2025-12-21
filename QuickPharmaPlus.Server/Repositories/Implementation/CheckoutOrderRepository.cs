@@ -365,7 +365,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     UserId = req.UserId,
                     ShippingId = shipping.ShippingId,
 
-                    OrderStatusId = 1,        // 1 = approved
+                    OrderStatusId = 1,        
                     OrderCreationDate = nowBH,
                     OrderTotal = orderTotal,
 
