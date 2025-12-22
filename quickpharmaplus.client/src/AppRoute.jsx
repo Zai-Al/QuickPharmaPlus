@@ -94,7 +94,7 @@ export default function AppRoutes() {
                         <Routes>
 
                             {/* Public routes */}
-                            <Route path="/" element={<Login />} />
+                            <Route path="/" element={<Home />} />
                             <Route path="/login" element={<Login />} />
                             <Route path="/privacy" element={<Privacy />} />
                             <Route path="/terms" element={<TermsOfUse />} />
@@ -478,11 +478,8 @@ export default function AppRoutes() {
                             }
                             />
 
-                            <Route path="/healthProfile" element={<ProtectedRoute allowedRoles={["Customer"]}>
-                                <HealthProfile />
-                            </ProtectedRoute>
-                            }
-                            />
+                            <Route path="/healthProfile" element={<HealthProfile />} />
+                                
 
                             <Route path="/cart" element={<ProtectedRoute allowedRoles={["Customer"]}>
                                 <Cart />

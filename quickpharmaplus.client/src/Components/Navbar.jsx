@@ -1,4 +1,4 @@
-﻿import { NavLink, Link } from "react-router-dom";
+﻿import { useNavigate, NavLink, Link } from "react-router-dom";
 import { useContext } from "react";
 import logo from "../assets/Logo.png";
 import "./Navigation.css";
@@ -6,6 +6,8 @@ import { AuthContext } from "../Context/AuthContext.jsx";
 import ExpandableSearch from "../Pages/External_System/Shared_Components/ExpandableSearch";
 import { FiHeart} from "react-icons/fi";
 import { TiShoppingCart } from "react-icons/ti";
+import { useState } from "react";
+import DialogModal from "../Pages/External_System/Shared_Components/DialogModal";
 
 
 export default function Navbar({ user: propUser, cartCount = 0,
@@ -25,6 +27,19 @@ export default function Navbar({ user: propUser, cartCount = 0,
     const isDriver = roles.includes("Driver");
     const isEmployee = isManager || isPharmacist;
     const isCustomer = roles.includes("Customer");
+
+    const navigate = useNavigate();
+    const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+    const [loginPromptMsg, setLoginPromptMsg] = useState("Please log in to continue.");
+
+    const requireLogin = (e, msg) => {
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
+
+        setLoginPromptMsg(msg || "Please log in to continue.");
+        setShowLoginPrompt(true);
+    };
+
 
 
     return (
@@ -176,10 +191,7 @@ export default function Navbar({ user: propUser, cartCount = 0,
 
 
 
-                    {/* --------------------------------------------------------- */}
-                    {/* CUSTOMER NAVBAR */}
-                    {/* --------------------------------------------------------- */}
-                    {isCustomer && (
+                    {!isAdmin && !isEmployee && !isDriver && (
                         <>
                             <li className="nav-item">
                                 <NavLink to="/home" className="nav-link px-3">Home</NavLink>
@@ -190,41 +202,24 @@ export default function Navbar({ user: propUser, cartCount = 0,
                             </li>
 
                             <li className="nav-item">
-                                <NavLink to="/myOrders" className="nav-link px-3">My Orders</NavLink>
+                                <NavLink
+                                    to="/myOrders"
+                                    className="nav-link px-3"
+                                    onClick={(e) => {
+                                        if (!user) return requireLogin(e, "Please log in to view your orders.");
+                                    }}
+                                >
+                                    My Orders
+                                </NavLink>
                             </li>
 
                             <li className="nav-item">
-                                <NavLink to="/healthProfile" className="nav-link px-3">Health Profile</NavLink>
-                            </li>
-
-                            <li className="nav-item">
-                                <NavLink to="/terms" className="nav-link px-3">Terms of Use</NavLink>
-                            </li>
-
-                            <li className="nav-item">
-                                <NavLink to="/privacy" className="nav-link px-3">Privacy Policy</NavLink>
-                            </li>
-                            
-
-                            
-
-                        </>
-                    )}
-
-
-
-                    {/* --------------------------------------------------------- */}
-                    {/* DEFAULT PUBLIC NAVBAR (Anonymous / Not logged in) */}
-                    {/* --------------------------------------------------------- */}
-                    {!isAdmin && !isEmployee && !isDriver && !isCustomer && (
-                        <>
-                            {/* TODO: add general/default navigation here */}
-                            <li className="nav-item">
-                                <NavLink to="/home" className="nav-link px-3">Home</NavLink>
-                            </li>
-
-                            <li className="nav-item">
-                                <NavLink to="/productsPage" className="nav-link px-3">Products</NavLink>
+                                <NavLink
+                                    to="/healthProfile"
+                                    className="nav-link px-3"
+                                >
+                                    Health Profile
+                                </NavLink>
                             </li>
 
                             <li className="nav-item">
@@ -234,41 +229,46 @@ export default function Navbar({ user: propUser, cartCount = 0,
                             <li className="nav-item">
                                 <NavLink to="/privacy" className="nav-link px-3">Privacy Policy</NavLink>
                             </li>
-                            <ExpandableSearch onSearch={(term) => console.log("Searching:", term)} />
                         </>
                     )}
+
 
                 </ul>
 
 
 
                 <div className="d-flex align-items-center gap-3">
-                    {isCustomer && (
+                    {/* Search always visible on external navbar */}
+                    {!isAdmin && !isEmployee && !isDriver && (
                         <>
-                            {/* Wishlist icon */}
                             <ExpandableSearch onSearch={(term) => console.log("Searching:", term)} />
+
+                            {/* Wishlist */}
                             <NavLink
                                 to="/wishList"
                                 className="nav-icon-link position-relative"
+                                onClick={(e) => {
+                                    if (!user) return requireLogin(e, "Please log in to view your wishlist.");
+                                }}
                             >
                                 <FiHeart className="fs-5 nav-icon" />
-                                {wishlistCount > 0 && (
-                                    <span className="nav-badge">{wishlistCount}</span>
-                                )}
+                                {user && wishlistCount > 0 && <span className="nav-badge">{wishlistCount}</span>}
                             </NavLink>
 
-                            {/* Cart icon */}
+                            {/* Cart */}
                             <NavLink
                                 to="/cart"
                                 className="nav-icon-link position-relative"
+                                onClick={(e) => {
+                                    if (!user) return requireLogin(e, "Please log in to view your cart.");
+                                }}
                             >
                                 <TiShoppingCart className="fs-5 nav-icon" />
-                                {cartCount > 0 && (
-                                    <span className="nav-badge">{cartCount}</span>
-                                )}
+                                {user && cartCount > 0 && <span className="nav-badge">{cartCount}</span>}
                             </NavLink>
                         </>
                     )}
+
 
                     {/* Profile / Login button */}
                     <Link
@@ -290,6 +290,20 @@ export default function Navbar({ user: propUser, cartCount = 0,
 
                 </div>
             </div>
+
+            <DialogModal
+                show={showLoginPrompt}
+                title="Login required"
+                body={<p className="mb-0">{loginPromptMsg}</p>}
+                confirmLabel="Go to Login"
+                cancelLabel="Cancel"
+                onConfirm={() => {
+                    setShowLoginPrompt(false);
+                    navigate("/login");
+                }}
+                onCancel={() => setShowLoginPrompt(false)}
+            />
+
         </nav>
     );
 }

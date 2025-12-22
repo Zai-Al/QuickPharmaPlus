@@ -8,7 +8,7 @@
 .profile-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 1.5rem 0; /* vertical spacing between rows */
+    gap: 1rem 0; /* vertical spacing between rows */
 }
 
     /* Make each column take half the card (side by side) */
@@ -22,4 +22,5 @@
     .profile-row .form-control {
         width: 100%;
         max-width: 100%;
+        margin-bottom: 0.5em;
     }

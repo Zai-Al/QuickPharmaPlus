@@ -177,10 +177,9 @@
     align-items: center;
     gap: 3rem;
     width: 75%;
-    margin-top: 1.5rem;
-    margin-left: 10%;
-    margin-right: 10%;
+    margin: 1.5rem auto; 
 }
+
 
 /* override your wrap behavior ONLY when used as carousel */
 .categories-list.categories-scroll {

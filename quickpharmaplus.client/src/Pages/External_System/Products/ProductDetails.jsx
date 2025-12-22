@@ -891,7 +891,7 @@ export default function ProductDetails() {
                             <div className="col-md-7">
                                 <div className="d-flex justify-content-between align-items-start mb-2">
                                     {/* ? pills */}
-                                    <div className="d-flex gap-2 align-items-center flex-wrap">
+                                    <div className="d-flex flex-column gap-2 align-items-start">
                                         {product.isPrescribed && (
                                             <span className="product-pill product-pill-prescribed">Prescribed</span>
                                         )}
@@ -908,16 +908,16 @@ export default function ProductDetails() {
                                     </button>
                                 </div>
 
-                                <h3 className="product-title mb-1">{product.name}</h3>
+                                <h3 className="product-title mb-3">{product.name}</h3>
 
-                                <p className="mb-2 text-muted">
+                                <p className="mb-3 text-muted">
                                     {product.categoryName}
                                     {product.productType ? `, ${product.productType}` : ""}
                                 </p>
 
                                 <p className="product-price mb-3">{formatCurrency(product.price || 0, "BHD")}</p>
 
-                                <div className="mb-2">
+                                <div className="mb-3">
                                     <span className="fw-bold">Availability: </span>
                                     <button type="button" className="btn btn-link p-0 product-branches-link" onClick={handleAvailability}>
                                         Available at {product.branchesCount} branches
@@ -929,7 +929,7 @@ export default function ProductDetails() {
                                 </div>
 
                                 {/* Quantity + Add to Cart */}
-                                <div className="d-flex align-items-center gap-3 mb-2">
+                                <div className="d-flex align-items-center justify-content-center gap-3 mb-2">
                                     <div className="d-inline-flex align-items-center border rounded-pill px-2 py-1">
                                         <button
                                             type="button"

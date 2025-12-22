@@ -582,7 +582,11 @@ export default function PrescriptionPlanTab({
                     </button>
                 )}
                 addButtonLabel="Add New Prescription Plan"
-                onAddNew={handleAddNewClick}
+                onAddNew={userId ? handleAddNewClick : undefined}
+                addButtonDisabledMessage={
+                    !userId ? "Login required to create a prescription plan." : ""
+                }
+
             />
         );
     }
