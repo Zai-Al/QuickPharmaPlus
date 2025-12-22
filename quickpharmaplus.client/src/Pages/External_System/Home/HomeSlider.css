@@ -28,6 +28,20 @@
         opacity: 1;
         transform: translateX(0);
     }
+/* Prevent invisible slides from stealing clicks */
+.hero-slide {
+    pointer-events: none;
+}
+
+    .hero-slide.active {
+        pointer-events: auto;
+    }
+
+/* Ensure content is above slide layer */
+.hero-content {
+    position: relative;
+    z-index: 2;
+}
 
 .hero-content {
     max-width: 520px;

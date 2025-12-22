@@ -279,16 +279,12 @@ export default function Navbar({ user: propUser, cartCount = 0,
                                     ? "/externalProfile"
                                     : "/profileInternal"
                         }
-                        className="btn d-flex align-items-center gap-2 px-3 py-2"
-                        style={{
-                            border: "1px solid #000",
-                            borderRadius: "6px",
-                            background: "#fff",
-                        }}
+                        className="btn profile-link d-flex align-items-center gap-2 px-3 py-2"
                     >
                         <i className="bi bi-person-circle fs-5"></i>
                         {user ? fullName : "Login"}
                     </Link>
+
 
 
 

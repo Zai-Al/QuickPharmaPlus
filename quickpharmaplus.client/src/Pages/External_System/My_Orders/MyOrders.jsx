@@ -61,7 +61,7 @@ export default function MyOrders() {
 
                 const json = await res.json();
                 setStatusOptions(Array.isArray(json) ? json : []);
-            } catch (e) {
+            } catch {
                 setStatusOptions([]);
             } finally {
                 setLoadingStatuses(false);
@@ -70,6 +70,7 @@ export default function MyOrders() {
 
         run();
     }, [API_BASE]);
+
 
     // fetch orders (backend paging + backend filtering)
     useEffect(() => {
@@ -158,7 +159,7 @@ export default function MyOrders() {
                         />
 
                         {(statusId || sortBy !== "date-desc") && (
-                            <button className="btn btn-outline-secondary btn-sm" onClick={resetFilters}>
+                            <button className="btn btn-outline-secondary reset-btn" onClick={resetFilters}>
                                 Reset
                             </button>
                         )}

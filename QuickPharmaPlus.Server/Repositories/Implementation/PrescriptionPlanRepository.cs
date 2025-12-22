@@ -191,11 +191,16 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             await _context.SaveChangesAsync();
 
             var bahrainToday = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(3));
+            var expiryDate = approval?.ApprovalPrescriptionExpiryDate;
+
             await _emailLogService.SchedulePlanEmailsAsync(
                 plan.PrescriptionPlanId,
                 userId,
-                bahrainToday
+                bahrainToday,
+                expiryDate,
+                CancellationToken.None
             );
+
 
 
             return plan.PrescriptionPlanId;

@@ -2,29 +2,23 @@ import TableFormat from "./TableFormat";
 import formatCurrency from "../Shared_Components/formatCurrency.js";
 import ProductInfoCell from "./ProductInfoCell";
 
-// Optional helper: same style as in Cart / WishList
+
 const buildIncompatibilityLines = (inc = {}) => {
     const lines = [];
 
     if (inc.medications && inc.medications.length) {
         lines.push(
             "Not compatible with: " +
-            inc.medications
-                .map((m) => m.otherProductName)
-                .join(", ")
+            inc.medications.map((m) => m.otherProductName).join(", ")
         );
     }
 
     if (inc.allergies && inc.allergies.length) {
-        lines.push(
-            "Allergy conflict: " + inc.allergies.join(", ")
-        );
+        lines.push("Allergy conflict: " + inc.allergies.join(", "));
     }
 
     if (inc.illnesses && inc.illnesses.length) {
-        lines.push(
-            "Illness conflict: " + inc.illnesses.join(", ")
-        );
+        lines.push("Illness conflict: " + inc.illnesses.join(", "));
     }
 
     return lines;
@@ -33,27 +27,25 @@ const buildIncompatibilityLines = (inc = {}) => {
 export default function OrderItemsTable({
     items = [],
     currency = "BHD",
-    shippingMethod = "", // "", "pickup", "delivery"
     title = "Prescription Summary",
-}) {
-    const DELIVERY_FEE_DELIVERY = 1.0; // when delivery is chosen
 
+    
+    deliveryFee = 0,
+    urgentFee = 0,
+    total = null, 
+}) {
     const subtotal = items.reduce(
-        (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
+        (sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 0)),
         0
     );
 
-    const hasMethod =
-        shippingMethod === "pickup" || shippingMethod === "delivery";
+    const deliveryFeeNum = Number(deliveryFee || 0);
+    const urgentFeeNum = Number(urgentFee || 0);
 
-    const deliveryFee =
-        !hasMethod
-            ? 0
-            : shippingMethod === "delivery"
-                ? DELIVERY_FEE_DELIVERY
-                : 0;
+    const computedTotal = subtotal + deliveryFeeNum + urgentFeeNum;
+    const totalAmount = total == null ? computedTotal : Number(total || 0);
 
-    const totalAmount = subtotal + deliveryFee;
+    const showAnyFees = deliveryFeeNum > 0 || urgentFeeNum > 0 || total != null;
 
     return (
         <div className="order-items-table">
@@ -62,13 +54,10 @@ export default function OrderItemsTable({
             <TableFormat headers={["Product", "Price", "Quantity", "Subtotal"]}>
                 {/* Item rows */}
                 {items.map((item) => {
-                    const incLines = buildIncompatibilityLines(
-                        item.incompatibilities
-                    );
+                    const incLines = buildIncompatibilityLines(item.incompatibilities);
 
                     return (
                         <tr key={item.id ?? item.name}>
-                            {/* Product cell now uses ProductInfoCell (with pills) */}
                             <td className="align-middle text-start ps-4">
                                 <ProductInfoCell
                                     imageSrc={item.imageSrc}
@@ -80,21 +69,17 @@ export default function OrderItemsTable({
                                 />
                             </td>
 
-                            {/* Price */}
                             <td className="align-middle">
-                                {formatCurrency(item.price || 0, currency)}
+                                {formatCurrency(Number(item.price || 0), currency)}
                             </td>
 
-                            {/* Quantity */}
                             <td className="align-middle">
                                 {item.quantity ?? 0}
                             </td>
 
-                            {/* Subtotal */}
                             <td className="align-middle">
                                 {formatCurrency(
-                                    (item.price || 0) *
-                                    (item.quantity || 0),
+                                    Number(item.price || 0) * Number(item.quantity || 0),
                                     currency
                                 )}
                             </td>
@@ -102,7 +87,7 @@ export default function OrderItemsTable({
                     );
                 })}
 
-                {/* Subtotal always visible */}
+                
                 <tr className="summary-row">
                     <td colSpan={3} className="text-end fw-semibold">
                         Subtotal
@@ -112,17 +97,28 @@ export default function OrderItemsTable({
                     </td>
                 </tr>
 
-                {/* Only show these when a shipping method is chosen */}
-                {hasMethod && (
+               
+                {deliveryFeeNum > 0 && (
                     <tr className="summary-row">
-                        <td colSpan={3} className="text-end">
+                        <td colSpan={3} className="text-end fw-semibold">
                             Delivery Fee
                         </td>
-                        <td>{formatCurrency(deliveryFee, currency)}</td>
+                        <td className="fw-semibold">{formatCurrency(deliveryFeeNum, currency)}</td>
                     </tr>
                 )}
 
-                {hasMethod && (
+                
+                {urgentFeeNum > 0 && (
+                    <tr className="summary-row">
+                        <td colSpan={3} className="text-end fw-semibold">
+                            Urgent Delivery Fee
+                        </td>
+                        <td className="fw-semibold">{formatCurrency(urgentFeeNum, currency)}</td>
+                    </tr>
+                )}
+
+               
+                {showAnyFees && (
                     <tr className="summary-row">
                         <td colSpan={3} className="text-end fw-bold">
                             Total Amount

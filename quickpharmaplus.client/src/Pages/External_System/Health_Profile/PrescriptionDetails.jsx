@@ -1,31 +1,103 @@
 // src/Pages/External_System/PrescriptionDetails.jsx
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { useContext, useEffect, useMemo, useState } from "react";
 import TableFormat from "../Shared_Components/TableFormat";
-import { useContext, useMemo, useState } from "react";
 import DialogModal from "../Shared_Components/DialogModal.jsx";
 import "../Shared_Components/External_Style.css";
 import { AuthContext } from "../../../Context/AuthContext.jsx";
 
 export default function PrescriptionDetails() {
-    const location = useLocation();
+    
     const navigate = useNavigate();
     const { user } = useContext(AuthContext);
 
     const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
 
-    // Prefer userId from navigation state, fallback to auth
-    const userId = location.state?.userId || user?.userId || user?.id;
+    const { id } = useParams(); // prescriptionId from URL
+    const userId = user?.userId || user?.id;
 
-    const prescription = location.state?.prescription;
+    const [prescription, setPrescription] = useState(null);
 
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [errorMsg, setErrorMsg] = useState("");
 
     const prescriptionId = useMemo(() => {
         if (!prescription) return null;
         return prescription.id || prescription.prescriptionId || null;
     }, [prescription]);
+
+    useEffect(() => {
+        const fetchDetails = async () => {
+            if (!id) return;
+            if (!userId) {
+                setLoading(false);
+                setErrorMsg("Please log in to view prescription details.");
+                return;
+            }
+
+            try {
+                setLoading(true);
+                setErrorMsg("");
+
+                const res = await fetch(
+                    `${API_BASE}/api/Prescription/user/${encodeURIComponent(userId)}/${encodeURIComponent(id)}`,
+                    { credentials: "include" }
+                );
+
+                if (!res.ok) {
+                    const t = await res.text().catch(() => "");
+                    throw new Error(t || "Failed to load prescription details.");
+                }
+
+                const p = await res.json();
+
+                // map backend dto -> your UI shape
+                const normalizeStatus = (statusName, statusId) => {
+                    if (statusName) return statusName;
+                    const map = { 1: "Approved", 2: "Pending Approval", 3: "Expired", 4: "Rejected" };
+                    return map[statusId] || "Unknown";
+                };
+
+                const formatDateOnly = (dateOnly) => {
+                    if (!dateOnly) return "";
+                    const [y, m, d] = String(dateOnly).split("-").map(Number);
+                    const dt = new Date(y, m - 1, d);
+                    return dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+                };
+
+                setPrescription({
+                    id: p.prescriptionId,
+                    name: p.prescriptionName || "",
+                    creationDate: p.prescriptionCreationDate ? formatDateOnly(p.prescriptionCreationDate) : "",
+                    statusId: p.prescriptionStatusId,
+                    status: normalizeStatus(p.prescriptionStatusName, p.prescriptionStatusId),
+
+                    addressId: p.addressId ?? null,
+                    cityId: p.cityId ? String(p.cityId) : "",
+                    city: p.cityName ?? "",
+                    cityName: p.cityName ?? "",
+                    block: p.block ?? "",
+                    road: p.road ?? "",
+                    buildingFloor: p.buildingFloor ?? "",
+
+                    hasPrescriptionDocument: !!p.hasPrescriptionDocument,
+                    hasCprDocument: !!p.hasCprDocument,
+                    prescriptionFileName: p.prescriptionFileName ?? "",
+                    cprFileName: p.cprFileName ?? "",
+
+                    latestApprovalExpiryDate: p.latestApprovalExpiryDate ? formatDateOnly(p.latestApprovalExpiryDate) : null,
+                });
+            } catch (err) {
+                setErrorMsg(err?.message || "Failed to load prescription details.");
+                setPrescription(null);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchDetails();
+    }, [API_BASE, userId, id]);
 
     const docUrls = useMemo(() => {
         if (!userId || !prescriptionId) return null;
@@ -36,17 +108,31 @@ export default function PrescriptionDetails() {
         };
     }, [API_BASE, userId, prescriptionId]);
 
+    if (loading) {
+        return (
+            <div className="container py-5">
+                <h2 className="mb-4">Prescription Details</h2>
+                <p>Loading...</p>
+            </div>
+        );
+    }
+
     if (!prescription || !prescriptionId) {
         return (
             <div className="container py-5">
                 <h2 className="mb-4">Prescription Details</h2>
-                <p>No prescription data found.</p>
+                {errorMsg ? (
+                    <div className="alert alert-danger text-start">{errorMsg}</div>
+                ) : (
+                    <p>No prescription data found.</p>
+                )}
                 <button className="btn qp-add-btn mt-3" onClick={() => navigate("/healthProfile")}>
                     Back
                 </button>
             </div>
         );
     }
+
 
     // -----------------------------
     // Delete flow

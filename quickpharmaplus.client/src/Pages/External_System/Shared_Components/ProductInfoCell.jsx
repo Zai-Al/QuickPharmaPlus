@@ -56,9 +56,9 @@ export default function ProductInfoCell({
                     className="text-muted"
                     style={{ fontSize: "0.85rem" }}
                 >
-                    {category}
-                    {type ? `, ${type}` : ""}
+                    {[category, type].filter(Boolean).join(", ")}
                 </div>
+
 
                 <div className="d-flex gap-2 mt-1">
                     {hasIncompatibility && (

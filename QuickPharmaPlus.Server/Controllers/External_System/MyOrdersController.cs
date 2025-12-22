@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using QuickPharmaPlus.Server.ModelsDTO.Order;
 using QuickPharmaPlus.Server.Repositories.Interface;
+using QuickPharmaPlus.Server.Services;
 
 namespace QuickPharmaPlus.Server.Controllers
 {
@@ -8,10 +10,12 @@ namespace QuickPharmaPlus.Server.Controllers
     public class MyOrdersController : ControllerBase
     {
         private readonly IOrderRepository _orders;
+        private readonly IOrderEmailService _orderEmail;
 
-        public MyOrdersController(IOrderRepository orders)
+        public MyOrdersController(IOrderRepository orders, IOrderEmailService orderEmail)
         {
             _orders = orders;
+            _orderEmail = orderEmail;
         }
 
         // GET api/MyOrders?userId=1&pageNumber=1&pageSize=10&statusId=2&search=123&sortBy=date-desc
@@ -37,6 +41,26 @@ namespace QuickPharmaPlus.Server.Controllers
             var dto = await _orders.GetMyOrderDetailsAsync(userId, orderId);
             if (dto == null) return NotFound();
             return Ok(dto);
+        }
+
+        [HttpGet("{orderId:int}/reschedule-options")]
+        public async Task<ActionResult<OrderRescheduleOptionsDto>> GetRescheduleOptions(int orderId, [FromQuery] int userId)
+        {
+            var opt = await _orders.GetRescheduleOptionsAsync(userId, orderId);
+            if (opt == null) return NotFound();
+            return Ok(opt);
+        }
+
+        [HttpPost("{orderId:int}/reschedule")]
+        public async Task<IActionResult> Reschedule(int orderId, [FromBody] OrderRescheduleRequestDto req)
+        {
+            var ok = await _orders.RescheduleDeliveryAsync(req.UserId, orderId, req.ShippingDate, req.SlotId);
+            if (!ok) return BadRequest("Unable to reschedule. Slot might be full or outside allowed dates.");
+
+            // Send rescheduled email (same template, different title/text)
+            await _orderEmail.TrySendOrderRescheduledEmailAsync(orderId, req.UserId);
+
+            return Ok(new { updated = true });
         }
     }
 }

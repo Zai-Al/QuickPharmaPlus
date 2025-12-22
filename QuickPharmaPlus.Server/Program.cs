@@ -177,6 +177,7 @@ namespace QuickPharmaPlus.Server
             builder.Services.AddScoped<IOrderRepository, OrderRepository>();
             builder.Services.AddScoped<ICheckoutOrderRepository, CheckoutOrderRepository>();
             builder.Services.AddScoped<IOrderEmailService, OrderEmailService>();
+            builder.Services.AddScoped<IIncompatibilityRepository, IncompatibilityRepository>();
             builder.Services.AddScoped<IAutomatedReorderEmailService, AutomatedReorderEmailService>();
 
             // =========================

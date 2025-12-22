@@ -101,6 +101,25 @@ namespace QuickPharmaPlus.Server.Controllers
         }
 
         // =====================================================
+        // GET CATEGORY IMAGE
+        // =====================================================
+        [HttpGet("{id:int}/image")]
+        public async Task<IActionResult> GetCategoryImage(int id)
+        {
+            if (id <= 0)
+                return BadRequest("Invalid category ID.");
+
+            var category = await _categoryRepository.GetCategoryByIdAsync(id);
+
+            if (category == null || category.CategoryImage == null || category.CategoryImage.Length == 0)
+                return NotFound();
+
+            // You store image as byte[], so just return it
+            return File(category.CategoryImage, "image/jpeg");
+        }
+
+
+        // =====================================================
         // GET CATEGORY DETAILS BY ID
         // =====================================================
         [Authorize]

@@ -10,37 +10,6 @@ import { WishlistContext } from "../../../Context/WishlistContext";
 import { CartContext } from "../../../Context/CartContext";
 import { dialogCopy } from "../Shared_Components/dialogCopy";
 
-// ==============================
-// TEMP mock Best Sellers (keep for now)
-// ==============================
-const mockBestSellers = [
-    {
-        id: 101,
-        name: "Vitamin C 1000mg",
-        price: 3.5,
-        imageUrl: null,
-        isFavorite: false,
-        requiresPrescription: false,
-        incompatibilities: { medications: [], allergies: [], illnesses: [] },
-        categoryName: "Vitamins",
-        productType: "Tablets",
-        inventoryCount: 999,
-        stockStatus: "IN_STOCK",
-    },
-    {
-        id: 102,
-        name: "Paracetamol 500mg",
-        price: 1.2,
-        imageUrl: null,
-        isFavorite: true,
-        requiresPrescription: false,
-        incompatibilities: { medications: [], allergies: [], illnesses: [] },
-        categoryName: "Pain Relief",
-        productType: "Tablets",
-        inventoryCount: 0,
-        stockStatus: "OUT_OF_STOCK",
-    },
-];
 
 /* =========================
    Helpers: incompatibilities
@@ -166,6 +135,13 @@ export default function HomeExternal() {
     const [addedIds, setAddedIds] = useState(() => new Set());
     const addedTimersRef = useRef({}); // { [productId]: timeoutId }
 
+    // best sellers
+    const [bestSellers, setBestSellers] = useState([]);
+    const [loadingBest, setLoadingBest] = useState(false);
+    const [bestError, setBestError] = useState("");
+
+
+
     const markAddedBriefly = (productId) => {
         setAddedIds((prev) => {
             const next = new Set(prev);
@@ -254,11 +230,17 @@ export default function HomeExternal() {
                 const items = data.items ?? [];
 
                 const mapped = items
-                    .map((c) => ({
-                        id: c.categoryId ?? c.CategoryId ?? null,
-                        name: c.categoryName ?? c.CategoryName ?? "—",
-                        iconUrl: null,
-                    }))
+                    .map((c) => {
+                        const id = c.categoryId ?? c.CategoryId ?? null;
+
+                        return {
+                            id,
+                            name: c.categoryName ?? c.CategoryName ?? "—",
+                            iconUrl: id
+                                ? `${API_BASE}/api/Category/${id}/image?v=${id}`
+                                : null,
+                        };
+                    })
                     .filter((c) => c.id != null);
 
                 setCategories(mapped);
@@ -273,6 +255,47 @@ export default function HomeExternal() {
         fetchCategories();
         return () => controller.abort();
     }, [API_BASE]);
+
+    // load best sellers
+
+    useEffect(() => {
+        const controller = new AbortController();
+
+        const fetchBestSellers = async () => {
+            try {
+                setLoadingBest(true);
+                setBestError("");
+
+                const url =
+                    `${API_BASE}/api/ExternalProducts/best-sellers?top=10` +
+                    (currentUserId ? `&userId=${currentUserId}` : "");
+
+                const res = await fetch(url, {
+                    signal: controller.signal,
+                    headers: { "Content-Type": "application/json" },
+                });
+
+                if (!res.ok) throw new Error("Failed to load best sellers.");
+
+                const data = await res.json();
+                const items = Array.isArray(data?.items) ? data.items : [];
+
+                setBestSellers(items.map((dto) => mapApiToCard(dto, API_BASE)));
+            } catch (e) {
+                if (e.name !== "AbortError") {
+                    setBestSellers([]);
+                    setBestError(e?.message || "Error loading best sellers.");
+                }
+            } finally {
+                setLoadingBest(false);
+            }
+        };
+
+        fetchBestSellers();
+        return () => controller.abort();
+    }, [API_BASE, currentUserId]);
+
+
 
     /* =========================
        Load newest products
@@ -503,9 +526,10 @@ export default function HomeExternal() {
        Derived arrays with isFavorite + isAdded
        ========================= */
     const bestSellersWithFav = useMemo(() => {
-        return mockBestSellers.map((p) => {
+        return bestSellers.map((p) => {
             const inv = p.inventoryCount ?? 0;
-            const status = p.stockStatus ?? (inv <= 0 ? "OUT_OF_STOCK" : inv <= 5 ? "LOW_STOCK" : "IN_STOCK");
+            const status =
+                p.stockStatus ?? (inv <= 0 ? "OUT_OF_STOCK" : inv <= 5 ? "LOW_STOCK" : "IN_STOCK");
 
             return {
                 ...p,
@@ -515,7 +539,9 @@ export default function HomeExternal() {
                 isAdded: addedIds.has(p.id),
             };
         });
-    }, [wishlistIds, addedIds]);
+    }, [bestSellers, wishlistIds, addedIds]);
+
+
 
     const newProductsWithFav = useMemo(() => {
         return newProducts.map((p) => ({
@@ -559,13 +585,20 @@ export default function HomeExternal() {
                 </div>
             )}
 
-            <ProductRowSection
-                title="Best Seller"
-                products={bestSellersWithFav}
-                highlight
-                onAddToCart={handleAddToCartRequest}
-                onToggleFavorite={handleToggleFavorite}
-            />
+            {bestError ? (
+                <div className="container my-3">
+                    <div className="alert alert-danger mb-0">{bestError}</div>
+                </div>
+            ) : (
+                <ProductRowSection
+                    title={loadingBest ? "Best Seller (Loading...)" : "Best Seller"}
+                    products={bestSellersWithFav}
+                    highlight
+                    onAddToCart={handleAddToCartRequest}
+                    onToggleFavorite={handleToggleFavorite}
+                />
+            )}
+
 
             {newError ? (
                 <div className="container my-3">

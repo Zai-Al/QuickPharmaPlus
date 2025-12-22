@@ -6,7 +6,7 @@
 .categories-list {
     display: flex;
     justify-content: center;
-    gap: 2rem;
+    gap: 4rem;
     flex-wrap: wrap;
     margin-top: 1.5rem;
 }
@@ -36,6 +36,26 @@
 
 .category-name {
     font-size: 0.9rem;
+}
+
+
+.cat-bubble-circle {
+    width: 74px; /* adjust to your bubble size */
+    height: 74px;
+    border-radius: 50%;
+    overflow: hidden; /* KEY: clips image to circle */
+    border: 1px solid #e6e6e6;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cat-bubble-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* KEY: fills circle without stretching */
+    display: block;
 }
 
 /* src/Pages/External_System/HomeExternal.css */
@@ -155,9 +175,11 @@
 .categories-carousel {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    width: 100%;
+    gap: 3rem;
+    width: 75%;
     margin-top: 1.5rem;
+    margin-left: 10%;
+    margin-right: 10%;
 }
 
 /* override your wrap behavior ONLY when used as carousel */

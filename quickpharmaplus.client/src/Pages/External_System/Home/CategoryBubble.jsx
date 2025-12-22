@@ -10,11 +10,11 @@ export default function CategoryBubble({ id, name, iconUrl }) {
 
     return (
         <div className="category-bubble" onClick={handleClick}>
-            <div className="category-icon-wrapper">
+            <div className="cat-bubble-circle">
                 {iconUrl ? (
-                    <img src={iconUrl} alt={name} className="category-icon" />
+                    <img src={iconUrl} alt={name} className="cat-bubble-img" />
                 ) : (
-                    <span className="category-icon-placeholder">icon</span>
+                    <div className="cat-bubble-fallback" />
                 )}
             </div>
             <p className="category-name">{name}</p>

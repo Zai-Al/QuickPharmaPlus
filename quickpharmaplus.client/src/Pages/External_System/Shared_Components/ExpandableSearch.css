@@ -1,3 +1,73 @@
+/* =====================================================
+   ONLY CHANGE: PRODUCT ITEM CELL (TABLE ROW LOOK)
+   - Applies ONLY to product rows using .expand-search-ddRow
+   - Does NOT affect .expand-search-ddItem (Searching/No results/See all)
+   ===================================================== */
+
+.expand-search-container .expand-search-ddRow {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    text-align: left;
+    border: 0;
+    padding: 12px 14px;
+    cursor: pointer;
+    background: #ffffff !important;
+    color: #111827 !important;
+}
+
+    /* Add separators between product rows */
+    .expand-search-container .expand-search-ddRow + .expand-search-ddRow {
+        border-top: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    /* Hover like a table row */
+    .expand-search-container .expand-search-ddRow:hover {
+        background: rgba(0, 0, 0, 0.04) !important;
+    }
+
+    /* Left column (image) */
+    .expand-search-container .expand-search-ddRow .dd-imgWrap {
+        width: 52px;
+        height: 52px;
+        flex: 0 0 52px;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #ffff !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Right column (text stack) */
+    .expand-search-container .expand-search-ddRow .dd-main {
+        flex: 1;
+        min-width: 0; /* enables ellipsis */
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    /* Title + badges line */
+    .expand-search-container .expand-search-ddRow .dd-topLine {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    /* Badges container */
+    .expand-search-container .expand-search-ddRow .dd-badges {
+        display: flex;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+
+
+
+
+
 /* Outer container (the form) */
 .expand-search-container {
     position: relative;
@@ -31,7 +101,7 @@
     border-radius: 999px;
     padding: 6px 12px;
     font-size: 0.9rem;
-    min-width: 220px;
+    min-width: 360px;
     outline: none;
     margin-right: 0.4rem;
 }
@@ -64,3 +134,195 @@
     .expand-search-input:focus {
         border-color: #54b2b5; /* your teal accent */
     }
+
+/* =========================
+   Dropdown suggestions
+   ========================= */
+/*
+.expand-search-inputWrap {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+*/
+/* Input + X in one row */
+.expand-search-inputWrap {
+    display: flex;
+    align-items: center;
+    gap: 8px; /* space between X and input */
+    width: 100%;
+}
+
+
+.expand-search-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+    z-index: 9999;
+}
+
+.expand-search-ddItem {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    padding: 10px 12px;
+    cursor: pointer;
+}
+
+    .expand-search-ddItem:hover {
+        background: rgba(0, 0, 0, 0.04);
+    }
+
+    .expand-search-ddItem .dd-title {
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .expand-search-ddItem .dd-sub {
+        font-size: 12px;
+        opacity: 0.7;
+        margin-top: 2px;
+    }
+
+    .expand-search-ddItem.muted {
+        cursor: default;
+        opacity: 0.7;
+    }
+
+    .expand-search-ddItem.seeAll {
+        border-top: 1px solid rgba(0, 0, 0, 0.08);
+        font-weight: 600;
+    }
+/* =========================
+   FORCE DROPDOWN TEXT COLOR
+   ========================= */
+
+/* Whole dropdown */
+.expand-search-dropdown {
+    background: #ffffff !important;
+    color: #000000 !important;
+}
+
+/* Each row */
+.expand-search-ddItem {
+    color: #000000 !important;
+}
+
+    /* Product title */
+    .expand-search-ddItem .dd-title {
+        color: #000000 !important;
+    }
+
+    /* Sub text (category • type • brand) */
+    .expand-search-ddItem .dd-sub {
+        color: #555555 !important;
+    }
+
+    /* "Searching..." / "No results" */
+    .expand-search-ddItem.muted {
+        color: #777777 !important;
+    }
+
+    /* "See all results" row */
+    .expand-search-ddItem.seeAll {
+        color: #000000 !important;
+    }
+
+    /* Hover state */
+    .expand-search-ddItem:hover {
+        background: rgba(0, 0, 0, 0.06) !important;
+        color: #000000 !important;
+    }
+
+/* =========================================
+   NAVBAR SEARCH DROPDOWN – FORCE LIGHT THEME
+   ========================================= */
+
+/* Kill any inherited dark navbar styles */
+.expand-search-container,
+.expand-search-container * {
+    background-color: transparent;
+}
+
+    /* Dropdown container */
+    .expand-search-container .expand-search-dropdown {
+        background-color: #ffffff !important;
+        color: #111827 !important;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Rows (buttons inherit dark bg by default in navbar) */
+    .expand-search-container .expand-search-ddRow {
+        background-color: #ffffff !important;
+        color: #111827 !important;
+    }
+
+        /* Hover */
+        .expand-search-container .expand-search-ddRow:hover {
+            background-color: rgba(0, 0, 0, 0.04) !important;
+        }
+
+    /* Image wrapper */
+    .expand-search-container .dd-imgWrap {
+        background-color: #f3f4f6 !important;
+    }
+
+    /* Text colors */
+    .expand-search-container .dd-title {
+        color: #111827 !important;
+    }
+
+    .expand-search-container .dd-sub,
+    .expand-search-container .dd-supplier {
+        color: #6b7280 !important;
+    }
+
+    /* Muted states */
+    .expand-search-container .expand-search-ddItem.muted {
+        background-color: #ffffff !important;
+        color: #6b7280 !important;
+    }
+
+    /* See all row */
+    .expand-search-container .expand-search-ddItem.seeAll {
+        background-color: #ffffff !important;
+        color: #111827 !important;
+    }
+
+/* =========================
+   SEARCH DROPDOWN IMAGE SIZE
+   ========================= */
+
+.dd-imgWrap {
+    width: 52px;
+    height: 52px;
+    flex: 0 0 52px;
+    border-radius: 8px;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.dd-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.dd-imgFallback {
+    font-size: 10px;
+    color: #6b7280;
+    text-align: center;
+    padding: 0 6px;
+}
