@@ -12,6 +12,7 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
     int pageNumber,
     int pageSize,
     string? search = null,
+    int? branchId = null,
     DateOnly? expiryDate = null);
 
         // Fetches a single inventory by id. Includes branch address (mapped into InventoryDetailDto.Address).

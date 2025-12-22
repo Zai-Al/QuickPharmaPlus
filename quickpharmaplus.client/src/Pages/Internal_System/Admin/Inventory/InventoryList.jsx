@@ -1,4 +1,6 @@
-﻿import { useEffect, useState, useRef } from "react";
+﻿import { useEffect, useState, useRef, useContext } from "react";
+import { AuthContext } from "../../../../Context/AuthContext";
+
 import "./InventoryList.css";
 
 // Shared components
@@ -15,9 +17,16 @@ import SearchTextField from "../../../../Components/InternalSystem/GeneralCompon
 import DatePicker from "../../../../Components/InternalSystem/GeneralComponents/DatePicker";
 import Pagination from "../../../../Components/InternalSystem/GeneralComponents/Pagination";
 import DeleteModal from "../../../../Components/InternalSystem/Modals/DeleteModal";
+import FilterDropdown from "../../../../Components/InternalSystem/GeneralComponents/FilterDropdown";
 
 export default function InventoryList() {
     const baseURL = import.meta.env.VITE_API_BASE_URL;
+    const { user } = useContext(AuthContext);
+
+    // =================== CHECK USER ROLE ===================
+    const roles = user?.roles || [];
+    const isAdmin = roles.includes("Admin");
+
 
     // UI / data state
     const [loading, setLoading] = useState(false);
@@ -35,6 +44,8 @@ export default function InventoryList() {
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [productOptions, setProductOptions] = useState([]);
     const [filterExpiryDate, setFilterExpiryDate] = useState(null);
+    const [selectedBranch, setSelectedBranch] = useState(null);
+    const [branchOptions, setBranchOptions] = useState([]);
 
     // SEARCHABLE PRODUCT DROPDOWN STATE
     const [productQuery, setProductQuery] = useState("");
@@ -57,9 +68,12 @@ export default function InventoryList() {
         { key: "quantity", label: "Quantity" },
         { key: "expiryDate", label: "Expiry Date" },
         { key: "branchAddress", label: "Branch Address" },
-        { key: "edit", label: "Edit" },
-        { key: "delete", label: "Delete" }
+        ...(isAdmin ? [
+            { key: "edit", label: "Edit" },
+            { key: "delete", label: "Delete" }
+        ] : [])
     ];
+
 
     const renderMap = {
         edit: (row) => <EditButton to={`/inventory/edit/${row.inventoryId}`} />,
@@ -81,6 +95,7 @@ export default function InventoryList() {
 
     useEffect(() => {
         fetchProductsForFilter();
+        fetchBranchesForFilter();
     }, []);
 
     useEffect(() => {
@@ -96,7 +111,7 @@ export default function InventoryList() {
         }, 300);
 
         return () => clearTimeout(filterDebounceRef.current);
-    }, [idSearch, selectedProduct, filterExpiryDate, pageSize]);
+    }, [idSearch, selectedProduct, filterExpiryDate, pageSize, selectedBranch]);
 
     useEffect(() => {
         if (selectedProduct) {
@@ -133,6 +148,21 @@ export default function InventoryList() {
         }
     }
 
+    async function fetchBranchesForFilter() {
+        try {
+            const res = await fetch(`${baseURL}/api/Branch?pageNumber=1&pageSize=100`, { credentials: "include" });
+            if (!res.ok) return setBranchOptions([]);
+            const data = await res.json();
+            const branches = data.items || [];
+            setBranchOptions(branches.map(b => ({
+                value: b.branchId,
+                label: b.cityName ?? `Branch ${b.branchId}`
+            })));
+        } catch {
+            setBranchOptions([]);
+        }
+    }
+
     async function fetchInventories(pageNumber = 1) {
         setLoading(true);
         setError("");
@@ -151,6 +181,10 @@ export default function InventoryList() {
             if (filterExpiryDate) {
                 const raw = filterExpiryDate;
                 params.set("expiryDate", `${raw.getFullYear()}-${String(raw.getMonth() + 1).padStart(2, "0")}-${String(raw.getDate()).padStart(2, "0")}`);
+            }
+
+            if (selectedBranch && selectedBranch !== "") {
+                params.set("branchId", selectedBranch); // Send branchId
             }
 
             const res = await fetch(`${baseURL}/api/Inventory?${params.toString()}`, { credentials: "include" });
@@ -297,7 +331,7 @@ export default function InventoryList() {
 
             {/* SUCCESS MESSAGE */}
             {successMessage && (
-                <div className="alert alert-success alert-dismissible" style={{ width: "80%", margin: "20px auto" }}>
+                <div className="alert alert-success alert-dismissible w-50" style={{margin: "20px auto" }}>
                     <button className="btn-close" data-bs-dismiss="alert" onClick={() => setSuccessMessage("")}></button>
                     <strong>Success!</strong> {successMessage}
                 </div>
@@ -305,7 +339,7 @@ export default function InventoryList() {
 
             {/* ERROR MESSAGE */}
             {error && (
-                <div className="alert alert-danger alert-dismissible" style={{ width: "80%", margin: "20px auto" }}>
+                <div className="alert alert-danger alert-dismissible w-50" style={{margin: "20px auto" }}>
                     <button className="btn-close" data-bs-dismiss="alert" onClick={() => setError("")}></button>
                     <strong>Error!</strong> {error}
                 </div>
@@ -378,19 +412,42 @@ export default function InventoryList() {
                                 setFilterExpiryDate(null);
                                 setIdError("");
                                 setProductError("");
+                                setSelectedBranch(""); // Reset branch selection
 
                                 if (currentPage !== 1) setCurrentPage(1);
                                 else fetchInventories(1);
                             }}
                         />
 
-                        <PageAddButton to="/inventory/add" text="Add New Inventory" />
+                        {isAdmin && (
+                            <PageAddButton to="/inventory/add" text="Add New Inventory" />
+                        )}
+
                     </div>
                 </FilterRight>
             </FilterSection>
 
             <FilterSection>
                 <FilterLeft>
+                    {isAdmin && (
+                        <div className="mb-2">
+                            <div className="filter-label fst-italic small">
+                                Select branch for automatic search
+                            </div>
+
+                            <FilterDropdown
+                                placeholder="Filter Inventory by Branch"
+                                options={branchOptions}
+                                value={selectedBranch || ""}
+                                onChange={(e) => {
+                                    setSelectedBranch(e.target.value); // This is the branchId
+                                    setCurrentPage(1);
+                                }}
+                            />
+                        </div>
+                    )}
+
+
                     <div className="mb-2">
                         <div className="filter-label fst-italic small">Select expiry date for automatic search</div>
                         <DatePicker

@@ -433,14 +433,14 @@ export default function EditSupplier() {
 
             {/* SUCCESS + ERROR */}
             {successMessage && (
-                <div className="alert alert-success alert-dismissible">
+                <div className="alert alert-success alert-dismissible w-50">
                     <button className="btn-close" data-bs-dismiss="alert" onClick={() => setSuccessMessage("")}></button>
                     <strong>Success!</strong> {successMessage}
                 </div>
             )}
 
             {errorMessage && (
-                <div className="alert alert-danger alert-dismissible">
+                <div className="alert alert-danger alert-dismissible w-50">
                     <button className="btn-close" data-bs-dismiss="alert" onClick={() => setErrorMessage("")}></button>
                     <strong>Error!</strong> {errorMessage}
                 </div>

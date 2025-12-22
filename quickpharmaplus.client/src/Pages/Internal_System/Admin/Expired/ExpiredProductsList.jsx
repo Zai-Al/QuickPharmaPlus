@@ -211,7 +211,7 @@ export default function ExpiredProductsList() {
 
             {/* SUCCESS MESSAGE */}
             {successMessage && (
-                <div className="alert alert-success alert-dismissible" style={{ width: "80%", margin: "20px auto" }}>
+                <div className="alert alert-success alert-dismissible w-50" style={{margin: "20px auto" }}>
                     <button className="btn-close" data-bs-dismiss="alert" onClick={() => setSuccessMessage("")}></button>
                     <strong>Success!</strong> {successMessage}
                 </div>

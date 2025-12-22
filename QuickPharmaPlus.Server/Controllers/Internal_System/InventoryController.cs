@@ -1,11 +1,12 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.Security.Claims;
+using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuickPharmaPlus.Server.Identity;
 using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.Repositories.Interface;
-using System.Text.RegularExpressions;
 
 namespace QuickPharmaPlus.Server.Controllers.Internal_System
 {
@@ -32,56 +33,117 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
         }
 
         // GET: api/Inventory
+        // GET: api/Inventory
+        // GET: api/Inventory
+        [Authorize(Roles = "Admin,Pharmacist,Manager")]
         [HttpGet]
-        public async Task<IActionResult> GetAll(
-            [FromQuery] int pageNumber = 1,
-            [FromQuery] int pageSize = 10,
-            [FromQuery] string? search = null,
-            [FromQuery] DateOnly? expiryDate = null)
+        public async Task<IActionResult> GetAllInventories(
+            int pageNumber = 1,
+            int pageSize = 10,
+            string? search = null,
+            int? branchId = null,
+            DateOnly? expiryDate = null)
         {
-            // Backend SAFE VALIDATION
-
-            // Validate inventory ID search (must be numeric if numeric input)
-            if (!string.IsNullOrWhiteSpace(search))
+            try
             {
-                // If user is searching by number ensure numeric
-                if (search.All(char.IsDigit) == false && Regex.IsMatch(search, @"^\d+$"))
+                // ============================
+                // BACKEND SAFE VALIDATION
+                // ============================
+
+                if (!string.IsNullOrWhiteSpace(search))
                 {
-                    ModelState.AddModelError("search", "Inventory ID must contain numbers only.");
-                    return BadRequest(ModelState);
+                    // Inventory ID must be numeric if numeric search
+                    if (search.All(char.IsDigit) == false && Regex.IsMatch(search, @"^\d+$"))
+                    {
+                        ModelState.AddModelError("search", "Inventory ID must contain numbers only.");
+                        return BadRequest(ModelState);
+                    }
+
+                    // Product search allowed chars: letters, numbers, space, +, -
+                    if (!Regex.IsMatch(search, @"^[A-Za-z0-9+\- ]*$"))
+                    {
+                        ModelState.AddModelError(
+                            "search",
+                            "Product search may only contain letters, numbers, spaces, + and -."
+                        );
+                        return BadRequest(ModelState);
+                    }
                 }
 
-                // Validate allowed characters for product search
-                // Letters, numbers, spaces, + and -
-                if (!Regex.IsMatch(search, @"^[A-Za-z0-9+\- ]*$"))
+                if (expiryDate.HasValue)
                 {
-                    ModelState.AddModelError("search", "Product search may only contain letters, numbers, spaces, + and -.");
-                    return BadRequest(ModelState);
+                    if (expiryDate.Value.Year < 2000 || expiryDate.Value.Year > 2100)
+                    {
+                        ModelState.AddModelError("expiryDate", "Invalid expiry date.");
+                        return BadRequest(ModelState);
+                    }
                 }
+
+                // ============================
+                // ROLE-BASED BRANCH ISOLATION
+                // ============================
+
+                // Get Identity User ID from token
+                var identityUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(identityUserId))
+                    return Unauthorized();
+
+                bool isAdmin = User.IsInRole("Admin");
+
+                int? effectiveBranchId;
+
+                if (isAdmin)
+                {
+                    // Admin can see all inventory or filter by branch
+                    effectiveBranchId = branchId;
+                }
+                else
+                {
+                    // Non-admin: resolve branch from DOMAIN User table
+                    var domainUser = await _context.Users
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(u => u.IdentityUserId == identityUserId);
+
+                    if (domainUser == null)
+                        return Forbid("Domain user record not found.");
+
+                    if (!domainUser.BranchId.HasValue)
+                        return Forbid("User is not assigned to a branch.");
+
+                    // FORCE branch isolation
+                    effectiveBranchId = domainUser.BranchId.Value;
+                }
+
+                // ============================
+                // FETCH INVENTORY
+                // ============================
+
+                var result = await _repo.GetAllInventoriesAsync(
+                    pageNumber,
+                    pageSize,
+                    search,
+                    effectiveBranchId,
+                    expiryDate
+                );
+
+                return Ok(new
+                {
+                    items = result.Items,
+                    totalCount = result.TotalCount,
+                    pageNumber,
+                    pageSize
+                });
             }
-
-            // Validate expiry date sent from UI
-            if (expiryDate.HasValue)
+            catch (Exception ex)
             {
-                if (expiryDate.Value.Year < 2000 || expiryDate.Value.Year > 2100)
-                {
-                    ModelState.AddModelError("expiryDate", "Invalid expiry date.");
-                    return BadRequest(ModelState);
-                }
+                return StatusCode(500, $"Internal server error: {ex.Message}");
             }
-
-            var result = await _repo.GetAllInventoriesAsync(pageNumber, pageSize, search, expiryDate);
-
-            return Ok(new
-            {
-                items = result.Items,
-                totalCount = result.TotalCount,
-                pageNumber,
-                pageSize
-            });
         }
 
+
+
         // GET: api/Inventory/{id}
+        [Authorize(Roles = "Admin")]
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(int id)
         {
@@ -91,6 +153,7 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
         }
 
         // POST: api/Inventory
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] Inventory payload)
         {
@@ -166,6 +229,7 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
         }
 
         // PUT: api/Inventory/{id}
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id:int}")]
         public async Task<IActionResult> Update(int id, [FromBody] Inventory payload)
         {
@@ -272,6 +336,7 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
         }
 
         // DELETE: api/Inventory/{id}
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {

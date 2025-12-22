@@ -283,7 +283,7 @@ export default function SupplierList() {
 
             {/* TABLE */}
             {loading && <div className="text-center text-muted my-3">Loading suppliers...</div>}
-            {error && <div className="alert alert-danger">{error}</div>}
+            {error && <div className="alert alert-danger w-50">{error}</div>}
 
             <DataTable columns={columns} data={suppliers} renderMap={renderMap} />
 

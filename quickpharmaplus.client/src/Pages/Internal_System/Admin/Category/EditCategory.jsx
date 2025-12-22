@@ -189,14 +189,14 @@ export default function EditCategory() {
             <FormHeader title="Edit Category Record" to="/categories" />
 
             {successMessage && (
-                <div className="alert alert-dismissible alert-success">
+                <div className="alert alert-dismissible alert-success w-50">
                     <button className="btn-close" data-bs-dismiss="alert" />
                     <strong>Success!</strong> {successMessage}
                 </div>
             )}
 
             {errorMessage && (
-                <div className="alert alert-dismissible alert-danger">
+                <div className="alert alert-dismissible alert-danger w-50">
                     <button className="btn-close" data-bs-dismiss="alert" />
                     <strong>Error!</strong> {errorMessage}
                 </div>

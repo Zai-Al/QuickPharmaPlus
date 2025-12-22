@@ -7,7 +7,14 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
     public interface ISupplierOrderRepository
     {
         // Paged + filtered supplier order list (supports ID and search)
-        Task<PagedResult<SupplierOrderListDto>> GetAllSupplierOrdersAsync(int pageNumber, int pageSize, string? search = null, DateOnly? orderDate = null);
+        Task<PagedResult<SupplierOrderListDto>> GetAllSupplierOrdersAsync(
+            int pageNumber, 
+            int pageSize, 
+            string? search = null, 
+            DateOnly? orderDate = null,
+            int? branchId = null,
+            int? statusId = null,
+            int? typeId = null);
 
         // Single supplier order details
         Task<SupplierOrderDetailDto?> GetSupplierOrderByIdAsync(int id);
