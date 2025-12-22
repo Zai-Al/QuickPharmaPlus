@@ -144,6 +144,25 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             return Ok(result);
         }
 
+        // GET: /api/Prescription/user/5/123
+        [HttpGet("user/{userId:int}/{prescriptionId:int}")]
+        public async Task<IActionResult> GetById(int userId, int prescriptionId)
+        {
+            try
+            {
+                if (userId <= 0 || prescriptionId <= 0) return BadRequest(new { error = "Invalid ids" });
+
+                var item = await _repo.GetUserHealthPrescriptionByIdAsync(userId, prescriptionId);
+                if (item == null) return NotFound(new { error = "Prescription not found." });
+
+                return Ok(item);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in GetById (user:{user}, prescription:{prescription})", userId, prescriptionId);
+                return StatusCode(500, new { error = "Unexpected error.", message = ex.Message });
+            }
+        }
 
         private static string GetExtensionFromContentType(string? ct)
         {

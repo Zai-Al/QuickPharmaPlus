@@ -30,6 +30,7 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
         Task<(byte[] bytes, string contentType)?> GetCprDocumentAsync(int userId, int prescriptionId);
 
         Task<int> CreateCheckoutAsync(int userId, PrescriptionCreateDto dto);
+        Task<PrescriptionListDto?> GetUserHealthPrescriptionByIdAsync(int userId, int prescriptionId);
 
         Task<CheckoutPrescriptionValidateResponseDto> ValidateCheckoutPrescriptionAsync(
     int userId,

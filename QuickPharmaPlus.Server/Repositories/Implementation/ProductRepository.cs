@@ -399,6 +399,72 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             };
         }
 
+        public async Task<List<ProductListDto>> GetBestSellersAsync(int top = 10)
+        {
+            if (top <= 0) top = 10;
+            if (top > 50) top = 50;
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            // Step 1: Top product IDs by total quantity sold
+            var topIds = await _context.ProductOrders
+                .AsNoTracking()
+                .Where(po => po.ProductId.HasValue)
+                .GroupBy(po => po.ProductId!.Value)
+                .Select(g => new
+                {
+                    ProductId = g.Key,
+                    Qty = g.Sum(x => x.Quantity)
+                })
+                .OrderByDescending(x => x.Qty)
+                .ThenByDescending(x => x.ProductId)
+                .Take(top)
+                .ToListAsync();
+
+            var ids = topIds.Select(x => x.ProductId).ToList();
+            if (ids.Count == 0) return new List<ProductListDto>();
+
+            // Step 2: Load product info (active only)
+            var products = await _context.Products
+                .AsNoTracking()
+                .Where(p => p.IsActive && ids.Contains(p.ProductId))
+                .Include(p => p.Category)
+                .Include(p => p.ProductType)
+                .Include(p => p.Supplier)
+                .Select(p => new ProductListDto
+                {
+                    ProductId = p.ProductId,
+                    ProductName = p.ProductName,
+                    ProductPrice = p.ProductPrice,
+                    IsControlled = p.IsControlled,
+                    SupplierId = p.SupplierId,
+                    SupplierName = p.Supplier != null ? p.Supplier.SupplierName : null,
+                    ProductTypeId = p.ProductTypeId,
+                    ProductTypeName = p.ProductType != null ? p.ProductType.ProductTypeName : null,
+                    CategoryId = p.CategoryId ?? 0,
+                    CategoryName = p.Category != null ? p.Category.CategoryName : null,
+
+                    // same as external products: sum available qty ignoring expired and 0
+                    InventoryCount = _context.Inventories
+                        .Where(i => i.ProductId == p.ProductId)
+                        .Where(i => (i.InventoryQuantity ?? 0) > 0)
+                        .Where(i => i.InventoryExpiryDate == null || i.InventoryExpiryDate >= today)
+                        .Sum(i => (int?)(i.InventoryQuantity ?? 0)) ?? 0
+                })
+                .ToListAsync();
+
+            // Step 3: preserve best-seller order (by qty desc)
+            var dict = products.ToDictionary(x => x.ProductId, x => x);
+            var ordered = new List<ProductListDto>();
+
+            foreach (var row in topIds)
+                if (dict.TryGetValue(row.ProductId, out var dto))
+                    ordered.Add(dto);
+
+            return ordered;
+        }
+
+
         // =====================================================
         // CHECK IF PRODUCT NAME EXISTS (FOR DUPLICATE VALIDATION)
         // =====================================================

@@ -520,9 +520,8 @@ export default function PrescriptionTab({
 
     const handleViewDetails = (index) => {
         const prescription = prescriptions[index];
-        navigate(`/prescriptions/${prescription.id}`, {
-            state: { prescription, userId },
-        });
+        navigate(`/prescriptions/${prescription.id}`);
+
     };
 
     // -----------------------------

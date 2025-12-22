@@ -10,5 +10,9 @@
         public int Quantity { get; set; }
         public string? Image { get; set; }
         public bool? IsControlled { get; set; }
+        public bool IsPrescribed { get; set; }
+        public object? Incompatibilities { get; set; }
+
+
     }
 }

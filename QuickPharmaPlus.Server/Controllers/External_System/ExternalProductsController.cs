@@ -8,7 +8,6 @@ using QuickPharmaPlus.Server.ModelsDTO.Product;
 using QuickPharmaPlus.Server.Repositories.Interface;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 
 namespace QuickPharmaPlus.Server.Controllers.External_System
@@ -19,15 +18,18 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
     public class ExternalProductsController : ControllerBase
     {
         private readonly IProductRepository _productRepository;
+        private readonly IIncompatibilityRepository _incompatRepo;
         private readonly ILogger<ExternalProductsController> _logger;
         private readonly QuickPharmaPlusDbContext _context;
 
         public ExternalProductsController(
             IProductRepository productRepository,
+            IIncompatibilityRepository incompatRepo,
             ILogger<ExternalProductsController> logger,
             QuickPharmaPlusDbContext context)
         {
             _productRepository = productRepository;
+            _incompatRepo = incompatRepo;
             _logger = logger;
             _context = context;
         }
@@ -35,19 +37,6 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
         [HttpGet("ping")]
         public IActionResult Ping() => Ok(new { ok = true, where = "ExternalProductsController" });
 
-        /// <summary>
-        /// Customer-facing products list (SERVER-SIDE filtering).
-        /// Supports:
-        /// - pagination
-        /// - search
-        /// - categoryIds
-        /// - supplierIds (brands)
-        /// - productTypeIds
-        /// - branchIds
-        /// - minPrice/maxPrice
-        /// - sortBy (price-asc, price-desc, name-asc, name-desc)
-        /// - userId (optional): computes incompatibilities (illness + allergy)
-        /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetExternalProducts(
             int pageNumber = 1,
@@ -64,7 +53,7 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
 
             string? sortBy = "price-asc",
 
-            // ✅ NEW (optional): only used to compute incompatibilities
+            // optional: only used to compute incompatibilities
             [FromQuery] int? userId = null
         )
         {
@@ -113,15 +102,12 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                     })
                     .ToList();
 
+                // attach images (your existing logic)
                 var productIds = items.Select(x => x.Id).ToList();
 
                 var imageMap = await _context.Products
                     .Where(p => productIds.Contains(p.ProductId))
-                    .Select(p => new
-                    {
-                        p.ProductId,
-                        p.ProductImage
-                    })
+                    .Select(p => new { p.ProductId, p.ProductImage })
                     .AsNoTracking()
                     .ToListAsync();
 
@@ -136,29 +122,32 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                     item.ProductImageBase64 = base64;
                 }
 
-                // ✅ NEW: compute illness + allergy incompatibilities only if userId provided
+                // ✅ NEW: compute incompatibilities ONLY if userId provided
                 if (userId.HasValue && userId.Value > 0 && items.Count > 0)
                 {
-                    var productIdsForInc = items.Select(x => x.Id).ToList();
-
-                    var illnessMap = await GetIllnessIncompatibilityMapAsync(userId.Value, productIdsForInc);
-                    var allergyMap = await GetAllergyIncompatibilityMapAsync(userId.Value, productIdsForInc);
+                    var incMap = await _incompatRepo.GetMapAsync(userId.Value, productIds);
 
                     foreach (var it in items)
                     {
-                        illnessMap.TryGetValue(it.Id, out var illNames);
-                        allergyMap.TryGetValue(it.Id, out var allNames);
-
-                        illNames ??= new List<string>();
-                        allNames ??= new List<string>();
-
-                        // structure matches your UI (expects object keys)
-                        it.Incompatibilities = new
+                        if (incMap.TryGetValue(it.Id, out var inc))
                         {
-                            medications = Array.Empty<string>(),
-                            allergies = allNames,
-                            illnesses = illNames
-                        };
+                            // keep same JSON shape your UI expects
+                            it.Incompatibilities = new
+                            {
+                                medications = inc.Medications, // empty for now
+                                allergies = inc.Allergies,
+                                illnesses = inc.Illnesses
+                            };
+                        }
+                        else
+                        {
+                            it.Incompatibilities = new
+                            {
+                                medications = Array.Empty<object>(),
+                                allergies = Array.Empty<string>(),
+                                illnesses = Array.Empty<string>()
+                            };
+                        }
                     }
                 }
 
@@ -242,26 +231,29 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                 Incompatibilities = null
             };
 
-            // ✅ NEW: illness + allergy incompatibilities for single product
+            // ✅ NEW: incompatibilities for single product
             if (userId.HasValue && userId.Value > 0)
             {
-                var ids = new List<int> { id };
+                var map = await _incompatRepo.GetMapAsync(userId.Value, new List<int> { id });
 
-                var illnessMap = await GetIllnessIncompatibilityMapAsync(userId.Value, ids);
-                var allergyMap = await GetAllergyIncompatibilityMapAsync(userId.Value, ids);
-
-                illnessMap.TryGetValue(id, out var illNames);
-                allergyMap.TryGetValue(id, out var allNames);
-
-                illNames ??= new List<string>();
-                allNames ??= new List<string>();
-
-                detail.Incompatibilities = new
+                if (map.TryGetValue(id, out var inc))
                 {
-                    medications = Array.Empty<string>(),
-                    allergies = allNames,
-                    illnesses = illNames
-                };
+                    detail.Incompatibilities = new
+                    {
+                        medications = inc.Medications,
+                        allergies = inc.Allergies,
+                        illnesses = inc.Illnesses
+                    };
+                }
+                else
+                {
+                    detail.Incompatibilities = new
+                    {
+                        medications = Array.Empty<object>(),
+                        allergies = Array.Empty<string>(),
+                        illnesses = Array.Empty<string>()
+                    };
+                }
             }
 
             return Ok(detail);
@@ -277,30 +269,25 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             if (product == null || product.ProductImage == null || product.ProductImage.Length == 0)
                 return NotFound();
 
-            var bytes = product.ProductImage; // <-- your varbinary column
+            var bytes = product.ProductImage;
             var contentType = DetectImageContentType(bytes);
 
             return File(bytes, contentType);
         }
 
-
         private static string DetectImageContentType(byte[] bytes)
         {
             if (bytes == null || bytes.Length < 4) return "application/octet-stream";
 
-            // PNG: 89 50 4E 47
             if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47)
                 return "image/png";
 
-            // JPEG: FF D8
             if (bytes[0] == 0xFF && bytes[1] == 0xD8)
                 return "image/jpeg";
 
-            // GIF: 47 49 46
             if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46)
                 return "image/gif";
 
-            // WEBP: "RIFF....WEBP"
             if (bytes.Length >= 12 &&
                 bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46 &&
                 bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50)
@@ -308,7 +295,6 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
 
             return "application/octet-stream";
         }
-
 
         [HttpGet("{id:int}/availability")]
         public async Task<IActionResult> GetProductAvailability(int id)
@@ -352,114 +338,90 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             });
         }
 
-        // =========================
-        // Helpers: Illness + Allergy
-        // =========================
-
-        private async Task<Dictionary<int, List<string>>> GetIllnessIncompatibilityMapAsync(int userId, List<int> productIds)
+        // GET: /api/ExternalProducts/best-sellers?top=10&userId=123
+        [HttpGet("best-sellers")]
+        public async Task<IActionResult> GetBestSellers([FromQuery] int top = 10, [FromQuery] int? userId = null)
         {
-            var result = new Dictionary<int, List<string>>();
-            if (productIds == null || productIds.Count == 0) return result;
+            var result = await _productRepository.GetBestSellersAsync(top);
 
-            var hpId = await _context.HealthProfiles
-                .Where(h => h.UserId == userId)
-                .Select(h => (int?)h.HealthProfileId)
-                .FirstOrDefaultAsync();
+            var items = (result ?? Enumerable.Empty<ProductListDto>())
+                .Select(dto => new CustomerProductListDto
+                {
+                    Id = dto.ProductId,
+                    Name = dto.ProductName,
+                    Price = dto.ProductPrice,
 
-            if (hpId == null) return result;
+                    CategoryId = dto.CategoryId,
+                    CategoryName = dto.CategoryName,
 
-            var illnessIds = await _context.HealthProfileIllnesses
-                .Where(hpi => hpi.HealthProfileId == hpId.Value)
-                .Select(hpi => hpi.IllnessId)
-                .Distinct()
+                    ProductTypeId = dto.ProductTypeId,
+                    ProductTypeName = dto.ProductTypeName,
+
+                    SupplierId = dto.SupplierId,
+                    SupplierName = dto.SupplierName,
+
+                    RequiresPrescription = dto.CategoryId == 1,
+                    InventoryCount = dto.InventoryCount,
+
+                    StockStatus =
+                        dto.InventoryCount <= 0 ? "OUT_OF_STOCK" :
+                        dto.InventoryCount <= 5 ? "LOW_STOCK" :
+                        "IN_STOCK",
+
+                    Incompatibilities = null
+                })
+                .ToList();
+
+            // attach base64 images (reuse your existing image logic)
+            var productIds = items.Select(x => x.Id).ToList();
+
+            var imageMap = await _context.Products
+                .Where(p => productIds.Contains(p.ProductId))
+                .Select(p => new { p.ProductId, p.ProductImage })
+                .AsNoTracking()
                 .ToListAsync();
 
-            if (illnessIds.Count == 0) return result;
+            var imageDict = imageMap.ToDictionary(
+                x => x.ProductId,
+                x => x.ProductImage != null ? Convert.ToBase64String(x.ProductImage) : null
+            );
 
-            var rows = await (
-                from ip in _context.IngredientProducts
-                join iii in _context.IllnessIngredientInteractions
-                    on ip.IngredientId equals iii.IngredientId
-                join ill in _context.Illnesses
-                    on iii.IllnessId equals ill.IllnessId
-                join iname in _context.IllnessNames
-                    on ill.IllnessNameId equals iname.IllnessNameId
-                where ip.ProductId.HasValue
-                      && productIds.Contains(ip.ProductId.Value)
-                      && illnessIds.Contains(iii.IllnessId)
-                select new
-                {
-                    ProductId = ip.ProductId.Value,
-                    IllnessName = iname.IllnessName1
-                }
-            )
-            .AsNoTracking()
-            .ToListAsync();
-
-            foreach (var g in rows.GroupBy(x => x.ProductId))
+            foreach (var item in items)
             {
-                result[g.Key] = g
-                    .Select(x => x.IllnessName)
-                    .Where(x => !string.IsNullOrWhiteSpace(x))
-                    .Distinct()
-                    .OrderBy(x => x)
-                    .ToList();
+                imageDict.TryGetValue(item.Id, out var base64);
+                item.ProductImageBase64 = base64;
             }
 
-            return result;
-        }
-
-        private async Task<Dictionary<int, List<string>>> GetAllergyIncompatibilityMapAsync(int userId, List<int> productIds)
-        {
-            var result = new Dictionary<int, List<string>>();
-            if (productIds == null || productIds.Count == 0) return result;
-
-            var hpId = await _context.HealthProfiles
-                .Where(h => h.UserId == userId)
-                .Select(h => (int?)h.HealthProfileId)
-                .FirstOrDefaultAsync();
-
-            if (hpId == null) return result;
-
-            var allergyIds = await _context.HealthProfileAllergies
-                .Where(hpa => hpa.HealthProfileId == hpId.Value)
-                .Select(hpa => hpa.AllergyId)
-                .Distinct()
-                .ToListAsync();
-
-            if (allergyIds.Count == 0) return result;
-
-            var rows = await (
-                from ip in _context.IngredientProducts
-                join aii in _context.AllergyIngredientInteractions
-                    on ip.IngredientId equals aii.IngredientId
-                join a in _context.Allergies
-                    on aii.AllergyId equals a.AllergyId
-                join an in _context.AllergyNames
-                    on a.AlleryNameId equals an.AlleryNameId
-                where ip.ProductId.HasValue
-                      && productIds.Contains(ip.ProductId.Value)
-                      && allergyIds.Contains(aii.AllergyId)
-                select new
-                {
-                    ProductId = ip.ProductId.Value,
-                    AllergyName = an.AllergyName1
-                }
-            )
-            .AsNoTracking()
-            .ToListAsync();
-
-            foreach (var g in rows.GroupBy(x => x.ProductId))
+            // optional: incompatibilities if userId passed (same as list endpoint)
+            if (userId.HasValue && userId.Value > 0 && items.Count > 0)
             {
-                result[g.Key] = g
-                    .Select(x => x.AllergyName)
-                    .Where(x => !string.IsNullOrWhiteSpace(x))
-                    .Distinct()
-                    .OrderBy(x => x)
-                    .ToList();
+                var incMap = await _incompatRepo.GetMapAsync(userId.Value, productIds);
+
+                foreach (var it in items)
+                {
+                    if (incMap.TryGetValue(it.Id, out var inc))
+                    {
+                        it.Incompatibilities = new
+                        {
+                            medications = inc.Medications,
+                            allergies = inc.Allergies,
+                            illnesses = inc.Illnesses
+                        };
+                    }
+                    else
+                    {
+                        it.Incompatibilities = new
+                        {
+                            medications = Array.Empty<object>(),
+                            allergies = Array.Empty<string>(),
+                            illnesses = Array.Empty<string>()
+                        };
+                    }
+                }
             }
 
-            return result;
+            return Ok(new { items });
         }
+
     }
 }

@@ -34,5 +34,14 @@ namespace QuickPharmaPlus.Server.Controllers
             return Ok(result);
         }
 
+        // GET: api/CheckoutShipping/urgent?branchId=1
+        [HttpGet("urgent")]
+        public async Task<IActionResult> Urgent([FromQuery] int branchId)
+        {
+            var result = await _orderRepo.GetUrgentAvailabilityAsync(branchId);
+            return Ok(result);
+        }
+
+
     }
 }

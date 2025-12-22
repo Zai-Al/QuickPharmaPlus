@@ -452,5 +452,67 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
 
             return res;
         }
+
+        public async Task<PrescriptionListDto?> GetUserHealthPrescriptionByIdAsync(int userId, int prescriptionId)
+        {
+            if (userId <= 0 || prescriptionId <= 0) return null;
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            // expire-on-fetch for THIS prescription (approved -> expired)
+            var approvedToExpire = _context.Prescriptions
+                .Where(p => p.UserId == userId)
+                .Where(p => p.PrescriptionId == prescriptionId)
+                .Where(p => (p.IsHealthPerscription ?? false) == true)
+                .Where(p => p.PrescriptionStatusId == PrescriptionStatusConstants.Approved)
+                .Where(p => p.Approvals.Any(a => a.ApprovalPrescriptionExpiryDate != null))
+                .Where(p => p.Approvals.Max(a => a.ApprovalPrescriptionExpiryDate) < today);
+
+            await approvedToExpire.ExecuteUpdateAsync(setters =>
+                setters.SetProperty(p => p.PrescriptionStatusId, PrescriptionStatusConstants.Expired)
+            );
+
+            // fetch single row + include address/city + status
+            var query =
+                from p in _context.Prescriptions.Include(x => x.PrescriptionStatus)
+                where p.UserId == userId
+                      && p.PrescriptionId == prescriptionId
+                      && (p.IsHealthPerscription ?? false) == true
+                join a in _context.Addresses on p.AddressId equals a.AddressId into aj
+                from a in aj.DefaultIfEmpty()
+                join c in _context.Cities on a.CityId equals c.CityId into cj
+                from c in cj.DefaultIfEmpty()
+                select new PrescriptionListDto
+                {
+                    PrescriptionId = p.PrescriptionId,
+                    PrescriptionName = p.PrescriptionName,
+                    PrescriptionStatusId = p.PrescriptionStatusId,
+                    PrescriptionStatusName = p.PrescriptionStatus != null ? p.PrescriptionStatus.PrescriptionStatusName : null,
+                    PrescriptionCreationDate = p.PrescriptionCreationDate,
+                    IsHealthPerscription = p.IsHealthPerscription,
+
+                    HasPrescriptionDocument = p.PrescriptionDocument != null && p.PrescriptionDocument.Length > 0,
+                    HasCprDocument = p.PrescriptionCprDocument != null && p.PrescriptionCprDocument.Length > 0,
+
+                    LatestApprovalExpiryDate = p.Approvals
+                        .Where(ap => ap.ApprovalPrescriptionExpiryDate != null)
+                        .Max(ap => ap.ApprovalPrescriptionExpiryDate),
+
+                    AddressId = p.AddressId,
+                    CityId = a != null ? a.CityId : null,
+                    CityName = c != null ? c.CityName : null,
+                    Block = a != null ? a.Block : null,
+                    Road = a != null ? a.Street : null,
+                    BuildingFloor = a != null ? a.BuildingNumber : null,
+
+                    PrescriptionDocumentContentType = p.PrescriptionDocumentContentType,
+                    PrescriptionCprDocumentContentType = p.PrescriptionCprDocumentContentType,
+                    PrescriptionFileName = p.PrescriptionDocumentFileName,
+                    CprFileName = p.PrescriptionCprDocumentFileName
+                };
+
+            return await query.AsNoTracking().FirstOrDefaultAsync();
+        }
+
     }
 }

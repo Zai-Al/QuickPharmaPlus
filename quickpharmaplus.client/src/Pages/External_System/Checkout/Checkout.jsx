@@ -77,6 +77,8 @@ export default function Checkout() {
 
     const [showMismatchDialog, setShowMismatchDialog] = useState(false);
     const [mismatchDialogBody, setMismatchDialogBody] = useState(null);
+    const [createdOrderId, setCreatedOrderId] = useState(null);
+
 
     // If we ever go to Stripe and come back, we want to restore this.
     const [draft, setDraft] = useState(() => {
@@ -493,16 +495,17 @@ export default function Checkout() {
             // success
             clearDraftFromSession();
 
+            const oid = json?.orderId ?? null;
+
+            setCreatedOrderId(oid);
             setOrderPlacedOk(true);
             setOrderResultBody(
                 <div className="text-start">
-                    <div className="fw-bold mb-2">Order created successfully.</div>
-                    <div>
-                        Order ID: <span className="fw-bold">{json?.orderId ?? "—"}</span>
-                    </div>
+                    <div className="fw-bold mb-2">Order placed successfully.</div>
                 </div>
             );
             setShowOrderResultDialog(true);
+
         } catch (e) {
             setPlaceOrderError(e?.message || "Unexpected error while placing order.");
         } finally {
@@ -605,17 +608,7 @@ export default function Checkout() {
         // 4) Other steps
         goNextStep();
     };
-    /*
-        // (Stripe helpers kept but unused for now)
-        const handleBeforeStripeRedirect = useCallback(() => {
-            leavingForStripeRef.current = true;
-            saveDraftToSession(draft);
-        }, [draft]);
     
-        const handleStripeCancelledReturn = useCallback(() => {
-            leavingForStripeRef.current = false;
-        }, []);
-        */
 
     const handlePayOnline = useCallback(async () => {
         setPlaceOrderError("");
@@ -807,16 +800,16 @@ export default function Checkout() {
                         <p className="fw-bold">Your prescription has been sent for approval.</p>
                         <p>
                             This might take a while. Please wait for the approval email. Once
-                            approved, you can continue your order from the My Orders page.
+                            approved, you can continue your checkout process.
                         </p>
                     </>
                 }
-                confirmLabel="Go to My Order"
+                confirmLabel="Go to Home"
                 cancelLabel="Stay on Checkout"
                 onCancel={() => setShowApprovalDialog(false)}
                 onConfirm={() => {
                     setShowApprovalDialog(false);
-                    navigate("/myOrders");
+                    navigate("/home");
                 }}
             />
 
@@ -836,22 +829,21 @@ export default function Checkout() {
                 body={orderResultBody}
                 confirmLabel="OK"
                 cancelLabel={null}
-                onCancel={() => setShowOrderResultDialog(false)}
+                onCancel={() => {
+                    setShowOrderResultDialog(false);
+                    if (orderPlacedOk && createdOrderId) {
+                        navigate(`/myOrderDetails/${createdOrderId}`);
+                    }
+                }}
                 onConfirm={() => {
                     setShowOrderResultDialog(false);
-                    if (orderPlacedOk) {
-                        navigate("/myOrders");
+                    if (orderPlacedOk && createdOrderId) {
+                        navigate(`/myOrderDetails/${createdOrderId}`);
                     }
                 }}
             />
+
         </>
     );
 }
 
-/*
-NOTES:
-1) ShippingTab currently calls onStateChange(payload).
-   handleShippingStateChange stores draft.shipping as next.payload ? next.payload : next
-   (so both styles are supported)
-2) Stripe helpers are kept but NOT used right now (cash testing).
-*/

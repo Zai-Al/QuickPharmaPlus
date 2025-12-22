@@ -6,24 +6,11 @@ footer {
     width: 100%;
 }
 
-/* Layout for the top footer row */
-.footer-top {
-    gap: 40px;
-}
-
-/* Footer columns */
-.footer-col {
-    min-width: 210px;
-    text-align: left;
-    font-size: 0.95rem;
-}
-
-/* Compact footer spacing */
 .footer-section {
     font-size: 0.95rem;
 }
 
-/* Footer links */
+/* Links */
 footer a {
     text-decoration: none;
     color: inherit;
@@ -32,3 +19,81 @@ footer a {
     footer a:hover {
         text-decoration: underline;
     }
+
+/* GRID LAYOUT (fixes stacking/overlap) */
+.footer-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr 1fr 1fr 1.6fr; /* brand, contact, info, follow, stores */
+    gap: 24px 28px;
+    align-items: start;
+}
+
+/* Footer columns */
+.footer-col {
+    min-width: 0; /* important so long text wraps instead of breaking layout */
+    text-align: left;
+}
+
+/* Logo */
+.footer-brand {
+    display: flex;
+    align-items: flex-start;
+}
+
+.footer-logo {
+    display: block;
+    max-width: 170px;
+    height: 58px;
+    margin-top: 25px;
+}
+
+/* Stores wraps nicely */
+.footer-stores p {
+    line-height: 1.35;
+}
+
+/* Follow us styling */
+.footer-social-label {
+    font-weight: 600;
+}
+
+.footer-social-link {
+    color: #000;
+}
+
+/* Bottom row */
+.footer-bottom {
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    padding-top: 12px;
+}
+
+/* RESPONSIVE */
+@media (max-width: 1200px) {
+    .footer-grid {
+        grid-template-columns: 1fr 1fr 1fr; /* 3 columns */
+    }
+
+    .footer-stores {
+        grid-column: 1 / -1; /* stores full width */
+    }
+}
+
+@media (max-width: 768px) {
+    .footer-grid {
+        grid-template-columns: 1fr; /* stack nicely */
+    }
+
+    .footer-logo {
+        max-width: 150px;
+    }
+}
+
+.footer-stores p {
+    font-size: 0.85rem; /* smaller than rest */
+    line-height: 1.35;
+}
+
+/* Slight left padding for Information column */
+.footer-col.info-col {
+    padding-left: 16px;
+}

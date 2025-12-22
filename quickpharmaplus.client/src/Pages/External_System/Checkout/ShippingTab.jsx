@@ -142,43 +142,29 @@ export default function ShippingTab({
             return;
         }
 
-        const todayISO = toISODate(new Date());
-        const todaySlots = slotsByDate?.[todayISO] || [];
+        (async () => {
+            try {
+                const res = await fetch(
+                    `${API_BASE}/api/CheckoutShipping/urgent?branchId=${encodeURIComponent(resolvedBranchId)}`,
+                    { credentials: "include" }
+                );
+                const json = await res.json().catch(() => ({}));
 
-        if (todaySlots.length === 0) {
-            setUrgentAvailable(false);
-            setUrgentReason("No slots available today.");
-            if (isUrgent) setIsUrgent(false);
-            return;
-        }
+                const ok = !!(json?.available ?? json?.Available);
+                const reason = String(json?.reason ?? json?.Reason ?? "");
 
-        const now = new Date();
-        const plus60 = new Date(now.getTime() + 60 * 60 * 1000);
+                setUrgentAvailable(ok);
+                setUrgentReason(ok ? "" : (reason || "Urgent delivery is not available right now."));
 
-        const nowMin = now.getHours() * 60 + now.getMinutes();
-        const plusMin = plus60.getHours() * 60 + plus60.getMinutes();
+                if (!ok && isUrgent) setIsUrgent(false);
+            } catch {
+                setUrgentAvailable(false);
+                setUrgentReason("Urgent delivery is not available right now.");
+                if (isUrgent) setIsUrgent(false);
+            }
+        })();
+    }, [isDelivery, resolvedBranchId, isUrgent, API_BASE]);
 
-        // if we crossed midnight, don’t allow urgent
-        if (plusMin < nowMin) {
-            setUrgentAvailable(false);
-            setUrgentReason("Urgent delivery is not available at this time.");
-            if (isUrgent) setIsUrgent(false);
-            return;
-        }
-
-        const ok = todaySlots.some((s) => {
-            const sStart = hhmmToMinutes(s.start);
-            const sEnd = hhmmToMinutes(s.end);
-            if (sStart == null || sEnd == null) return false;
-            return sStart <= nowMin && sEnd >= plusMin;
-        });
-
-        setUrgentAvailable(ok);
-        setUrgentReason(ok ? "" : "No time slot covers the next 60 minutes right now.");
-
-        // If user had urgent ON but it becomes invalid, turn it off
-        if (!ok && isUrgent) setIsUrgent(false);
-    }, [isDelivery, resolvedBranchId, slotsByDate, isUrgent]);
 
 
     useEffect(() => {

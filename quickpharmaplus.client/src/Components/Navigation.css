@@ -104,3 +104,14 @@ body, .navbar, .nav-link, .dropdown-menu, .dropdown-item {
     font-weight: 600;
 }
 
+.profile-link {
+    border: 1px solid #ffffff;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #000;
+    transition: border-color 0.15s ease;
+}
+
+    .profile-link:hover {
+        border-color: #54b2b5;
+    }

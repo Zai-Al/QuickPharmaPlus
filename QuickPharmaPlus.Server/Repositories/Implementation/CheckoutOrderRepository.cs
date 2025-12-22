@@ -46,24 +46,47 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             }
         }
 
-        private async Task<int?> ResolveUrgentSlotIdAsync(DateTime nowBH)
+        private async Task<int?> ResolveUrgentSlotIdAsync(int branchId, DateTime nowBH)
         {
-            // We need a slot that covers "now" through "now + 60 minutes"
-            var start = TimeOnly.FromDateTime(nowBH);
-            var end = TimeOnly.FromDateTime(nowBH.AddHours(1));
+            var nowT = TimeOnly.FromDateTime(nowBH);
+            var target = TimeOnly.FromDateTime(nowBH.AddHours(1));
 
-            // If we crossed midnight (rare edge case), don't allow urgent
-            if (end < start) return null;
+            if (target < nowT) return null; // crossed midnight
 
-            // NOTE: adjust property names if your Slot entity uses different names
-            // (SlotId, SlotStartTime, SlotEndTime)
-            return await _db.Slots
+            var slotId = await _db.Slots
                 .AsNoTracking()
-                .Where(s => s.SlotStartTime <= start && s.SlotEndTime >= end)
-                .OrderBy(s => s.SlotStartTime)
+                .Where(s =>
+                    (s.SlotStartTime.HasValue && s.SlotStartTime.Value == target) ||
+                    (s.SlotStartTime.HasValue && s.SlotEndTime.HasValue &&
+                     s.SlotStartTime.Value < target && s.SlotEndTime.Value > target)
+                )
+                .OrderByDescending(s => s.SlotStartTime.HasValue && s.SlotStartTime.Value == target)
+                .ThenBy(s => s.SlotStartTime)
                 .Select(s => (int?)s.SlotId)
                 .FirstOrDefaultAsync();
+
+            if (!slotId.HasValue) return null;
+
+            // enforce ONLY 1 urgent per (branch + slot + today)
+            var start = nowBH.Date.Date;
+            var end = nowBH.Date.Date.AddDays(1).AddTicks(-1);
+
+            var taken = await _db.Shippings
+                .AsNoTracking()
+                .Where(sh =>
+                    sh.BranchId == branchId &&
+                    sh.ShippingIsDelivery == true &&
+                    sh.ShippingIsUrgent == true &&
+                    sh.ShippingSlotId == slotId.Value &&
+                    sh.ShippingDate.HasValue &&
+                    sh.ShippingDate.Value >= start &&
+                    sh.ShippingDate.Value <= end
+                )
+                .AnyAsync();
+
+            return taken ? null : slotId;
         }
+
 
 
         public async Task<CheckoutCreateOrderResponseDto> CreateOrderFromCheckoutAsync(CheckoutCreateOrderRequestDto req)
@@ -274,7 +297,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 int? urgentSlotId = null;
                 if (req.Mode == "delivery" && req.IsUrgent)
                 {
-                    urgentSlotId = await ResolveUrgentSlotIdAsync(nowBH);
+                    urgentSlotId = await ResolveUrgentSlotIdAsync(branchId.Value, nowBH);
                     if (!urgentSlotId.HasValue)
                     {
                         return new CheckoutCreateOrderResponseDto

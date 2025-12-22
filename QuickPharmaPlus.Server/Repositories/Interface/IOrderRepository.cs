@@ -25,5 +25,9 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
     );
 
         Task<MyOrderDetailsDto?> GetMyOrderDetailsAsync(int userId, int orderId);
+
+        Task<OrderRescheduleOptionsDto?> GetRescheduleOptionsAsync(int userId, int orderId);
+        Task<bool> RescheduleDeliveryAsync(int userId, int orderId, DateOnly shippingDate, int slotId);
+        Task<UrgentAvailabilityDto> GetUrgentAvailabilityAsync(int branchId);
     }
 }

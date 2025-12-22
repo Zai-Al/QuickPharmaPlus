@@ -8,7 +8,7 @@ namespace QuickPharmaPlus.Server.Services
 {
     public interface IPrescriptionPlanEmailLogService
     {
-        Task SchedulePlanEmailsAsync(int planId, int userId, DateOnly creationDateBahrain, CancellationToken ct = default);
+        Task SchedulePlanEmailsAsync(int planId, int userId, DateOnly creationDateBahrain, DateOnly? expiryDateBahrain, CancellationToken ct = default);
         Task SendDueScheduledEmailsAsync(CancellationToken ct = default);
     }
 
@@ -16,6 +16,7 @@ namespace QuickPharmaPlus.Server.Services
     {
         private const string SCHEDULED_PREFIX = "PP_EMAIL_SCHEDULED|";
         private const string SENT_PREFIX = "PP_EMAIL_SENT|";
+        private const string STOCK_APPLIED_PREFIX = "PP_STOCK_APPLIED|";
 
         private readonly QuickPharmaPlusDbContext _db;
         private readonly IEmailSender _emailSender;
@@ -36,32 +37,65 @@ namespace QuickPharmaPlus.Server.Services
             public int PlanId { get; set; }
             public int UserId { get; set; }
             public string Stage { get; set; } = "";   // READY_TODAY | REMINDER
-            public int OffsetDays { get; set; }       // 1, 27, 30
+            public int OffsetDays { get; set; }       // 1, 27, 30, 57, 60, ...
             public DateTime SendOnUtc { get; set; }
             public string DedupKey { get; set; } = "";
         }
 
         private static DateTime BahrainLocalToUtc(DateTime bahrainLocal) => bahrainLocal.AddHours(-3);
 
-        public async Task SchedulePlanEmailsAsync(int planId, int userId, DateOnly creationDateBahrain, CancellationToken ct = default)
+        public async Task SchedulePlanEmailsAsync(
+    int planId,
+    int userId,
+    DateOnly creationDateBahrain,
+    DateOnly? expiryDateBahrain,
+    CancellationToken ct = default)
         {
             var createdLocal = creationDateBahrain.ToDateTime(TimeOnly.MinValue); // Bahrain local 00:00
-            var jobs = new List<Payload>
+            DateTime? expiryLocal = expiryDateBahrain?.ToDateTime(TimeOnly.MinValue);
+
+            var jobs = new List<Payload>();
+
+            // Safety cap: max 24 cycles (~2 years)
+            for (var m = 0; m < 24; m++)
             {
-                new() { PlanId = planId, UserId = userId, Stage="READY_TODAY", OffsetDays=1,
-                    SendOnUtc = BahrainLocalToUtc(createdLocal.AddDays(1)),
-                    DedupKey = $"PP|{planId}|READY_TODAY|D1" },
+                // READY: Day 1 (tomorrow), then Day 31, Day 61, ...
+                var readyLocal = createdLocal.AddDays(1 + 30 * m);
 
-                new() { PlanId = planId, UserId = userId, Stage="REMINDER", OffsetDays=27,
-                    SendOnUtc = BahrainLocalToUtc(createdLocal.AddDays(27)),
-                    DedupKey = $"PP|{planId}|REMINDER|D27" },
+                if (expiryLocal.HasValue && readyLocal > expiryLocal.Value)
+                    break;
 
-                new() { PlanId = planId, UserId = userId, Stage="READY_TODAY", OffsetDays=30,
-                    SendOnUtc = BahrainLocalToUtc(createdLocal.AddDays(30)),
-                    DedupKey = $"PP|{planId}|READY_TODAY|D30" },
-            };
+                // REMINDER: 3 days before READY
+                // BUT do NOT schedule reminder for the first READY (m=0), because that would be Day -2
+                if (m >= 1)
+                {
+                    var reminderLocal = readyLocal.AddDays(-3); // Day 28, 58, 88, ...
 
-            // dedupe scheduling
+                    jobs.Add(new Payload
+                    {
+                        PlanId = planId,
+                        UserId = userId,
+                        Stage = "REMINDER",
+                        OffsetDays = (1 + 30 * m) - 3,
+                        SendOnUtc = BahrainLocalToUtc(reminderLocal),
+                        DedupKey = $"PP|{planId}|REMINDER|M{m}"
+                    });
+                }
+
+                jobs.Add(new Payload
+                {
+                    PlanId = planId,
+                    UserId = userId,
+                    Stage = "READY_TODAY",
+                    OffsetDays = 1 + 30 * m,
+                    SendOnUtc = BahrainLocalToUtc(readyLocal),
+                    DedupKey = m == 0
+                        ? $"PP|{planId}|READY_TODAY|D1"
+                        : $"PP|{planId}|READY_TODAY|M{m}"
+                });
+            }
+
+            // dedupe scheduling (keep your existing code)
             var existing = await _db.Logs
                 .Where(l => l.LogDescription != null && l.LogDescription.StartsWith(SCHEDULED_PREFIX))
                 .Where(l => l.LogDescription!.Contains($"\"PlanId\":{planId}"))
@@ -82,14 +116,15 @@ namespace QuickPharmaPlus.Server.Services
             }
 
             await _db.SaveChangesAsync(ct);
-            _logger.LogInformation("[PP Email] Scheduled emails for planId={PlanId}", planId);
+            _logger.LogInformation("[PP Email] Scheduled monthly emails for planId={PlanId}", planId);
         }
+
 
         public async Task SendDueScheduledEmailsAsync(CancellationToken ct = default)
         {
             var nowUtc = DateTime.UtcNow;
 
-            // load scheduled logs (we’ll parse & filter in-memory)
+            // load scheduled logs (parse & filter in-memory)
             var scheduledLogs = await _db.Logs
                 .Where(l => l.LogDescription != null && l.LogDescription.StartsWith(SCHEDULED_PREFIX))
                 .OrderBy(l => l.LogTimestamp)
@@ -135,14 +170,23 @@ namespace QuickPharmaPlus.Server.Services
                             .ThenInclude(a => a.City)
                     .FirstOrDefaultAsync(p => p.PrescriptionPlanId == job.PlanId, ct);
 
-
                 var user = plan?.User;
                 if (plan == null || user == null || string.IsNullOrWhiteSpace(user.EmailAddress)) continue;
 
+                // STOP if prescription is expired
+                var today = DateOnly.FromDateTime(DateTime.UtcNow);
+                var expiry = plan.Approval?.ApprovalPrescriptionExpiryDate;
+
+                if (expiry.HasValue && expiry.Value < today)
+                {
+                    continue;
+                }
+
+
                 var info = await BuildEmailInfoAsync(plan, job.Stage, ct);
                 if (!info.CanSend) continue;
-                var prescriptionLabel = GetPrescriptionDisplayName(plan);
 
+                var prescriptionLabel = GetPrescriptionDisplayName(plan);
 
                 var subject = job.Stage == "REMINDER"
                     ? "QuickPharmaPlus – Monthly Prescription Reminder"
@@ -157,8 +201,34 @@ namespace QuickPharmaPlus.Server.Services
                     info.TotalAmount
                 );
 
-
                 await _emailSender.SendEmailAsync(user.EmailAddress!, subject, body);
+
+                // ✅ stock decrease on READY_TODAY, once per cycle (dedupe)
+                if (job.Stage == "READY_TODAY")
+                {
+                    var alreadyApplied = await _db.Logs.AnyAsync(l =>
+                        l.LogDescription != null &&
+                        l.LogDescription.StartsWith(STOCK_APPLIED_PREFIX) &&
+                        l.LogDescription.Contains(job.DedupKey), ct);
+
+                    if (!alreadyApplied)
+                    {
+                        var applied = await ApplyMonthlyStockDecreaseAsync(plan, ct);
+
+                        if (applied)
+                        {
+                            _db.Logs.Add(new Log
+                            {
+                                UserId = user.UserId,
+                                LogTypeId = LogTypeConstants.PrescriptionPlanEmail,
+                                LogTimestamp = DateTime.UtcNow,
+                                LogDescription = $"{STOCK_APPLIED_PREFIX}{job.DedupKey}|Plan={plan.PrescriptionPlanId}"
+                            });
+
+                            await _db.SaveChangesAsync(ct);
+                        }
+                    }
+                }
 
                 _db.Logs.Add(new Log
                 {
@@ -169,14 +239,13 @@ namespace QuickPharmaPlus.Server.Services
                 });
 
                 await _db.SaveChangesAsync(ct);
-
             }
         }
 
         private async Task<(bool CanSend, string MethodLabel, string LocationLabel, decimal TotalAmount)> BuildEmailInfoAsync(
-    PrescriptionPlan plan,
-    string stage,
-    CancellationToken ct)
+            PrescriptionPlan plan,
+            string stage,
+            CancellationToken ct)
         {
             var shipping = plan.Shipping;
             if (shipping == null)
@@ -198,15 +267,18 @@ namespace QuickPharmaPlus.Server.Services
                 var addressLine = string.Join(", ",
                     new[]
                     {
-                city,
-                string.IsNullOrWhiteSpace(block) ? null : $"Block {block}",
-                string.IsNullOrWhiteSpace(road) ? null : $"Road {road}",
-                string.IsNullOrWhiteSpace(building) ? null : $"Building/Floor {building}",
+                        city,
+                        string.IsNullOrWhiteSpace(block) ? null : $"Block {block}",
+                        string.IsNullOrWhiteSpace(road) ? null : $"Road {road}",
+                        string.IsNullOrWhiteSpace(building) ? null : $"Building/Floor {building}",
                     }.Where(x => !string.IsNullOrWhiteSpace(x))
                 );
 
                 if (string.IsNullOrWhiteSpace(addressLine))
                     addressLine = "Delivery address on file";
+
+                // ✅ You can also stock-check delivery if you want (optional).
+                // For now we allow send; stock will be decremented only when ApplyMonthlyStockDecreaseAsync succeeds.
 
                 return (true, methodLabel, addressLine, total);
             }
@@ -214,7 +286,7 @@ namespace QuickPharmaPlus.Server.Services
             // PICKUP: show branch city name
             string? branchCityName = shipping.Branch?.Address?.City?.CityName;
 
-            // fallback if branch navigation is missing in data
+            // fallback if branch navigation is missing
             if (string.IsNullOrWhiteSpace(branchCityName) && shipping.BranchId.HasValue)
             {
                 branchCityName = await _db.Cities
@@ -234,14 +306,21 @@ namespace QuickPharmaPlus.Server.Services
                 if (!shipping.BranchId.HasValue || requiredQty <= 0)
                     return (false, methodLabel, branchLabel, total);
 
-                var hasStock = await _db.Inventories.AnyAsync(i =>
-                    i.BranchId == shipping.BranchId.Value &&
-                    i.InventoryQuantity != null &&
-                    i.InventoryQuantity >= requiredQty,
-                    ct);
+                // find productId from approved product name
+                var productId = await _db.Products
+                    .Where(p => p.ProductName == plan.Approval!.ApprovalProductName)
+                    .Select(p => (int?)p.ProductId)
+                    .FirstOrDefaultAsync(ct);
 
-                if (!hasStock)
-                    return (false, methodLabel, branchLabel, total);
+                if (productId == null) return (false, methodLabel, branchLabel, total);
+
+                var available = await _db.Inventories
+                    .Where(i => i.BranchId == shipping.BranchId.Value && i.ProductId == productId.Value)
+                    .Where(i => i.InventoryQuantity != null && i.InventoryQuantity > 0)
+                    .SumAsync(i => (int?)(i.InventoryQuantity ?? 0), ct) ?? 0;
+
+                if (available < requiredQty) return (false, methodLabel, branchLabel, total);
+
             }
 
             return (true, methodLabel, branchLabel, total);
@@ -249,20 +328,16 @@ namespace QuickPharmaPlus.Server.Services
 
         private string GetPrescriptionDisplayName(PrescriptionPlan plan)
         {
-            // 1) Preferred: Prescription name
             var prescriptionName = plan.Approval?.Prescription?.PrescriptionName;
             if (!string.IsNullOrWhiteSpace(prescriptionName))
                 return prescriptionName;
 
-            // 2) Fallback: approved product name
             var productName = plan.Approval?.ApprovalProductName;
             if (!string.IsNullOrWhiteSpace(productName))
                 return productName;
 
-            // 3) Last resort
             return "your prescription";
         }
-
 
         private string BuildEmailHtml(
             string stage,
@@ -271,12 +346,12 @@ namespace QuickPharmaPlus.Server.Services
             string methodLabel,
             string locationLabel,
             decimal totalAmount)
-                {
-                    var locationTitle = methodLabel == "Delivery" ? "Address" : "Branch";
+        {
+            var locationTitle = methodLabel == "Delivery" ? "Address" : "Branch";
 
-                    if (stage == "REMINDER")
-                    {
-                        return $@"
+            if (stage == "REMINDER")
+            {
+                return $@"
                     <p>Hello {customerName},</p>
 
                     <p>
@@ -291,13 +366,13 @@ namespace QuickPharmaPlus.Server.Services
 
                     <p>Best regards,<br/>QuickPharmaPlus Support</p>
                 ";
-                    }
+            }
 
-                    var readyText = methodLabel == "Pickup"
-                        ? $"Your prescription for <b>{prescriptionName}</b> can be picked up <b>today</b>."
-                        : $"Your prescription for <b>{prescriptionName}</b> will be delivered <b>today</b>.";
+            var readyText = methodLabel == "Pickup"
+                ? $"Your prescription for <b>{prescriptionName}</b> can be picked up <b>today</b>."
+                : $"Your prescription for <b>{prescriptionName}</b> will be delivered <b>today</b>.";
 
-                    return $@"
+            return $@"
                 <p>Hello {customerName},</p>
 
                 <p>{readyText}</p>
@@ -311,5 +386,75 @@ namespace QuickPharmaPlus.Server.Services
             ";
         }
 
+        // ============================
+        // STOCK DECREASE (FEFO)
+        // ============================
+        private async Task<bool> ApplyMonthlyStockDecreaseAsync(PrescriptionPlan plan, CancellationToken ct)
+        {
+            var shipping = plan.Shipping;
+            var approval = plan.Approval;
+
+            if (shipping?.BranchId == null) return false;
+            if (approval == null) return false;
+
+            var qty = approval.ApprovalQuantity ?? 0;
+            if (qty <= 0) return false;
+
+            // Find productId by approved product name (same idea you used in plan create)
+            var productId = await _db.Products
+                .Where(p => p.ProductName == approval.ApprovalProductName)
+                .Select(p => (int?)p.ProductId)
+                .FirstOrDefaultAsync(ct);
+
+            if (productId == null) return false;
+
+            // Ensure total stock is sufficient before decrement (no partial)
+            var totalAvailable = await _db.Inventories
+                .Where(i => i.BranchId == shipping.BranchId.Value && i.ProductId == productId.Value)
+                .Where(i => i.InventoryQuantity != null && i.InventoryQuantity > 0)
+                .SumAsync(i => (int?)(i.InventoryQuantity ?? 0), ct) ?? 0;
+
+            if (totalAvailable < qty) return false;
+
+            var remaining = qty;
+
+            // FEFO: earliest expiry first, null expiry last
+            var rows = await _db.Inventories
+                .Where(i => i.BranchId == shipping.BranchId.Value && i.ProductId == productId.Value)
+                .Where(i => i.InventoryQuantity != null && i.InventoryQuantity > 0)
+                .OrderBy(i => i.InventoryExpiryDate == null) // false first (has expiry), true last (null)
+                .ThenBy(i => i.InventoryExpiryDate)
+                .ToListAsync(ct);
+
+            foreach (var inv in rows)
+            {
+                if (remaining <= 0) break;
+
+                var have = inv.InventoryQuantity ?? 0;
+                if (have <= 0) continue;
+
+                var take = Math.Min(have, remaining);
+                inv.InventoryQuantity = have - take;
+                remaining -= take;
+            }
+
+            if (remaining > 0)
+            {
+                // Shouldn't happen because we pre-checked totalAvailable
+                _logger.LogWarning("[PP Stock] Unexpected remaining qty after FEFO. PlanId={PlanId}, Remaining={Remaining}",
+                    plan.PrescriptionPlanId, remaining);
+                return false;
+            }
+
+            await _db.SaveChangesAsync(ct);
+
+            _logger.LogInformation("[PP Stock] Decreased stock for PlanId={PlanId}, Product={Product}, Qty={Qty}, BranchId={BranchId}",
+                plan.PrescriptionPlanId,
+                approval.ApprovalProductName,
+                qty,
+                shipping.BranchId.Value);
+
+            return true;
+        }
     }
 }
