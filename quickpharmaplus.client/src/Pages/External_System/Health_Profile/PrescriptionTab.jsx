@@ -747,7 +747,11 @@ export default function PrescriptionTab({
                 </button>
             )}
             addButtonLabel="Add New Prescription"
-            onAddNew={handleAddNewClick}
+            onAddNew={userId ? handleAddNewClick : undefined}
+            addButtonDisabledMessage={
+                !userId ? "Login required to add a prescription." : ""
+            }
+
         />
     );
 }

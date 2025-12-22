@@ -9,6 +9,8 @@ import { AuthContext } from "../../../Context/AuthContext";
 import { WishlistContext } from "../../../Context/WishlistContext";
 import { CartContext } from "../../../Context/CartContext";
 import { dialogCopy } from "../Shared_Components/dialogCopy";
+import { useNavigate } from "react-router-dom";
+
 
 
 /* =========================
@@ -140,6 +142,14 @@ export default function HomeExternal() {
     const [loadingBest, setLoadingBest] = useState(false);
     const [bestError, setBestError] = useState("");
 
+    const navigate = useNavigate();
+    const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+    const [loginPromptMsg, setLoginPromptMsg] = useState("Please log in to continue.");
+
+    const promptLogin = (msg) => {
+        setLoginPromptMsg(msg || "Please log in to continue.");
+        setShowLoginPrompt(true);
+    };
 
 
     const markAddedBriefly = (productId) => {
@@ -346,7 +356,7 @@ export default function HomeExternal() {
         if (!product?.id) return { ok: false };
 
         if (!currentUserId) {
-            console.warn("Login required to add to cart.");
+            promptLogin("Please log in to add items to your cart.");
             return { ok: false };
         }
 
@@ -472,7 +482,7 @@ export default function HomeExternal() {
         if (!product?.id) return;
 
         if (!currentUserId) {
-            console.warn("No userId found. Login required to use wishlist.");
+            promptLogin("Please log in to add items to your wishlist.");
             return;
         }
 
@@ -647,6 +657,20 @@ export default function HomeExternal() {
                 onConfirm={handleConfirmDialog}
                 onCancel={handleCancelDialog}
             />
+
+            <DialogModal
+                show={showLoginPrompt}
+                title="Login required"
+                body={<p className="mb-0">{loginPromptMsg}</p>}
+                confirmLabel="Go to Login"
+                cancelLabel="Cancel"
+                onConfirm={() => {
+                    setShowLoginPrompt(false);
+                    navigate("/login");
+                }}
+                onCancel={() => setShowLoginPrompt(false)}
+            />
+
 
         </div>
     );

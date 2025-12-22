@@ -163,6 +163,68 @@ namespace QuickPharmaPlus.Server.Controllers.User_Managment
         // ==========================
         // DELETE CURRENT CUSTOMER PROFILE
         // ==========================
+
+        [HttpDelete]
+        public async Task<IActionResult> DeleteProfile()
+        {
+            try
+            {
+                // =================== GET CURRENT IDENTITY USER ===================
+                var identityUser = await _userManager.GetUserAsync(User);
+                if (identityUser == null)
+                    return Unauthorized(new { error = "Not logged in." });
+
+                var email = identityUser.Email ?? User?.Identity?.Name;
+
+                // =================== LOAD DOMAIN USER (FOR DETAILS + CLEAN DELETE) ===================
+                var domainUser = await _db.Users
+                    .Include(u => u.Address)
+                    .FirstOrDefaultAsync(u => u.IdentityUserId == identityUser.Id
+                                           || (email != null && u.EmailAddress == email));
+
+                // keep details for logs/debug
+                var deletedName = domainUser != null
+                    ? $"{domainUser.FirstName} {domainUser.LastName}".Trim()
+                    : "";
+                var deletedEmail = domainUser?.EmailAddress ?? email ?? "";
+
+                // =================== DELETE FROM IDENTITY FIRST ===================
+                // (same idea as employee delete, but we already have the identityUser)
+                var identityResult = await _userManager.DeleteAsync(identityUser);
+                if (!identityResult.Succeeded)
+                {
+                    var errors = string.Join(", ", identityResult.Errors.Select(e => e.Description));
+                    return BadRequest(new { error = $"Failed to delete user from identity system: {errors}" });
+                }
+
+                // =================== DELETE DOMAIN ROWS AFTER IDENTITY ===================
+                if (domainUser != null)
+                {
+                    if (domainUser.Address != null)
+                        _db.Addresses.Remove(domainUser.Address);
+
+                    _db.Users.Remove(domainUser);
+                    await _db.SaveChangesAsync();
+                }
+
+                
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Customer deleted successfully.",
+                    deleted = new { name = deletedName, email = deletedEmail }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { error = $"An unexpected error occurred: {ex.Message}" });
+            }
+        }
+
+
+        /*
         [HttpDelete]
         public async Task<IActionResult> DeleteProfile()
         {
@@ -200,6 +262,6 @@ namespace QuickPharmaPlus.Server.Controllers.User_Managment
 
             return Ok(new { success = true });
         }
-
+        */
     }
 }

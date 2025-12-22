@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import Dropdown from "./DropDown";
 import ItemTable from "./ItemTable";
 import DialogModal from "./DialogModal";
+//import { useNavigate } from "react-router-dom";
+
 
 export default function IllnessAllergyComponents({
     title,
@@ -36,6 +38,16 @@ export default function IllnessAllergyComponents({
     const [showSaveModal, setShowSaveModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deleteItem, setDeleteItem] = useState(null);
+/*
+    const navigate = useNavigate();
+    const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+
+    const requireLoginForAdd = (e) => {
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
+        setShowLoginPrompt(true);
+    };
+*/
 
     const resetForm = () => {
         setFormData({ nameId: "", severityId: "" });
@@ -323,7 +335,7 @@ export default function IllnessAllergyComponents({
 
                     {/* Auto type */}
                     <div className="mb-3 w-50">
-                        <label className="form-label fw-semibold">{isIllness ? "Illness type (auto):" : "Allergy type (auto):"}</label>
+                        <h5 className="form-label text-start fw-bold">{isIllness ? "Illness type (auto):" : "Allergy type (auto):"}</h5>
                         <input className="form-control" value={selectedTypeName} readOnly />
                     </div>
 
