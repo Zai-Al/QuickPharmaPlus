@@ -180,6 +180,8 @@ namespace QuickPharmaPlus.Server
             builder.Services.AddScoped<IIncompatibilityRepository, IncompatibilityRepository>();
             builder.Services.AddScoped<IAutomatedReorderEmailService, AutomatedReorderEmailService>();
             builder.Services.AddScoped<IPrescriptionNotificationEmailService, PrescriptionNotificationEmailService>();
+            builder.Services.AddScoped<IDeliveryNotificationEmailService, DeliveryNotificationEmailService>();
+            builder.Services.AddScoped<IDeliveryRequestRepository, DeliveryRequestRepository>();
 
             // =========================
             // BACKGROUND SERVICES
