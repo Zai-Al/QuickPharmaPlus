@@ -18,7 +18,11 @@ export function CartProvider({ children }) {
         }
 
         try {
-            const res = await fetch(`${API_BASE}/api/Cart?userId=${userId}`);
+            const res = await fetch(`${API_BASE}/api/Cart?userId=${userId}`, {
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+             });
+
             if (!res.ok) return;
 
             const data = await res.json();

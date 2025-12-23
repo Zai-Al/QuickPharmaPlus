@@ -14,7 +14,7 @@ export default function OrderSummaryTab({ items = [] }) {
                 <OrderItemsTable
                     items={items}
                     title="Order Summary"
-                    shippingMethod="" // we'll hook this later from Shipping tab
+                    shippingMethod="" 
                 />
             )}
         </div>

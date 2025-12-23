@@ -88,24 +88,23 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
             // =========================
-            // 1) Get valid approval
+            // 1) Get valid approval (OWNER = Prescription.UserId)
             // =========================
-            var approval = await _context.Approvals
-                .Where(a =>
-                    a.UserId == userId &&
-                    a.PrescriptionId == dto.PrescriptionId &&
-                    a.ApprovalPrescriptionExpiryDate >= today
-                )
-                .OrderByDescending(a => a.ApprovalTimestamp)
-                .FirstOrDefaultAsync();
+            var approval = await (
+                from a in _context.Approvals
+                join pr in _context.Prescriptions on a.PrescriptionId equals pr.PrescriptionId
+                where a.PrescriptionId == dto.PrescriptionId
+                      && pr.UserId == userId // ✅ customer owns prescription
+                      && a.ApprovalPrescriptionExpiryDate >= today
+                orderby a.ApprovalTimestamp descending
+                select a
+            ).FirstOrDefaultAsync();
 
             if (approval == null) return null;
 
             // =========================
             // 2) Calculate TOTAL AMOUNT
             // =========================
-            // You only have ONE approved product per approval
-            // Quantity is ApprovalQuantity
             var product = await _context.Products
                 .Where(p => p.ProductName == approval.ApprovalProductName)
                 .Select(p => new { p.ProductId, Price = (decimal?)p.ProductPrice })
@@ -131,7 +130,6 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             }
             else
             {
-                // resolve branch from city
                 branchId = await _context.Cities
                     .Where(c => c.CityId == dto.CityId)
                     .Select(c => c.BranchId)
@@ -162,7 +160,6 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 UserId = userId,
                 BranchId = branchId,
                 AddressId = addressId,
-
                 ShippingIsUrgent = false,
                 ShippingIsDelivery = dto.Method == "delivery",
                 ShippingDate = DateTime.UtcNow
@@ -179,11 +176,8 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 UserId = userId,
                 ApprovalId = approval.ApprovalId,
                 ShippingId = shipping.ShippingId,
-
                 PrescriptionPlanCreationDate = today,
                 PrescriptionPlanStatusId = PrescriptionPlanStatusConstants.Ongoing,
-
-                
                 PrescriptionPlanTotalAmount = totalAmount
             };
 
@@ -191,7 +185,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             await _context.SaveChangesAsync();
 
             var bahrainToday = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(3));
-            var expiryDate = approval?.ApprovalPrescriptionExpiryDate;
+            var expiryDate = approval.ApprovalPrescriptionExpiryDate;
 
             await _emailLogService.SchedulePlanEmailsAsync(
                 plan.PrescriptionPlanId,
@@ -201,10 +195,9 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 CancellationToken.None
             );
 
-
-
             return plan.PrescriptionPlanId;
         }
+
 
 
         public async Task<bool> UpdateAsync(int userId, int planId, PrescriptionPlanUpsertDto dto)
@@ -223,11 +216,12 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
 
                 var prescriptionId = plan.Approval.PrescriptionId;
 
-                // ===== 1) Recalculate subtotal =====
+                // ===== 1) Recalculate subtotal (OWNER = Prescription.UserId) =====
                 var rows = await (
                     from a in _context.Approvals
-                    where a.UserId == userId
-                          && a.PrescriptionId == prescriptionId
+                    join pr in _context.Prescriptions on a.PrescriptionId equals pr.PrescriptionId
+                    where a.PrescriptionId == prescriptionId
+                          && pr.UserId == userId 
                           && a.ApprovalPrescriptionExpiryDate >= today
                     join p in _context.Products
                         on a.ApprovalProductName equals p.ProductName into pg
@@ -240,6 +234,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                         ProductName = a.ApprovalProductName
                     }
                 ).AsNoTracking().ToListAsync();
+
 
                 if (rows.Count == 0)
                     return false;
@@ -485,16 +480,21 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
 
         private async Task<List<PrescriptionPlanItemDto>> LoadPlanItemsDetailedAsync(int userId, int prescriptionId)
         {
-            // 1) Load base items (approval + product display fields)
-            var items = await (
+            // 1) Load base rows (ownership via Prescriptions.UserId)
+            var rows = await (
                 from a in _context.Approvals
-                where a.UserId == userId && a.PrescriptionId == prescriptionId
+                join pr in _context.Prescriptions
+                    on a.PrescriptionId equals pr.PrescriptionId
+
+                where a.PrescriptionId == prescriptionId
+                      && pr.UserId == userId    // ✅ customer owns this prescription
+                                                // && a.ApprovalPrescriptionExpiryDate >= today  // optional
 
                 join p in _context.Products
                     on a.ApprovalProductName equals p.ProductName into pg
                 from p in pg.DefaultIfEmpty()
 
-                select new PrescriptionPlanItemDto
+                select new
                 {
                     // Approval fields
                     ProductName = a.ApprovalProductName,
@@ -502,27 +502,61 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     Quantity = a.ApprovalQuantity,
                     ExpiryDate = a.ApprovalPrescriptionExpiryDate,
 
-                    // Product fields (safe if p is null)
+                    // Product fields
                     ProductId = p != null ? (int?)p.ProductId : null,
                     Price = p != null ? p.ProductPrice : null,
                     CategoryName = p != null && p.Category != null ? p.Category.CategoryName : null,
                     ProductTypeName = p != null && p.ProductType != null ? p.ProductType.ProductTypeName : null,
-                    RequiresPrescription = p != null && (p.IsControlled ?? false),
+                    RequiresPrescription = p != null && p.CategoryId == 1,
 
-                    Incompatibilities = null
+                    // image bytes from DB
+                    ImageBytes = p != null ? p.ProductImage : null
                 }
             )
             .AsNoTracking()
             .ToListAsync();
 
-            // 2) Compute incompatibilities (same structure your UI expects)
+            // 2) Map to DTO + convert image bytes -> base64 string
+            var items = rows.Select(r => new PrescriptionPlanItemDto
+            {
+                ProductName = r.ProductName,
+                Dosage = r.Dosage,
+                Quantity = r.Quantity,
+                ExpiryDate = r.ExpiryDate,
+
+                ProductId = r.ProductId,
+                Price = r.Price,
+                CategoryName = r.CategoryName,
+                ProductTypeName = r.ProductTypeName,
+                RequiresPrescription = r.RequiresPrescription,
+
+                Image = (r.ImageBytes != null && r.ImageBytes.Length > 0)
+                    ? Convert.ToBase64String(r.ImageBytes)
+                    : null,
+
+                Incompatibilities = null
+            }).ToList();
+
+            // 3) Compute incompatibilities (same as you have)
             var productIds = items
                 .Where(x => x.ProductId.HasValue)
                 .Select(x => x.ProductId!.Value)
                 .Distinct()
                 .ToList();
 
-            if (productIds.Count == 0) return items;
+            if (productIds.Count == 0)
+            {
+                foreach (var it in items)
+                {
+                    it.Incompatibilities = new
+                    {
+                        medications = Array.Empty<string>(),
+                        allergies = Array.Empty<string>(),
+                        illnesses = Array.Empty<string>()
+                    };
+                }
+                return items;
+            }
 
             var illnessMap = await GetIllnessIncompatibilityMapAsync(userId, productIds);
             var allergyMap = await GetAllergyIncompatibilityMapAsync(userId, productIds);
@@ -543,19 +577,17 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 illnessMap.TryGetValue(it.ProductId.Value, out var illNames);
                 allergyMap.TryGetValue(it.ProductId.Value, out var allNames);
 
-                illNames ??= new List<string>();
-                allNames ??= new List<string>();
-
                 it.Incompatibilities = new
                 {
                     medications = Array.Empty<string>(),
-                    allergies = allNames,
-                    illnesses = illNames
+                    allergies = allNames ?? new List<string>(),
+                    illnesses = illNames ?? new List<string>()
                 };
             }
 
             return items;
         }
+
 
         private async Task<Dictionary<int, List<string>>> GetIllnessIncompatibilityMapAsync(int userId, List<int> productIds)
         {

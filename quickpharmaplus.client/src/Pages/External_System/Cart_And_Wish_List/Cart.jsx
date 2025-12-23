@@ -415,7 +415,7 @@ export default function Cart() {
                                     <td className="align-middle text-center">
                                         <button
                                             type="button"
-                                            className="btn qp-icon-btn"
+                                            className="btn qp-icon-btn d-flex align-items-center justify-content-center"
                                             onClick={() => handleRemoveItem(item.id)}
                                             aria-label="Remove from cart"
                                             title="Remove"

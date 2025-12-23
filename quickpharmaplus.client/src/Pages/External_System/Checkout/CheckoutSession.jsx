@@ -2,6 +2,7 @@
 import { useEffect, useState, useContext, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AuthContext } from "../../../Context/AuthContext.jsx";
+import { CartContext } from "../../../Context/CartContext.jsx";
 
 const DRAFT_KEY = "qp_checkout_draft_v1";
 
@@ -19,6 +20,7 @@ export default function CheckoutSuccess() {
     const navigate = useNavigate();
     const [sp] = useSearchParams();
     const { user } = useContext(AuthContext);
+    const { refreshCartCount } = useContext(CartContext);
 
     const authUserId = user?.userId ?? user?.id ?? user?.UserId ?? null;
 
@@ -151,6 +153,7 @@ export default function CheckoutSuccess() {
                 }
 
                 sessionStorage.removeItem(DRAFT_KEY);
+                refreshCartCount?.();
                 navigate(`/myOrderDetails/${json.orderId}`, { replace: true });
             } catch (e) {
                 setMsg("Unexpected error on payment-success.");

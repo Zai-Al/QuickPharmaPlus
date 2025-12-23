@@ -62,6 +62,7 @@ export default function PrescriptionPlanTab({
     // confirm save dialog for EDIT
     const [showSaveModal, setShowSaveModal] = useState(false);
 
+
     // ======================
     // Fetch helpers (minimal fix: only res.json() when res.ok)
     // ======================
@@ -634,12 +635,14 @@ export default function PrescriptionPlanTab({
                             items={(planItems || []).map((x, idx) => ({
                                 id: idx + 1,
                                 name: x.productName || x.name,
+                                imageSrc: x.image ? `data:image/jpeg;base64,${x.image}` : x.Image ? `data:image/jpeg;base64,${x.Image}` : "",
                                 quantity: x.quantity,
                                 price: x.unitPrice ?? x.price ?? 0,
                                 type: x.typeName || x.productTypeName || x.dosage || x.type,
                                 category: x.categoryName || x.category || "Prescription",
                                 incompatibilities: x.incompatibilities,
-                                requiresPrescription: x.requiresPrescription,
+                                prescribed: x.requiresPrescription,
+                                
                             }))}
                             showDeliveryFee={true}
                             showTotalAmount={true}
