@@ -179,6 +179,7 @@ namespace QuickPharmaPlus.Server
             builder.Services.AddScoped<IOrderEmailService, OrderEmailService>();
             builder.Services.AddScoped<IIncompatibilityRepository, IncompatibilityRepository>();
             builder.Services.AddScoped<IAutomatedReorderEmailService, AutomatedReorderEmailService>();
+            builder.Services.AddScoped<IPrescriptionNotificationEmailService, PrescriptionNotificationEmailService>();
 
             // =========================
             // BACKGROUND SERVICES
@@ -333,7 +334,7 @@ namespace QuickPharmaPlus.Server
 
 
             // Customers seeding
-            await CreateUser(userManager, "layla.hassan@gmail.com", "Customer123!", "Customer");
+            await CreateUser(userManager, "layla.hassan.test@gmail.com", "Customer123!", "Customer");
             await CreateUser(userManager, "john.mitchell@gmail.com", "Customer123!", "Customer");
             await CreateUser(userManager, "sara.alm@gmail.com", "Customer123!", "Customer");
             await CreateUser(userManager, "michael.turner@gmail.com", "Customer123!", "Customer");

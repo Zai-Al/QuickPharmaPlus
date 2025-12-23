@@ -2,7 +2,16 @@
 {
     public class PrescriptionListDto
     {
+
         public int PrescriptionId { get; set; }
+
+        public int? PaientId { get; set; }
+        public string? PatientName { get; set; }
+
+        public int? BranchId { get; set; }
+        public string? BranchName { get; set; }
+
+
         public string? PrescriptionName { get; set; }
 
         public int? PrescriptionStatusId { get; set; }

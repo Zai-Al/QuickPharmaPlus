@@ -110,3 +110,45 @@
     gap: 40px;
     margin-top: 25px;
 }
+
+
+/* ========================================================= */
+/*               REJECT PRESCRIPTION MODAL BUTTONS            */
+/* ========================================================= */
+
+.reject-modal-btn {
+    min-width: 180px;
+    padding: 12px 22px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.reject-modal-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.reject-modal-cancel-btn {
+    background-color: #2e7d32; /* green */
+    color: #ffffff;
+}
+
+.reject-modal-cancel-btn:hover {
+    background-color: #256528;
+}
+
+.reject-modal-send-btn {
+    background-color: #598199; /* same blue tone as download/add style */
+    color: #ffffff;
+}
+
+.reject-modal-send-btn:hover {
+    background-color: #47627A;
+}

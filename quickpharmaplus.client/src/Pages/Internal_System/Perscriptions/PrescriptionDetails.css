@@ -1,6 +1,10 @@
 .prescription-page {
-    padding-top: 20px;
-    padding-bottom: 40px;
+    padding-top: 3em;
+    padding-bottom: 3em;
+}
+
+.prescription-section {
+    margin-top: 3em;
 }
 
 /* =========================================================
@@ -14,7 +18,8 @@
     margin-bottom: 35px;
     background-color: #ffffff;
     width: 100%;
-    text-align:left;
+    text-align: left;
+    padding-top:1em;
 }
 
 /* Document card title */
@@ -27,7 +32,7 @@
 /* Buttons row inside card */
 .doc-buttons {
     display: flex;
-    gap: 20px;
+    gap: 2em;
     justify-content: flex-start;
 }
 
@@ -38,4 +43,5 @@
     padding: 12px 18px !important;
     border-top-left-radius: 10px !important;
     border-top-right-radius: 10px !important;
+    margin-bottom:1em;
 }

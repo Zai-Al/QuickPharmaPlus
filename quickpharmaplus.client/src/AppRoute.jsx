@@ -220,7 +220,7 @@ export default function AppRoutes() {
                             />
 
                             <Route
-                                path="//perscription/view"
+                                path="/prescription/view/:prescriptionId"
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
                                         <ViewPerscription />
@@ -230,7 +230,7 @@ export default function AppRoutes() {
 
 
                             <Route
-                                path= "/prescriptions/approve"
+                                path= "/prescriptions/approve/:prescriptionId"
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin", "Manager", "Pharmacist"]}>
                                         <ApprovePerscription />

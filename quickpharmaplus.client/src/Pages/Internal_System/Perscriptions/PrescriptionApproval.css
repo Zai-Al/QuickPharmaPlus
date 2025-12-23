@@ -16,14 +16,105 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1.2em;
+    gap: 2.5em; /* match AddInventory */
+}
+
+/* DatePicker wrapper sizing (match AddInventory) */
+.prescription-approval-date-picker .react-datepicker-wrapper {
+    width: 80%;
+    align-items: center;
+}
+
+/* Alert message styling (match AddInventory) */
+.prescription-approval-alert {
+    width: 80%;
+    margin: 20px auto;
+}
+
+/* Searchable dropdown specific for prescription approval (match AddInventory) */
+.prescription-approval-dropdown {
+    width: 100%;
+    z-index: 1500;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 2px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+    .prescription-approval-dropdown .list-group-item {
+        cursor: pointer;
+        padding: 10px 15px;
+    }
+
+        .prescription-approval-dropdown .list-group-item.active {
+            background-color: #0d6efd;
+            color: white;
+            border-color: #0d6efd;
+        }
+
+        .prescription-approval-dropdown .list-group-item:hover {
+            background-color: #e9ecef;
+        }
+
+        .prescription-approval-dropdown .list-group-item.active:hover {
+            background-color: #0d6efd;
+            color: white;
+        }
+
+/* Field wrapper sizing (match AddInventory) */
+.prescription-approval-page .prescription-approval-field {
+    width: 80%;
+    position: relative;
+}
+
+.date-container {
+    width: 100%;
+}
+
+/* ================================
+   VALIDATION (MATCH AddInventory)
+================================ */
+.prescription-approval-page .prescription-approval-field .form-control {
+    width: 100%;
+}
+
+.prescription-approval-page .prescription-approval-field .invalid-feedback {
+    display: block;
+    width: 100%;
+    font-size: 0.85rem;
+    color: #dc3545;
+    text-align: left;
+    margin-top: 4px;
+    min-height: 20px;
+}
+
+.prescription-approval-page .form-control.is-invalid {
+    border-color: #dc3545 !important;
+}
+
+.prescription-approval-page .prescription-approval-field .react-datepicker-wrapper,
+.prescription-approval-page .prescription-approval-field .react-datepicker__input-container,
+.prescription-approval-page .prescription-approval-field input {
+    width: 100%;
+}
+
+.prescription-approval-page .prescription-approval-field .date-container.is-invalid input {
+    border-color: #dc3545 !important;
+}
+
+.prescription-approval-validation-text {
+    font-size: 0.85rem;
+    color: #dc3545;
+    text-align: left;
+    margin-top: 6px;
+    min-height: 20px;
 }
 
 /* ================================
    APPROVE BUTTON
 ================================ */
 .approve-btn-custom {
-    background-color: #598199 !important; /* Blue-grey */
+    background-color: #598199 !important;
     border-color: #598199 !important;
     color: white !important;
     border-radius: 8px;
@@ -38,9 +129,9 @@
     border: none;
 }
 
-    .approve-btn-custom:hover {
-        background-color: #47627A !important;
-        border-color: #47627A !important;
-        text-decoration: none !important;
-    }
+.approve-btn-custom:hover {
+    background-color: #47627A !important;
+    border-color: #47627A !important;
+    text-decoration: none !important;
+}
 

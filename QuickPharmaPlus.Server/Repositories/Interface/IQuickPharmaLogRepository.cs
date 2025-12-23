@@ -28,5 +28,6 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
         
         Task CreatePrescriptionApprovalLogAsync(int userId, int prescriptionId);
         Task CreateControlledProductDispensedLogAsync(int userId, string productName, int prescriptionId);
+        Task CreatePrescriptionRejectionLogAsync(int userId, int prescriptionId, string? details = null);
     }
 }
