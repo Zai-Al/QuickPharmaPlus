@@ -9,6 +9,7 @@ using QuickPharmaPlus.Server.Repositories.Interface;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace QuickPharmaPlus.Server.Controllers.External_System
 {
@@ -57,6 +58,11 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             [FromQuery] int? userId = null
         )
         {
+            var safeCategoryIds = SanitizeIds(categoryIds);
+            var safeSupplierIds = SanitizeIds(supplierIds);
+            var safeProductTypeIds = SanitizeIds(productTypeIds);
+            var safeBranchIds = SanitizeIds(branchIds);
+
             try
             {
                 // Keep using the existing repository method as-is (teammate-safe)
@@ -64,10 +70,10 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                     pageNumber,
                     pageSize,
                     search,
-                    supplierIds,
-                    categoryIds,
-                    productTypeIds,
-                    branchIds,
+                    safeSupplierIds,
+                    safeCategoryIds,
+                    safeProductTypeIds,
+                    safeBranchIds,
                     minPrice,
                     maxPrice,
                     sortBy
@@ -103,7 +109,11 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                     .ToList();
 
                 // attach images (your existing logic)
-                var productIds = items.Select(x => x.Id).ToList();
+                var productIds = items
+                    .Select(x => x.Id)
+                    .Where(id => id > 0)
+                    .Distinct()
+                    .ToList();
 
                 var imageMap = await _context.Products
                     .Where(p => productIds.Contains(p.ProductId))
@@ -121,6 +131,8 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                     imageDict.TryGetValue(item.Id, out var base64);
                     item.ProductImageBase64 = base64;
                 }
+
+                await ApplyInventorySnapshotAsync(items, productIds, safeBranchIds);
 
                 // ✅ NEW: compute incompatibilities ONLY if userId provided
                 if (userId.HasValue && userId.Value > 0 && items.Count > 0)
@@ -194,7 +206,7 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             var dto = await _productRepository.GetProductByIdAsync(id);
             if (dto == null) return NotFound(new { error = "Product not found" });
 
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = DateOnly.FromDateTime(DateTime.Now);
 
             var inventoryCount = await _context.Inventories
                 .Where(i => i.ProductId == id)
@@ -301,29 +313,35 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
         {
             if (id <= 0) return BadRequest(new { error = "Invalid product id" });
 
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = DateOnly.FromDateTime(DateTime.Now);
 
             var rows = await _context.Inventories
+                .AsNoTracking()
                 .Where(i => i.ProductId == id && i.BranchId.HasValue)
                 .Where(i => (i.InventoryQuantity ?? 0) > 0)
                 .Where(i => i.InventoryExpiryDate == null || i.InventoryExpiryDate >= today)
                 .Select(i => new
                 {
+                    BranchId = i.BranchId!.Value,
                     Qty = (i.InventoryQuantity ?? 0),
-                    CityName =
-                        i.Branch != null &&
-                        i.Branch.Address != null &&
-                        i.Branch.Address.City != null
-                            ? i.Branch.Address.City.CityName
-                            : "Unknown"
+                    CityName = i.Branch != null && i.Branch.Address != null && i.Branch.Address.City != null
+                        ? i.Branch.Address.City.CityName
+                        : "Unknown",
+                    Block = i.Branch != null && i.Branch.Address != null ? i.Branch.Address.Block : null,
+                    Street = i.Branch != null && i.Branch.Address != null ? i.Branch.Address.Street : null,
+                    BuildingNumber = i.Branch != null && i.Branch.Address != null ? i.Branch.Address.BuildingNumber : null
                 })
                 .ToListAsync();
 
             var items = rows
-                .GroupBy(x => x.CityName)
+                .GroupBy(x => new { x.BranchId, x.CityName, x.Block, x.Street, x.BuildingNumber })
                 .Select(g => new BranchAvailabilityDto
                 {
-                    CityName = g.Key,
+                    BranchId = g.Key.BranchId,
+                    CityName = g.Key.CityName,
+                    Block = g.Key.Block,
+                    Street = g.Key.Street,
+                    BuildingNumber = g.Key.BuildingNumber,
                     Stock = g.Sum(x => x.Qty)
                 })
                 .OrderByDescending(x => x.Stock)
@@ -331,11 +349,7 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
 
             var branchesCount = items.Count(x => x.Stock > 0);
 
-            return Ok(new
-            {
-                branchesCount,
-                items
-            });
+            return Ok(new { branchesCount, items });
         }
 
         // GET: /api/ExternalProducts/best-sellers?top=10&userId=123
@@ -373,7 +387,11 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                 .ToList();
 
             // attach base64 images (reuse your existing image logic)
-            var productIds = items.Select(x => x.Id).ToList();
+            var productIds = items
+                .Select(x => x.Id)
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList();
 
             var imageMap = await _context.Products
                 .Where(p => productIds.Contains(p.ProductId))
@@ -391,6 +409,8 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                 imageDict.TryGetValue(item.Id, out var base64);
                 item.ProductImageBase64 = base64;
             }
+
+            await ApplyInventorySnapshotAsync(items, productIds, null);
 
             // optional: incompatibilities if userId passed (same as list endpoint)
             if (userId.HasValue && userId.Value > 0 && items.Count > 0)
@@ -423,5 +443,71 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             return Ok(new { items });
         }
 
+        private static int[]? SanitizeIds(int[]? values)
+        {
+            if (values == null || values.Length == 0)
+                return null;
+
+            var cleaned = values
+                .Where(id => id > 0)
+                .Distinct()
+                .ToArray();
+
+            return cleaned.Length == 0 ? null : cleaned;
+        }
+
+        private async Task ApplyInventorySnapshotAsync(
+            List<CustomerProductListDto> items,
+            IReadOnlyCollection<int> productIds,
+            int[]? branchFilter)
+        {
+            if (items == null || items.Count == 0 || productIds == null || productIds.Count == 0)
+                return;
+
+            var stockMap = await BuildInventoryMapAsync(productIds, branchFilter);
+
+            foreach (var item in items)
+            {
+                var qty = stockMap.TryGetValue(item.Id, out var stock) ? stock : 0;
+                item.InventoryCount = qty;
+                item.StockStatus = ResolveStockStatus(qty);
+            }
+        }
+
+        private async Task<Dictionary<int, int>> BuildInventoryMapAsync(
+            IReadOnlyCollection<int> productIds,
+            int[]? branchFilter)
+        {
+            var ids = productIds.ToArray();
+            if (ids.Length == 0)
+                return new Dictionary<int, int>();
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            var query = _context.Inventories
+                .AsNoTracking()
+                .Where(i => i.ProductId.HasValue && ids.Contains(i.ProductId.Value))
+                .Where(i => (i.InventoryQuantity ?? 0) > 0)
+                .Where(i => i.InventoryExpiryDate == null || i.InventoryExpiryDate >= today);
+
+            if (branchFilter != null && branchFilter.Length > 0)
+            {
+                query = query.Where(i =>
+                    i.BranchId.HasValue &&
+                    branchFilter.Contains(i.BranchId.Value));
+            }
+
+            return await query
+                .GroupBy(i => i.ProductId!.Value)
+                .Select(g => new { ProductId = g.Key, Qty = g.Sum(x => x.InventoryQuantity ?? 0) })
+                .ToDictionaryAsync(x => x.ProductId, x => x.Qty);
+        }
+
+        private static string ResolveStockStatus(int quantity) =>
+            quantity <= 0
+                ? "OUT_OF_STOCK"
+                : quantity <= 5
+                    ? "LOW_STOCK"
+                    : "IN_STOCK";
     }
 }
