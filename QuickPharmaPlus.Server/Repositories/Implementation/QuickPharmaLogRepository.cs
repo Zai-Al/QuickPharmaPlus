@@ -32,14 +32,10 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 .Include(l => l.User)
                 .AsQueryable();
 
-            // ============================================
-            // SEARCH BY LOG ID
-            // ============================================
             if (!string.IsNullOrWhiteSpace(search))
             {
                 search = search.Trim();
 
-                // Validate input - only numbers allowed for Log ID search
                 var validPattern = @"^[0-9]*$";
                 if (!Regex.IsMatch(search, validPattern))
                 {
@@ -56,17 +52,11 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 }
             }
 
-            // ============================================
-            // FILTER BY LOG TYPE
-            // ============================================
             if (logTypeId.HasValue)
             {
                 query = query.Where(l => l.LogTypeId == logTypeId.Value);
             }
 
-            // ============================================
-            // FILTER BY EMPLOYEE NAME
-            // ============================================
             if (!string.IsNullOrWhiteSpace(employeeName))
             {
                 var nameLower = employeeName.Trim().ToLower();
@@ -74,9 +64,6 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     (l.User.FirstName + " " + l.User.LastName).ToLower().Contains(nameLower));
             }
 
-            // ============================================
-            // FILTER BY ACTION DATE
-            // ============================================
             if (actionDate.HasValue)
             {
                 var dateFilter = actionDate.Value;
@@ -85,10 +72,8 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     DateOnly.FromDateTime(l.LogTimestamp.Value) == dateFilter);
             }
 
-            // COUNT AFTER FILTERS
             var total = await query.CountAsync();
 
-            // PAGE + MAP TO DTO
             var items = await query
                 .OrderByDescending(l => l.LogTimestamp)
                 .Skip((pageNumber - 1) * pageSize)
@@ -124,11 +109,6 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 .ToListAsync();
         }
 
-        // ============================================
-        // AUTO-GENERATED LOG METHODS
-        // ============================================
-
-        // LOG TYPE 1: Inventory Change
         public async Task CreateInventoryChangeLogAsync(int? userId, string? productName, string? branchName)
         {
             var user = userId.HasValue ? await _context.Users.FindAsync(userId.Value) : null;
@@ -140,7 +120,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             {
                 LogDescription = description,
                 LogTimestamp = DateTime.Now,
-                LogTypeId = 1, // Inventory Change
+                LogTypeId = 1,
                 UserId = userId
             };
 
@@ -148,7 +128,6 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             await _context.SaveChangesAsync();
         }
 
-        // LOG TYPE 2: Login Failure
         public async Task CreateLoginFailureLogAsync(string email)
         {
             var description = $"User failed to login three times with email: {email}";
@@ -157,23 +136,21 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             {
                 LogDescription = description,
                 LogTimestamp = DateTime.Now,
-                LogTypeId = 2, // Login
-                UserId = null // No user ID since login failed
+                LogTypeId = 2,
+                UserId = null
             };
 
             _context.Logs.Add(log);
             await _context.SaveChangesAsync();
         }
 
-        // LOG TYPE 3: Add Record
         public async Task CreateAddRecordLogAsync(int userId, string tableName, int recordId, string? details = null)
         {
             var user = await _context.Users.FindAsync(userId);
             var userName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : "Unknown User";
 
             var description = $"{userName} added a record to {tableName} (Record ID: {recordId})";
-            
-            // Add details if provided
+
             if (!string.IsNullOrWhiteSpace(details))
             {
                 description += $" - {details}";
@@ -183,7 +160,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             {
                 LogDescription = description,
                 LogTimestamp = DateTime.Now,
-                LogTypeId = 3, // Add Record
+                LogTypeId = 3,
                 UserId = userId
             };
 
@@ -191,15 +168,13 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             await _context.SaveChangesAsync();
         }
 
-        // LOG TYPE 4: Edit Record
         public async Task CreateEditRecordLogAsync(int userId, string tableName, int recordId, string? details = null)
         {
             var user = await _context.Users.FindAsync(userId);
             var userName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : "Unknown User";
 
             var description = $"{userName} edited a record in {tableName} (Record ID: {recordId})";
-            
-            // Add details if provided
+
             if (!string.IsNullOrWhiteSpace(details))
             {
                 description += $" - {details}";
@@ -209,7 +184,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             {
                 LogDescription = description,
                 LogTimestamp = DateTime.Now,
-                LogTypeId = 4, // Edit Record
+                LogTypeId = 4,
                 UserId = userId
             };
 
@@ -217,15 +192,13 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             await _context.SaveChangesAsync();
         }
 
-        // LOG TYPE 5: Delete Record
         public async Task CreateDeleteRecordLogAsync(int userId, string tableName, int recordId, string? details = null)
         {
             var user = await _context.Users.FindAsync(userId);
             var userName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : "Unknown User";
 
             var description = $"{userName} deleted a record from {tableName} (Record ID: {recordId})";
-            
-            // Add details if provided
+
             if (!string.IsNullOrWhiteSpace(details))
             {
                 description += $" - {details}";
@@ -235,7 +208,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             {
                 LogDescription = description,
                 LogTimestamp = DateTime.Now,
-                LogTypeId = 5, // Delete Record
+                LogTypeId = 5,
                 UserId = userId
             };
 
@@ -243,7 +216,6 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             await _context.SaveChangesAsync();
         }
 
-        // LOG TYPE 6: Prescription Approval
         public async Task CreatePrescriptionApprovalLogAsync(int userId, int prescriptionId)
         {
             var user = await _context.Users.FindAsync(userId);
@@ -255,7 +227,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             {
                 LogDescription = description,
                 LogTimestamp = DateTime.Now,
-                LogTypeId = 6, // Prescription Approval
+                LogTypeId = 6,
                 UserId = userId
             };
 
@@ -263,7 +235,6 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             await _context.SaveChangesAsync();
         }
 
-        // LOG TYPE 7: Controlled Product Dispensed
         public async Task CreateControlledProductDispensedLogAsync(int userId, string productName, int prescriptionId)
         {
             var user = await _context.Users.FindAsync(userId);
@@ -275,7 +246,31 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             {
                 LogDescription = description,
                 LogTimestamp = DateTime.Now,
-                LogTypeId = 7, // Controlled Product Dispensed
+                LogTypeId = 7,
+                UserId = userId
+            };
+
+            _context.Logs.Add(log);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task CreatePrescriptionRejectionLogAsync(int userId, int prescriptionId, string? details = null)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            var userName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : "Unknown User";
+
+            var description = $"{userName} rejected prescription ID: {prescriptionId}";
+
+            if (!string.IsNullOrWhiteSpace(details))
+            {
+                description += $" - {details}";
+            }
+
+            var log = new Log
+            {
+                LogDescription = description,
+                LogTimestamp = DateTime.Now,
+                LogTypeId = 10, // Prescription Rejection
                 UserId = userId
             };
 

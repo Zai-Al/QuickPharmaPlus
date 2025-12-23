@@ -15,7 +15,8 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
             string? role,
             int? branchId = null 
         );
-        
+
+        Task<List<User>> GetAllCustomersAsync();
         Task<User> AddCustomerAsync(User user);
         Task<User?> GetEmployeeByIdAsync(int id);
         Task<User?> GetUserByEmailAsync(string email);

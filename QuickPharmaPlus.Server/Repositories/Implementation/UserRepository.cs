@@ -168,5 +168,19 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             _context.Users.Remove(existing);
             return true;
         }
+
+        // Function to fetch all customers where RoleId = 5
+        public async Task<List<User>> GetAllCustomersAsync()
+        {
+            return await _context.Users
+                .Include(u => u.Branch)
+                    .ThenInclude(b => b.Address)
+                        .ThenInclude(a => a.City)
+                .Include(u => u.Role)
+                .Include(u => u.Address)
+                    .ThenInclude(a => a.City)
+                .Where(u => u.RoleId == 5) // Filter users with RoleId = 5
+                .ToListAsync();
+        }
     }
 }

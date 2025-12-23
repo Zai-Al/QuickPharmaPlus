@@ -2,9 +2,12 @@
 using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.ModelsDTO;
 using QuickPharmaPlus.Server.ModelsDTO.Prescription;
+using QuickPharmaPlus.Server.ModelsDTO.Prescription.Approval;
 using QuickPharmaPlus.Server.ModelsDTO.Prescription.Checkout;
 using QuickPharmaPlus.Server.ModelsDTO.WishList_Cart;
 using QuickPharmaPlus.Server.Repositories.Interface;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace QuickPharmaPlus.Server.Repositories.Implementation
 {
@@ -514,5 +517,345 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             return await query.AsNoTracking().FirstOrDefaultAsync();
         }
 
+        //Get all perscriptions - emplyees only
+        // Get all prescriptions - employees only (paged + filtered)
+        public async Task<PagedResult<PrescriptionListDto>> GetAllPrescriptionsAsync(
+            int pageNumber,
+            int pageSize,
+            int? customerId = null,
+            int? statusId = null,
+            DateOnly? prescriptionDate = null,
+            int? branchId = null
+        )
+        {
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 10;
+
+            var query = _context.Prescriptions
+                .Include(p => p.User)
+                .Include(p => p.PrescriptionStatus)
+                .Include(p => p.ProductOrders)
+                    .ThenInclude(po => po.Order)
+                        .ThenInclude(o => o.Shipping)
+                .AsQueryable();
+
+            // ===============================
+            // CUSTOMER FILTER
+            // ===============================
+            if (customerId.HasValue)
+            {
+                query = query.Where(p => p.UserId == customerId.Value);
+            }
+
+            // ===============================
+            // STATUS FILTER
+            // ===============================
+            if (statusId.HasValue)
+            {
+                query = query.Where(p => p.PrescriptionStatusId == statusId.Value);
+            }
+
+            // ===============================
+            // DATE FILTER
+            // ===============================
+            if (prescriptionDate.HasValue)
+            {
+                query = query.Where(p => p.PrescriptionCreationDate == prescriptionDate.Value);
+            }
+
+            // ===============================
+            // BRANCH FILTER
+            // ===============================
+            if (branchId.HasValue)
+            {
+                query = query.Where(p =>
+                    p.Address != null &&
+                    p.Address.City != null &&
+                    p.Address.City.BranchId == branchId.Value
+                );
+            }
+
+
+            // ===============================
+            // TOTAL COUNT (before paging)
+            // ===============================
+            var totalCount = await query.CountAsync();
+
+            // ===============================
+            // PAGING + PROJECTION TO DTO
+            // ===============================
+            var items = await query
+                .OrderByDescending(p => p.PrescriptionCreationDate)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .Select(p => new PrescriptionListDto
+                {
+                    PrescriptionId = p.PrescriptionId,
+                    PrescriptionName = p.PrescriptionName,
+                    PatientName = p.User != null
+                        ? $"{p.User.FirstName} {p.User.LastName}"
+                        : "Unknown",
+                    PaientId = p.UserId,
+                    PrescriptionStatusId = p.PrescriptionStatusId,
+                    PrescriptionStatusName = p.PrescriptionStatus != null
+                        ? p.PrescriptionStatus.PrescriptionStatusName
+                        : null,
+
+                    PrescriptionCreationDate = p.PrescriptionCreationDate,
+                    IsHealthPerscription = p.IsHealthPerscription,
+
+                    LatestApprovalExpiryDate = p.Approvals
+                        .Where(a => a.ApprovalPrescriptionExpiryDate != null)
+                        .Max(a => a.ApprovalPrescriptionExpiryDate),
+
+                    CityName = p.Address != null && p.Address.City != null
+                        ? p.Address.City.CityName
+                        : null,
+
+                    BranchId = p.Address != null && p.Address.City != null
+                        ? p.Address.City.BranchId
+                        : null
+                })
+                .AsNoTracking()
+                .ToListAsync();
+
+            return new PagedResult<PrescriptionListDto>
+            {
+                Items = items,
+                TotalCount = totalCount
+            };
+        }
+
+
+
+        public async Task<IEnumerable<PrescriptionStatus>> GetAllStatusesAsync()
+        {
+            return await _context.PrescriptionStatuses.ToListAsync();
+        }
+
+        public async Task<InternalPrescriptionDetailsDto?> GetInternalPrescriptionDetailsAsync(
+            int prescriptionId,
+            int? branchId
+        )
+        {
+            if (prescriptionId <= 0) return null;
+
+            var query = _context.Prescriptions
+                .AsNoTracking()
+                .Include(p => p.User)
+                .Include(p => p.PrescriptionStatus)
+                .Include(p => p.Address)
+                    .ThenInclude(a => a.City)
+                .AsQueryable();
+
+            if (branchId.HasValue)
+            {
+                query = query.Where(p =>
+                    p.Address != null &&
+                    p.Address.City != null &&
+                    p.Address.City.BranchId == branchId.Value
+                );
+            }
+
+            return await query
+                .Where(p => p.PrescriptionId == prescriptionId)
+                .Select(p => new InternalPrescriptionDetailsDto
+                {
+                    PrescriptionId = p.PrescriptionId,
+                    UserId = p.UserId,
+
+                    FirstName = p.User != null ? p.User.FirstName : null,
+                    LastName = p.User != null ? p.User.LastName : null,
+                    Email = p.User != null ? p.User.EmailAddress : null,
+                    ContactNumber = p.User != null ? p.User.ContactNumber : null,
+
+                    CityName = p.Address != null && p.Address.City != null ? p.Address.City.CityName : null,
+                    Block = p.Address != null ? p.Address.Block : null,
+                    Road = p.Address != null ? p.Address.Street : null,
+                    BuildingFloor = p.Address != null ? p.Address.BuildingNumber : null,
+
+                    PrescriptionName = p.PrescriptionName,
+                    PrescriptionStatusId = p.PrescriptionStatusId,
+                    PrescriptionStatusName = p.PrescriptionStatus != null ? p.PrescriptionStatus.PrescriptionStatusName : null,
+                    PrescriptionCreationDate = p.PrescriptionCreationDate,
+
+                    HasPrescriptionDocument = p.PrescriptionDocument != null && p.PrescriptionDocument.Length > 0,
+                    HasCprDocument = p.PrescriptionCprDocument != null && p.PrescriptionCprDocument.Length > 0,
+                    PrescriptionFileName = p.PrescriptionDocumentFileName,
+                    CprFileName = p.PrescriptionCprDocumentFileName
+                })
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<(byte[] bytes, string contentType, string? fileName)?> GetInternalPrescriptionDocumentAsync(
+            int prescriptionId,
+            int? branchId
+        )
+        {
+            if (prescriptionId <= 0) return null;
+
+            var query = _context.Prescriptions
+                .AsNoTracking()
+                .Include(p => p.Address)
+                    .ThenInclude(a => a.City)
+                .AsQueryable();
+
+            if (branchId.HasValue)
+            {
+                query = query.Where(p =>
+                    p.Address != null &&
+                    p.Address.City != null &&
+                    p.Address.City.BranchId == branchId.Value
+                );
+            }
+
+            var p = await query.FirstOrDefaultAsync(x => x.PrescriptionId == prescriptionId);
+
+            if (p?.PrescriptionDocument == null || p.PrescriptionDocument.Length == 0) return null;
+
+            return (
+                p.PrescriptionDocument,
+                p.PrescriptionDocumentContentType ?? "application/octet-stream",
+                p.PrescriptionDocumentFileName
+            );
+        }
+
+        public async Task<(byte[] bytes, string contentType, string? fileName)?> GetInternalCprDocumentAsync(
+            int prescriptionId,
+            int? branchId
+        )
+        {
+            if (prescriptionId <= 0) return null;
+
+            var query = _context.Prescriptions
+                .AsNoTracking()
+                .Include(p => p.Address)
+                    .ThenInclude(a => a.City)
+                .AsQueryable();
+
+            if (branchId.HasValue)
+            {
+                query = query.Where(p =>
+                    p.Address != null &&
+                    p.Address.City != null &&
+                    p.Address.City.BranchId == branchId.Value
+                );
+            }
+
+            var p = await query.FirstOrDefaultAsync(x => x.PrescriptionId == prescriptionId);
+
+            if (p?.PrescriptionCprDocument == null || p.PrescriptionCprDocument.Length == 0) return null;
+
+            return (
+                p.PrescriptionCprDocument,
+                p.PrescriptionCprDocumentContentType ?? "application/octet-stream",
+                p.PrescriptionCprDocumentFileName
+            );
+        }
+
+        public async Task<PrescriptionApproveResultDto?> ApprovePrescriptionAsync(
+            int prescriptionId,
+            int employeeUserId,
+            PrescriptionApproveRequestDto dto)
+        {
+            if (prescriptionId <= 0) return null;
+            if (employeeUserId <= 0) return null;
+            if (dto == null) return null;
+
+            if (dto.ProductId <= 0) return null;
+            if (dto.Quantity <= 0) return null;
+
+            var dosage = (dto.Dosage ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(dosage)) return null;
+
+            if (string.IsNullOrWhiteSpace(dto.ExpiryDate)) return null;
+            if (!DateOnly.TryParse(dto.ExpiryDate, out var expiryDate)) return null;
+
+            var todayUtc = DateOnly.FromDateTime(DateTime.UtcNow);
+            if (expiryDate < todayUtc) return null;
+
+            await using var tx = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                var prescription = await _context.Prescriptions
+                    .Include(p => p.User)
+                    .Include(p => p.ProductOrders)
+                        .ThenInclude(po => po.Order)
+                            .ThenInclude(o => o.Shipping)
+                    .FirstOrDefaultAsync(p => p.PrescriptionId == prescriptionId);
+
+                if (prescription == null) return null;
+
+                var customer = prescription.User;
+                var customerEmail = (customer?.EmailAddress ?? "").Trim();
+                if (string.IsNullOrWhiteSpace(customerEmail)) return null;
+
+                var product = await _context.Products
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.ProductId == dto.ProductId);
+
+                if (product == null) return null;
+
+                var productName = product.ProductName ?? $"Product #{product.ProductId}";
+
+                var bahrainNow = DateTime.UtcNow.AddHours(3);
+                var bahrainToday = DateOnly.FromDateTime(bahrainNow);
+
+                var approval = new Models.Approval
+                {
+                    PrescriptionId = prescriptionId,
+                    UserId = employeeUserId,
+                    ApprovalDate = bahrainToday,
+                    ApprovalTimestamp = bahrainNow,
+                    ApprovalProductName = productName,
+                    ApprovalQuantity = dto.Quantity,
+                    ApprovalDosage = dosage,
+                    ApprovalPrescriptionExpiryDate = expiryDate
+                };
+
+                _context.Approvals.Add(approval);
+
+                prescription.PrescriptionStatusId = PrescriptionStatusConstants.Approved;
+
+                await _context.SaveChangesAsync();
+
+                var orderId = prescription.ProductOrders
+                    .Select(po => po.OrderId)
+                    .FirstOrDefault();
+
+                var shippingId = prescription.ProductOrders
+                    .Select(po => po.Order != null ? po.Order.ShippingId : null)
+                    .FirstOrDefault();
+
+                await tx.CommitAsync();
+
+                return new PrescriptionApproveResultDto
+                {
+                    Approved = true,
+                    ApprovalId = approval.ApprovalId,
+                    OrderId = orderId,
+                    ShippingId = shippingId,
+
+                    CustomerEmail = customerEmail,
+                    CustomerName = $"{customer?.FirstName} {customer?.LastName}".Trim(),
+                    PrescriptionName = prescription.PrescriptionName ?? "Prescription",
+
+                    ApprovedProductName = productName,
+                    IsControlled = product.IsControlled == true,
+
+                    ExpiryDate = expiryDate,
+                    Dosage = dosage,
+                    Quantity = dto.Quantity,
+
+                    BahrainTimestamp = bahrainNow
+                };
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
+        }
     }
 }

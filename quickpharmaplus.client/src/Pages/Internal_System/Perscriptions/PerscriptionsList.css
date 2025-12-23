@@ -57,9 +57,9 @@
 .prescriptions-page table th {
     background-color: #e8f3f3;
     font-weight: 600;
-    text-align: center;
+    text-align: left;
 }
 
 .prescriptions-page table td {
-    text-align: center;
+    text-align: left;
 }

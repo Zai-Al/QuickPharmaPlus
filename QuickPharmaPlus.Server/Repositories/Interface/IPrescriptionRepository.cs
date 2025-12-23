@@ -1,7 +1,11 @@
-﻿using QuickPharmaPlus.Server.ModelsDTO;
+﻿using QuickPharmaPlus.Server.Models;
+using QuickPharmaPlus.Server.ModelsDTO;
 using QuickPharmaPlus.Server.ModelsDTO.Prescription;
+using QuickPharmaPlus.Server.ModelsDTO.Prescription.Approval;
 using QuickPharmaPlus.Server.ModelsDTO.Prescription.Checkout;
 using QuickPharmaPlus.Server.ModelsDTO.WishList_Cart;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace QuickPharmaPlus.Server.Repositories.Interface
 {
@@ -33,11 +37,41 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
         Task<PrescriptionListDto?> GetUserHealthPrescriptionByIdAsync(int userId, int prescriptionId);
 
         Task<CheckoutPrescriptionValidateResponseDto> ValidateCheckoutPrescriptionAsync(
-    int userId,
-    int prescriptionId,
-    List<CartItemDto> cartItems,
-    bool isHealthProfile
-);
+            int userId,
+            int prescriptionId,
+            List<CartItemDto> cartItems,
+            bool isHealthProfile
+        );
 
+        Task<PagedResult<PrescriptionListDto>> GetAllPrescriptionsAsync(
+            int pageNumber,
+            int pageSize,
+            int? customerId = null,
+            int? statusId = null,
+            DateOnly? prescriptionDate = null,
+            int? branchId = null        
+            );
+
+        Task<IEnumerable<PrescriptionStatus>> GetAllStatusesAsync();
+
+        Task<InternalPrescriptionDetailsDto?> GetInternalPrescriptionDetailsAsync(
+            int prescriptionId,
+            int? branchId
+        );
+
+        Task<(byte[] bytes, string contentType, string? fileName)?> GetInternalPrescriptionDocumentAsync(
+            int prescriptionId,
+            int? branchId
+        );
+
+        Task<(byte[] bytes, string contentType, string? fileName)?> GetInternalCprDocumentAsync(
+            int prescriptionId,
+            int? branchId
+        );
+
+        Task<PrescriptionApproveResultDto?> ApprovePrescriptionAsync(
+            int prescriptionId,
+            int employeeUserId,
+            PrescriptionApproveRequestDto dto);
     }
 }

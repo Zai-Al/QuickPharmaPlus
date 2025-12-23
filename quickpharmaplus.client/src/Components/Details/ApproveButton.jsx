@@ -6,10 +6,7 @@ export default function ApproveButton({ id }) {
     const navigate = useNavigate();
 
     const handleApprove = () => {
-        // navigate(`/prescriptions/approve/${id}`); // <-- DISABLED (ID not implemented yet)
-
-        // TEMPORARY: navigate without ID
-        navigate("/prescriptions/approve");
+        navigate(`/prescriptions/approve/${id}`);
     };
 
     return (
