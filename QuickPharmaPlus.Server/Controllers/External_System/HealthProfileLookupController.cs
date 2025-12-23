@@ -6,7 +6,7 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
 {
     [ApiController]
     [Route("api/[controller]")]
-    [AllowAnonymous] // later: [Authorize(Roles="Customer")]
+    [Authorize(Roles = "Customer")]
     public class HealthProfileLookupController : ControllerBase
     {
         private readonly IHealthProfileLookupRepository _repo;

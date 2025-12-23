@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using QuickPharmaPlus.Server.ModelsDTO.PrescriptionPlan;
 using QuickPharmaPlus.Server.Repositories.Implementation;
 using QuickPharmaPlus.Server.Repositories.Interface;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = "Customer")]
 public class PrescriptionPlanController : ControllerBase
 {
     private readonly IPrescriptionPlanRepository _repo;

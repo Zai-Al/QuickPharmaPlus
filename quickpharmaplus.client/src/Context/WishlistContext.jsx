@@ -19,7 +19,7 @@ export function WishlistProvider({ children }) {
 
         try {
             const res = await fetch(
-                `${API_BASE}/api/Wishlist/ids?userId=${userId}`
+                `${API_BASE}/api/Wishlist/ids?userId=${userId}`, { credentials: "include", }
             );
             if (!res.ok) return;
 

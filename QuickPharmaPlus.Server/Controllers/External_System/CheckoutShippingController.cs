@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using QuickPharmaPlus.Server.ModelsDTO.Checkout;
 using QuickPharmaPlus.Server.Repositories.Interface;
 
@@ -6,6 +7,7 @@ namespace QuickPharmaPlus.Server.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Roles = "Customer")]
     public class CheckoutShippingController : ControllerBase
     {
         private readonly IShippingRepository _shippingRepo;

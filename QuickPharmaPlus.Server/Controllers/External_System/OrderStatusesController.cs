@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.ModelsDTO.Order;
@@ -7,6 +8,7 @@ namespace QuickPharmaPlus.Server.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Roles = "Customer")]
     public class OrderStatusesController : ControllerBase
     {
         private readonly QuickPharmaPlusDbContext _db;

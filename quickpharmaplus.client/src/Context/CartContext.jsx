@@ -18,28 +18,26 @@ export function CartProvider({ children }) {
         }
 
         try {
-            const res = await fetch(`${API_BASE}/api/Cart?userId=${userId}`, {
-                credentials: "include",
-                headers: { "Content-Type": "application/json" },
-             });
+            const res = await fetch(
+                `${API_BASE}/api/Cart/summary?userId=${encodeURIComponent(userId)}`,
+                { credentials: "include" }
+            );
 
-            if (!res.ok) return;
+            if (!res.ok) {
+                setCartCount(0);
+                return;
+            }
 
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
 
-            // Prefer backend count if available, fallback to items length
-            const countFromApi =
-                typeof data?.count === "number"
-                    ? data.count
-                    : Array.isArray(data?.items)
-                        ? data.items.length
-                        : 0;
-
-            setCartCount(countFromApi);
+            // navbar badge should be TOTAL quantity across whole cart
+            setCartCount(Number(data?.totalQuantity ?? 0));
         } catch (e) {
             console.error("Failed to refresh cart count", e);
+            setCartCount(0);
         }
     };
+
 
     // Load once on login
     useEffect(() => {

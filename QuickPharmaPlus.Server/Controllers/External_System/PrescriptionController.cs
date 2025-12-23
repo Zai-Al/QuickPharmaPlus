@@ -10,7 +10,7 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
 {
     [Route("api/[controller]")]
     [ApiController]
-    //[Authorize]
+    [Authorize(Roles = "Customer")]
     public class PrescriptionController : ControllerBase
     {
         private readonly IPrescriptionRepository _repo;

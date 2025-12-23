@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore; // REQUIRED for FirstOrDefaultAsync
 using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.Repositories.Interface;
@@ -7,6 +8,7 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize (Roles = "Customer")]
     public class HealthProfileAllergyController : ControllerBase
     {
         private readonly IHealthProfileAllergyRepository _repo;
