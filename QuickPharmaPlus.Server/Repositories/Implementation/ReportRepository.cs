@@ -109,5 +109,90 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 })
                 .ToListAsync();
         }
+
+        public async Task<int> CreateReportAsync(
+            int? reportTypeId,
+            int? userId,
+            string reportName,
+            string? description,
+            byte[] pdfBytes,
+            string fileName)
+        {
+            var contentType = "application/pdf";
+
+            var entity = new Report
+            {
+                ReportTypeId = reportTypeId,
+                UserId = userId,
+                ReportName = reportName,
+                ReportDescription = description,
+                ReportDocument = pdfBytes,
+                FileName = fileName,
+                ContentType = contentType,
+                DocumentSizeBytes = pdfBytes?.Length ?? 0
+            };
+
+            _context.Reports.Add(entity);
+            await _context.SaveChangesAsync();
+            return entity.ReportId;
+        }
+
+        public async Task UpdateReportNameAsync(int reportId, string reportName)
+        {
+            if (reportId <= 0) return;
+
+            var entity = await _context.Reports.FirstOrDefaultAsync(r => r.ReportId == reportId);
+            if (entity == null) return;
+
+            entity.ReportName = reportName;
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task<(byte[] bytes, string contentType, string fileName)?> GetReportDocumentAsync(int reportId)
+        {
+            if (reportId <= 0) return null;
+
+            var r = await _context.Reports
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.ReportId == reportId);
+
+            if (r?.ReportDocument == null || r.ReportDocument.Length == 0) return null;
+
+            return (
+                r.ReportDocument,
+                string.IsNullOrWhiteSpace(r.ContentType) ? "application/pdf" : r.ContentType,
+                string.IsNullOrWhiteSpace(r.FileName) ? $"report-{reportId}.pdf" : r.FileName
+            );
+        }
+
+        public async Task<ReportDetailsDto?> GetReportDetailsAsync(int reportId)
+        {
+            if (reportId <= 0) return null;
+
+            var query =
+                from r in _context.Reports.AsNoTracking()
+                where r.ReportId == reportId
+                join rt in _context.ReportTypes on r.ReportTypeId equals rt.ReportTypeId into rtj
+                from rt in rtj.DefaultIfEmpty()
+                join u in _context.Users on r.UserId equals u.UserId into uj
+                from u in uj.DefaultIfEmpty()
+                select new ReportDetailsDto
+                {
+                    ReportId = r.ReportId,
+                    ReportName = r.ReportName,
+                    ReportDescription = r.ReportDescription,
+                    ReportTypeId = r.ReportTypeId,
+                    ReportTypeName = rt != null ? rt.ReportTypeName : null,
+                    ReportCreationTimestamp = r.ReportCreationTimestamp,
+                    GeneratedByUserId = r.UserId,
+                    GeneratedByName = u != null ? ((u.FirstName ?? "") + " " + (u.LastName ?? "")).Trim() : null,
+                    GeneratedByEmail = u != null ? u.EmailAddress : null,
+                    FileName = r.FileName,
+                    ContentType = r.ContentType,
+                    DocumentSizeBytes = r.DocumentSizeBytes
+                };
+
+            return await query.FirstOrDefaultAsync();
+        }
     }
 }

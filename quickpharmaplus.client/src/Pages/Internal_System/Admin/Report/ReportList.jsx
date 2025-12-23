@@ -59,7 +59,7 @@ export default function ReportsList() {
     ];
 
     const renderMap = {
-        view: (row) => <ViewButton to={`/report/details`} text="View Details" />,
+        view: (row) => <ViewButton to={`/report/details/${row.reportId}`} text="View Details" />,
         delete: (row) => (
             <DeleteButton
                 onClick={() => {
