@@ -229,12 +229,13 @@ export default function PlanDetails() {
                         items={(plan.items || plan.Items || []).map((x, idx) => ({
                             id: idx + 1,
                             name: x.productName || x.name,
+                            imageSrc: x.image ? `data:image/jpeg;base64,${x.image}` : x.Image ? `data:image/jpeg;base64,${x.Image}` : "",
                             quantity: x.quantity ?? 0,
                             type: x.typeName || x.productTypeName || x.dosage || x.type || "-",
                             price: x.unitPrice ?? x.price ?? 0,          // ? from DB
                             category: x.categoryName || x.category || "-", // ? from DB
                             incompatibilities: x.incompatibilities,
-                            requiresPrescription: x.requiresPrescription,
+                            prescribed: x.requiresPrescription,
                         }))}
                         showDeliveryFee={true}
                         showTotalAmount={true}

@@ -2,6 +2,7 @@
 import { useEffect, useState, useContext, useCallback, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AuthContext } from "../../../Context/AuthContext.jsx";
+import { CartContext } from "../../../Context/CartContext.jsx";
 
 import PageHeader from "../Shared_Components/PageHeader";
 import NavigationTab from "../Shared_Components/NavigationTab";
@@ -61,6 +62,25 @@ function pickSingleApprovedPrescriptionId(prescriptionState, itemsFromCart) {
     return null;
 }
 
+// helper image
+const buildCartImageSrc = (x, API_BASE) => {
+    const productId = x?.productId ?? x?.ProductId ?? null;
+
+    const base64 =
+        x?.productImageBase64 ??
+        x?.ProductImageBase64 ??
+        x?.imageBase64 ??
+        x?.ImageBase64 ??
+        null;
+
+    const hasBase64 = !!base64;
+
+    return hasBase64
+        ? `data:image/jpeg;base64,${base64}`
+        : productId
+            ? `${API_BASE}/api/ExternalProducts/${productId}/image?v=${productId}`
+            : "";
+};
 
 export default function Checkout() {
     const navigate = useNavigate();
@@ -69,6 +89,7 @@ export default function Checkout() {
     const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
 
     const { user } = useContext(AuthContext);
+    const { refreshCartCount } = useContext(CartContext);
     const userId = user?.userId ?? user?.id ?? user?.UserId ?? null;
 
     const [itemsFromCart, setItemsFromCart] = useState([]);
@@ -156,8 +177,7 @@ export default function Checkout() {
                             category: x.category ?? x.categoryName ?? x.CategoryName ?? "",
                             type: x.type ?? x.productTypeName ?? x.ProductTypeName ?? "",
 
-                            imageSrc:
-                                x.imageSrc ?? x.productImageBase64 ?? x.ProductImageBase64 ?? null,
+                            imageSrc: buildCartImageSrc(x, API_BASE),
                             incompatibilities: x.incompatibilities ?? x.Incompatibilities ?? {},
                         };
                     })
@@ -494,6 +514,8 @@ export default function Checkout() {
 
             // success
             clearDraftFromSession();
+            setItemsFromCart([]);
+            refreshCartCount?.();
 
             const oid = json?.orderId ?? null;
 
