@@ -237,9 +237,9 @@ export default function AddProduct() {
             if (response.ok) {
                 const data = await response.json();
                 if (data.exists) {
-                    setErrors(prev => ({ 
-                        ...prev, 
-                        productName: "A product with this name already exists in the system." 
+                    setErrors(prev => ({
+                        ...prev,
+                        productName: "A product with this name already exists in the system."
                     }));
                 }
             }
@@ -289,21 +289,17 @@ export default function AddProduct() {
         return "";
     };
 
-    const validateIngredients = (ingredients) => {
-        if (!ingredients || ingredients.length === 0) {
-            return "At least one active ingredient must be selected.";
-        }
-        return "";
-    };
+    // Ingredients are optional (devices / band aids etc.)
+    const validateIngredients = (_ingredients) => "";
 
     // =================== CHANGE HANDLERS WITH LIVE VALIDATION ===================
     const handleProductNameChange = (e) => {
         const value = e.target.value;
 
         if (!namePattern.test(value)) {
-            setErrors(prev => ({ 
-                ...prev, 
-                productName: "Product name may only contain letters, numbers, spaces, dots, dashes, and plus signs." 
+            setErrors(prev => ({
+                ...prev,
+                productName: "Product name may only contain letters, numbers, spaces, dots, dashes, and plus signs."
             }));
             setTouched(prev => ({ ...prev, productName: true }));
             return;
@@ -460,7 +456,6 @@ export default function AddProduct() {
     };
 
     const handleSelectIngredient = (ingredientOption) => {
-        // Check if already selected
         const isAlreadySelected = selectedIngredients.some(
             ing => ing.value === ingredientOption.value
         );
@@ -473,13 +468,10 @@ export default function AddProduct() {
             const error = validateIngredients(newSelectedIngredients);
             setErrors(prev => ({ ...prev, ingredients: error }));
 
-            // Build the comma-separated display
             const displayValue = newSelectedIngredients
                 .map(ing => ing.ingredientName)
                 .join(", ");
-            
-            // Only add trailing comma and space if there are ingredients selected
-            // This prepares for the next entry
+
             setIngredientQuery(displayValue.length > 0 ? displayValue + ", " : "");
         }
 
@@ -497,12 +489,10 @@ export default function AddProduct() {
         const error = validateIngredients(newSelectedIngredients);
         setErrors(prev => ({ ...prev, ingredients: error }));
 
-        // Update the display value
         const displayValue = newSelectedIngredients
             .map(ing => ing.ingredientName)
             .join(", ");
-        
-        // Add trailing comma only if there are still ingredients
+
         setIngredientQuery(displayValue.length > 0 ? displayValue + ", " : "");
     };
 
@@ -527,7 +517,6 @@ export default function AddProduct() {
         } else if (e.key === "Escape") {
             setShowIngredientDropdown(false);
         } else if (e.key === "Backspace") {
-            // If backspace is pressed and we're at a comma, remove the last ingredient
             const trimmed = ingredientQuery.trimEnd();
             if (trimmed.endsWith(",") && selectedIngredients.length > 0) {
                 e.preventDefault();
@@ -557,10 +546,8 @@ export default function AddProduct() {
         )
         : categoryOptions;
 
-    // Get the search term after the last comma
     const currentSearchTerm = getCurrentSearchTerm();
 
-    // FIX: Filter based on currentSearchTerm, NOT ingredientQuery
     const filteredIngredients = currentSearchTerm
         ? ingredientOptions.filter(i =>
             i.ingredientName.toLowerCase().startsWith(currentSearchTerm.toLowerCase()) &&
@@ -574,7 +561,7 @@ export default function AddProduct() {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Mark all fields as touched
+        // Mark all fields as touched (ingredients no longer required)
         setTouched({
             productName: true,
             supplier: true,
@@ -598,7 +585,6 @@ export default function AddProduct() {
 
         setErrors(validationErrors);
 
-        // Check if any errors exist
         const hasErrors = Object.values(validationErrors).some(error => error !== "");
 
         if (hasErrors) {
@@ -616,11 +602,11 @@ export default function AddProduct() {
         formData.append("ProductPrice", parseFloat(unitPrice.trim()));
         formData.append("IsControlled", isControlled);
 
-        // Add ingredient IDs
+        // Ingredient IDs are optional now
         selectedIngredients.forEach((ingredient, index) => {
             formData.append(`IngredientIds[${index}]`, ingredient.value);
         });
-        
+
         if (productImage) {
             formData.append("ProductImage", productImage);
         }
@@ -637,11 +623,10 @@ export default function AddProduct() {
                 setErrorMessage("");
                 setTimeout(() => navigate("/products"), 1500);
             } else if (response.status === 409) {
-                // Conflict - duplicate name
                 setErrorMessage("A product with this name already exists in the system.");
-                setErrors(prev => ({ 
-                    ...prev, 
-                    productName: "A product with this name already exists in the system." 
+                setErrors(prev => ({
+                    ...prev,
+                    productName: "A product with this name already exists in the system."
                 }));
                 setSuccessMessage("");
             } else {
@@ -842,8 +827,8 @@ export default function AddProduct() {
                             className={`form-control form-text-input ${touched.ingredients && errors.ingredients ? "is-invalid" : ""}`}
                             style={{ width: "100%" }}
                             placeholder={
-                                loadingIngredients 
-                                    ? "Loading ingredients..." 
+                                loadingIngredients
+                                    ? "Loading ingredients..."
                                     : selectedIngredients.length > 0
                                         ? "Add more ingredients..."
                                         : "Search or select active ingredients"

@@ -46,9 +46,6 @@ public partial class Order
     [InverseProperty("Order")]
     public virtual ICollection<ProductOrder> ProductOrders { get; set; } = new List<ProductOrder>();
 
-    [InverseProperty("Order")]
-    public virtual ICollection<Report> Reports { get; set; } = new List<Report>();
-
     [ForeignKey("ShippingId")]
     [InverseProperty("Orders")]
     public virtual Shipping? Shipping { get; set; }

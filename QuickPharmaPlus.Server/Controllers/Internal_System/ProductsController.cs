@@ -167,11 +167,12 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                 return BadRequest("Product price must be greater than 0.");
 
             // 10. NEW: Validate ingredients - at least one must be selected
-            if (model.IngredientIds == null || model.IngredientIds.Count == 0)
-                return BadRequest("At least one active ingredient must be selected.");
+            // REMOVE this block:
+            // if (model.IngredientIds == null || model.IngredientIds.Count == 0)
+            //     return BadRequest("At least one active ingredient must be selected.");
 
-            // Validate all ingredient IDs are positive
-            if (model.IngredientIds.Any(id => id <= 0))
+            // KEEP the invalid-id check, but only when IngredientIds is provided:
+            if (model.IngredientIds != null && model.IngredientIds.Any(id => id <= 0))
                 return BadRequest("Invalid ingredient ID detected.");
 
             // 11. Process image
@@ -203,18 +204,22 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
             var created = await _repo.AddProductAsync(product);
 
             // 13. NEW: Create ingredient-product relationships
-            foreach (var ingredientId in model.IngredientIds)
+            // Guard for null:
+            if (model.IngredientIds != null)
             {
-                var ingredientProduct = new IngredientProduct
+                foreach (var ingredientId in model.IngredientIds)
                 {
-                    ProductId = created.ProductId,
-                    IngredientId = ingredientId
-                };
+                    var ingredientProduct = new IngredientProduct
+                    {
+                        ProductId = created.ProductId,
+                        IngredientId = ingredientId
+                    };
 
-                _context.IngredientProducts.Add(ingredientProduct);
+                    _context.IngredientProducts.Add(ingredientProduct);
+                }
+
+                await _context.SaveChangesAsync();
             }
-
-            await _context.SaveChangesAsync();
 
             // =================== CREATE DETAILED LOG ===================
             var currentUserId = await GetCurrentUserIdAsync();
@@ -225,10 +230,15 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                 var category = await _context.Categories.FindAsync(model.CategoryId.Value);
                 var productType = await _context.ProductTypes.FindAsync(model.ProductTypeId.Value);
 
-                var ingredientNames = await _context.Ingredients
-                    .Where(i => model.IngredientIds.Contains(i.IngredientId))
-                    .Select(i => i.IngredientName)
-                    .ToListAsync();
+                // Logging: only query ingredient names when IngredientIds provided
+                var ingredientNames = new List<string>();
+                if (model.IngredientIds != null && model.IngredientIds.Count > 0)
+                {
+                    ingredientNames = await _context.Ingredients
+                        .Where(i => model.IngredientIds.Contains(i.IngredientId))
+                        .Select(i => i.IngredientName)
+                        .ToListAsync();
+                }
 
                 var details = $"Product Name: {trimmedName}, " +
                               $"Price: BHD {model.ProductPrice.Value:F3}, " +
@@ -324,10 +334,12 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                 return BadRequest("Product price must be greater than 0.");
 
             // 11. Validate ingredients
-            if (model.IngredientIds == null || model.IngredientIds.Count == 0)
-                return BadRequest("At least one active ingredient must be selected.");
+            // REMOVE this block:
+            // if (model.IngredientIds == null || model.IngredientIds.Count == 0)
+            //     return BadRequest("At least one active ingredient must be selected.");
 
-            if (model.IngredientIds.Any(ingredientId => ingredientId <= 0))
+            // Validate IDs only when provided:
+            if (model.IngredientIds != null && model.IngredientIds.Any(ingredientId => ingredientId <= 0))
                 return BadRequest("Invalid ingredient ID detected.");
 
             // =================== TRACK CHANGES ===================
@@ -372,7 +384,7 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
 
             // Track ingredient changes
             var oldIngredientIds = existingIngredients.Select(ei => ei.IngredientId ?? 0).OrderBy(x => x).ToList();
-            var newIngredientIds = model.IngredientIds.OrderBy(x => x).ToList();
+            var newIngredientIds = (model.IngredientIds ?? new List<int>()).OrderBy(x => x).ToList();
 
             if (!oldIngredientIds.SequenceEqual(newIngredientIds))
             {
@@ -381,10 +393,14 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                     .Select(ei => ei.Ingredient!.IngredientName)
                     .ToList();
 
-                var newIngredientNames = await _context.Ingredients
-                    .Where(i => model.IngredientIds.Contains(i.IngredientId))
-                    .Select(i => i.IngredientName)
-                    .ToListAsync();
+                var newIngredientNames = new List<string>();
+                if (model.IngredientIds != null && model.IngredientIds.Count > 0)
+                {
+                    newIngredientNames = await _context.Ingredients
+                        .Where(i => model.IngredientIds.Contains(i.IngredientId))
+                        .Select(i => i.IngredientName)
+                        .ToListAsync();
+                }
 
                 changes.Add($"Ingredients: [{string.Join(", ", oldIngredientNames)}] → [{string.Join(", ", newIngredientNames)}]");
             }
@@ -415,16 +431,16 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
             // Remove existing relationships
             _context.IngredientProducts.RemoveRange(existingIngredients);
 
-            // Add new relationships
-            foreach (var ingredientId in model.IngredientIds)
+            if (model.IngredientIds != null)
             {
-                var ingredientProduct = new IngredientProduct
+                foreach (var ingredientId in model.IngredientIds)
                 {
-                    ProductId = id,
-                    IngredientId = ingredientId
-                };
-
-                _context.IngredientProducts.Add(ingredientProduct);
+                    _context.IngredientProducts.Add(new IngredientProduct
+                    {
+                        ProductId = id,
+                        IngredientId = ingredientId
+                    });
+                }
             }
 
             await _context.SaveChangesAsync();

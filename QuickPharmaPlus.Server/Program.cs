@@ -182,6 +182,7 @@ namespace QuickPharmaPlus.Server
             builder.Services.AddScoped<IPrescriptionNotificationEmailService, PrescriptionNotificationEmailService>();
             builder.Services.AddScoped<IDeliveryNotificationEmailService, DeliveryNotificationEmailService>();
             builder.Services.AddScoped<IDeliveryRequestRepository, DeliveryRequestRepository>();
+            builder.Services.AddScoped<IReportRepository, ReportRepository>();
 
             // =========================
             // BACKGROUND SERVICES

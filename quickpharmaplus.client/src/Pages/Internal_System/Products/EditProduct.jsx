@@ -371,12 +371,7 @@ export default function EditProduct() {
         return "";
     };
 
-    const validateIngredients = (ingredients) => {
-        if (!ingredients || ingredients.length === 0) {
-            return "At least one active ingredient must be selected.";
-        }
-        return "";
-    };
+    const validateIngredients = (_ingredients) => "";
 
     // =================== CHANGE HANDLERS WITH LIVE VALIDATION ===================
     const handleProductNameChange = (e) => {
