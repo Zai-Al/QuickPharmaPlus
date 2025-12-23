@@ -29,3 +29,26 @@
 .delivery-table td {
     text-align: center;
 }
+
+/* ----------------------------------------- */
+/*                POPUP STYLES               */
+/* ----------------------------------------- */
+
+.custom-popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.custom-popup-box {
+    width: 520px;
+    max-width: calc(100% - 32px);
+    background: #fff;
+    border-radius: 12px;
+    padding: 18px 18px 16px 18px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+}
