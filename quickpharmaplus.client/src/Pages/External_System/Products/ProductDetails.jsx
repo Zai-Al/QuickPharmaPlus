@@ -114,28 +114,20 @@ const mockCheckInteractions = (_currentCart, productToAdd) => {
 };
 
 const mapListItemToCard = (dto, API_BASE) => {
-    const hasBase64 = !!dto.productImageBase64; // DEFINE IT
+    const hasBase64 = !!dto.productImageBase64; 
 
     return {
         id: dto.id,
         name: dto.name,
         price: dto.price ?? 0,
-
-        imageUrl: hasBase64
-            ? `data:image/jpeg;base64,${dto.productImageBase64}`
-            : dto.id
-                ? `${API_BASE}/api/ExternalProducts/${dto.id}/image?v=${dto.id}`
-                : null,
-
+        imageUrl: hasBase64 ? `data:image/jpeg;base64,${dto.productImageBase64}` : dto.id ? `${API_BASE}/api/ExternalProducts/${dto.id}/image?v=${dto.id}` : null,
         isFavorite: false,
         requiresPrescription: dto.requiresPrescription ?? false,
         incompatibilities: dto.incompatibilities ?? { medications: [], allergies: [], illnesses: [] },
         categoryName: dto.categoryName ?? "",
         productType: dto.productTypeName ?? "",
         inventoryCount: dto.inventoryCount ?? 0,
-        stockStatus:
-            dto.stockStatus ??
-            ((dto.inventoryCount ?? 0) <= 0 ? "OUT_OF_STOCK" : "IN_STOCK"),
+        stockStatus: dto.stockStatus ?? ((dto.inventoryCount ?? 0) <= 0 ? "OUT_OF_STOCK" : "IN_STOCK"),
     };
 };
 
@@ -164,7 +156,7 @@ export default function ProductDetails() {
         if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
         addedTimerRef.current = setTimeout(() => {
             setIsAdded(false);
-            setQuantity(1); // ? reset qty back to 1
+            setQuantity(1); // reset qty back to 1
         }, 1400);
     };
 
@@ -246,6 +238,7 @@ export default function ProductDetails() {
                 setWishlistLoading(true);
 
                 const res = await fetch(`${API_BASE}/api/Wishlist/ids?userId=${currentUserId}`, {
+                    credentials: "include",
                     signal: controller.signal,
                     headers: { "Content-Type": "application/json" },
                 });
@@ -530,6 +523,7 @@ export default function ProductDetails() {
                 }`;
 
             const res = await fetch(url, {
+                credentials: "include",
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
             });
@@ -667,6 +661,7 @@ export default function ProductDetails() {
     const removeFromWishlistApi = async (productId) => {
         const url = `${API_BASE}/api/Wishlist/${productId}?userId=${currentUserId}`;
         const res = await fetch(url, {
+            credentials: "include",
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
         });
@@ -682,6 +677,7 @@ export default function ProductDetails() {
         const url = `${API_BASE}/api/Wishlist/${productId}?userId=${currentUserId}${forceAdd ? "&forceAdd=true" : ""}`;
 
         const res = await fetch(url, {
+            credentials: "include",
             method: "POST",
             headers: { "Content-Type": "application/json" },
         });

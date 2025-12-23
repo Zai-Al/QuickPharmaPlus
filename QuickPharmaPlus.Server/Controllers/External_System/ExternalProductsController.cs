@@ -15,7 +15,7 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
 {
     [Route("api/[controller]")]
     [ApiController]
-    [AllowAnonymous] // change to [Authorize(Roles = "Customer")] later if needed
+    [AllowAnonymous] 
     public class ExternalProductsController : ControllerBase
     {
         private readonly IProductRepository _productRepository;
@@ -134,7 +134,7 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
 
                 await ApplyInventorySnapshotAsync(items, productIds, safeBranchIds);
 
-                // ✅ NEW: compute incompatibilities ONLY if userId provided
+                // compute incompatibilities ONLY if userId provided
                 if (userId.HasValue && userId.Value > 0 && items.Count > 0)
                 {
                     var incMap = await _incompatRepo.GetMapAsync(userId.Value, productIds);
@@ -243,7 +243,7 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                 Incompatibilities = null
             };
 
-            // ✅ NEW: incompatibilities for single product
+            // incompatibilities for single product
             if (userId.HasValue && userId.Value > 0)
             {
                 var map = await _incompatRepo.GetMapAsync(userId.Value, new List<int> { id });

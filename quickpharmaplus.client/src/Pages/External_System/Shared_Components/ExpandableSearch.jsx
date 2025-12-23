@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import "./ExpandableSearch.css";
 import { FiSearch, FiX } from "react-icons/fi";
-import { AuthContext } from "../../../Context/AuthContext.jsx"; // <-- adjust path if needed
+import { AuthContext } from "../../../Context/AuthContext.jsx"; 
 
 function toImageSrc(dto) {
     if (dto.productImageBase64 || dto.ProductImageBase64) {

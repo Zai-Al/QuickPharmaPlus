@@ -16,5 +16,12 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
 
         Task<bool> RemoveAsync(int userId, int productId);
         Task<int> ClearAsync(int userId);
+        Task<(List<CartItemDto> items, int totalCount)> GetMyPagedAsync(int userId, int page, int pageSize);
+
+        Task<(int totalQuantity, decimal totalAmount)> GetCartSummaryAsync(int userId);
+
+        Task<(int totalQuantity, decimal totalAmount, int totalCount)> GetSummaryAsync(int userId);
+
+
     }
 }

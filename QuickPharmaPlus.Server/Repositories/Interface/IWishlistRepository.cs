@@ -8,5 +8,7 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
         Task<bool> RemoveAsync(int userId, int productId);
         Task<HashSet<int>> GetMyIdsAsync(int userId);
         Task<List<WishlistItemDto>> GetMyAsync(int userId);
+        Task<(List<WishlistItemDto> Items, int TotalCount)> GetMyPagedAsync(int userId, int page, int pageSize);
+
     }
 }

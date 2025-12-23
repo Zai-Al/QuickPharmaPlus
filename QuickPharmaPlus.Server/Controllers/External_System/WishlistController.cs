@@ -12,7 +12,7 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
 {
     [ApiController]
     [Route("api/[controller]")]
-    [AllowAnonymous] // later: [Authorize(Roles="Customer")]
+    [Authorize(Roles = "Customer")]
     public class WishlistController : ControllerBase
     {
         private readonly IWishlistRepository _wishlistRepository;
@@ -51,19 +51,32 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
         // ✅ returns incompatibilities in SAME SHAPE frontend expects
         // =====================================================
         [HttpGet]
-        public async Task<IActionResult> GetMyWishlist([FromQuery] int userId)
+        public async Task<IActionResult> GetMyWishlist(
+    [FromQuery] int userId,
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 12)
         {
             if (userId <= 0) return BadRequest(new { error = "Invalid userId" });
 
             try
             {
-                var items = await _wishlistRepository.GetMyAsync(userId);
-                if (items == null || items.Count == 0)
-                    return Ok(new { count = 0, items = Array.Empty<object>() });
+                var (items, totalCount) = await _wishlistRepository.GetMyPagedAsync(userId, page, pageSize);
 
-                // product ids
+                if (items == null || items.Count == 0)
+                {
+                    return Ok(new
+                    {
+                        count = 0,
+                        page,
+                        pageSize,
+                        totalCount,
+                        totalPages = 0,
+                        items = Array.Empty<object>()
+                    });
+                }
+
                 var productIds = items
-                    .Select(x => x.ProductId) // strongly typed
+                    .Select(x => x.ProductId)
                     .Where(pid => pid > 0)
                     .Distinct()
                     .ToList();
@@ -71,7 +84,6 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                 var illnessMap = await GetIllnessIncompatibilityMapAsync(userId, productIds);
                 var allergyMap = await GetAllergyIncompatibilityMapAsync(userId, productIds);
 
-                // shape response for React mapping
                 var shaped = items.Select(x =>
                 {
                     illnessMap.TryGetValue(x.ProductId, out var ill);
@@ -93,14 +105,24 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
 
                         incompatibilities = new
                         {
-                            medications = Array.Empty<object>(), // med-vs-wishlist handled by POST confirm flow
+                            medications = Array.Empty<object>(),
                             allergies = all,
                             illnesses = ill
                         }
                     };
                 }).ToList();
 
-                return Ok(new { count = shaped.Count, items = shaped });
+                var totalPages = (int)Math.Ceiling(totalCount / (double)Math.Max(pageSize, 1));
+
+                return Ok(new
+                {
+                    count = shaped.Count,
+                    page,
+                    pageSize,
+                    totalCount,
+                    totalPages,
+                    items = shaped
+                });
             }
             catch (Exception ex)
             {
@@ -114,6 +136,7 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                 });
             }
         }
+
 
         // GET /api/wishlist/ids?userId=5
         [HttpGet("ids")]
@@ -199,6 +222,20 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                 });
             }
         }
+
+        // DELETE /api/Wishlist/clear?userId=5
+        [HttpDelete("clear")]
+        public async Task<IActionResult> Clear([FromQuery] int userId)
+        {
+            if (userId <= 0) return BadRequest(new { error = "Invalid userId" });
+
+            var rows = await _context.WishLists.Where(w => w.UserId == userId).ToListAsync();
+            _context.WishLists.RemoveRange(rows);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { cleared = rows.Count });
+        }
+
 
         // DELETE /api/wishlist/{productId}?userId=5
         [HttpDelete("{productId:int}")]

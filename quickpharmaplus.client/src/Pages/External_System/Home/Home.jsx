@@ -195,6 +195,7 @@ export default function HomeExternal() {
                 setWishlistLoading(true);
 
                 const res = await fetch(`${API_BASE}/api/Wishlist/ids?userId=${currentUserId}`, {
+                    credentials: "include",
                     signal: controller.signal,
                     headers: { "Content-Type": "application/json" },
                 });
@@ -371,6 +372,7 @@ export default function HomeExternal() {
                 }`;
 
             const res = await fetch(url, {
+                credentials: "include",
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
             });
@@ -443,6 +445,7 @@ export default function HomeExternal() {
 
         try {
             const res = await fetch(url, {
+                credentials: "include",
                 method: isFav ? "DELETE" : "POST",
                 headers: { "Content-Type": "application/json" },
             });
@@ -494,17 +497,28 @@ export default function HomeExternal() {
             return;
         }
 
-        // add: server may require confirmation
+        // NEW: health incompatibility dialog (allergy/illness/health profile)
+        if (hasAnyInc(product?.incompatibilities)) {
+            setPendingProduct(product);
+            setDialogLines(buildIncLines(product.incompatibilities));
+            setDialogMode("WISHLIST");
+            setForceAddNext(false); // this is NOT server force-add yet
+            setShowDialog(true);
+            return;
+        }
+
+        // add: server may require confirmation (medication interaction with wishlist)
         const result = await toggleWishlistApi(product, false);
 
         if (result?.conflict) {
             setPendingProduct(product);
             setDialogLines(buildIncLines(result.incompatibilities));
             setDialogMode("WISHLIST");
-            setForceAddNext(true);
+            setForceAddNext(true); // confirm -> retry with forceAdd=true
             setShowDialog(true);
         }
     };
+
 
     /* =========================
        Dialog handlers (unified)
@@ -524,13 +538,30 @@ export default function HomeExternal() {
         }
 
         if (dialogMode === "CART") {
-            await addToCartApi(pendingProduct, forceAddNext);
+            const result = await addToCartApi(pendingProduct, forceAddNext);
+
+            // If confirm was health-warning, server may still return 409 medication interaction
+            if (result?.conflict) {
+                setDialogLines(buildIncLines(result.incompatibilities));
+                setForceAddNext(true); // next confirm will forceAdd
+                setShowDialog(true);
+                return; // keep dialog open
+            }
         } else if (dialogMode === "WISHLIST") {
-            await toggleWishlistApi(pendingProduct, forceAddNext);
+            const result = await toggleWishlistApi(pendingProduct, forceAddNext);
+
+            // If confirm was health-warning, server may still return 409 medication interaction
+            if (result?.conflict) {
+                setDialogLines(buildIncLines(result.incompatibilities));
+                setForceAddNext(true); // next confirm will forceAdd
+                setShowDialog(true);
+                return; // keep dialog open
+            }
         }
 
         handleCancelDialog();
     };
+
 
     /* =========================
        Derived arrays with isFavorite + isAdded

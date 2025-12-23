@@ -14,7 +14,7 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
 {
     [ApiController]
     [Route("api/[controller]")]
-    [AllowAnonymous] // later: [Authorize(Roles = "Customer")]
+    [Authorize(Roles = "Customer")] 
     public class CartController : ControllerBase
     {
         private readonly ICartRepository _cartRepository;
@@ -31,20 +31,42 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             _context = context;
         }
 
-        // =====================================================
-        // GET /api/cart?userId=5
-        // ✅ Now returns incompatibilities (illness+allergy) in the SAME SHAPE your React expects
-        // =====================================================
+
+
+        // GET /api/cart?userId=5&page=1&pageSize=12
         [HttpGet]
-        public async Task<IActionResult> GetMyCart([FromQuery] int userId)
+        public async Task<IActionResult> GetMyCart([FromQuery] int userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 12)
         {
             if (userId <= 0) return BadRequest(new { error = "Invalid userId" });
+            if (page <= 0) page = 1;
+            if (pageSize <= 0) pageSize = 12;
 
             try
             {
-                var items = await _cartRepository.GetMyAsync(userId);
+                var (items, totalCount) = await _cartRepository.GetMyPagedAsync(userId, page, pageSize);
+
+                // ✅ summary across ENTIRE cart
+                var (totalQuantity, totalAmount) = await _cartRepository.GetCartSummaryAsync(userId);
+
                 if (items == null || items.Count == 0)
-                    return Ok(new { count = 0, items = Array.Empty<object>() });
+                {
+                    var emptyTotalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+                    if (emptyTotalPages <= 0) emptyTotalPages = 1;
+
+                    return Ok(new
+                    {
+                        items = Array.Empty<object>(),
+                        totalCount,
+                        page,
+                        pageSize,
+                        totalPages = emptyTotalPages,
+                        summary = new
+                        {
+                            totalQuantity,
+                            totalAmount
+                        }
+                    });
+                }
 
                 var productIds = items
                     .Select(x => x.ProductId)
@@ -55,8 +77,6 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                 var illnessMap = await GetIllnessIncompatibilityMapAsync(userId, productIds);
                 var allergyMap = await GetAllergyIncompatibilityMapAsync(userId, productIds);
 
-                // ✅ Shape the response so frontend can read:
-                // x.incompatibilities.medications / allergies / illnesses
                 var shaped = items.Select(item =>
                 {
                     illnessMap.TryGetValue(item.ProductId, out var ill);
@@ -80,14 +100,29 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
 
                         incompatibilities = new
                         {
-                            medications = Array.Empty<object>(), // cart–cart meds handled by POST confirm flow
+                            medications = Array.Empty<object>(),
                             allergies = all,
                             illnesses = ill
                         }
                     };
                 }).ToList();
 
-                return Ok(new { count = shaped.Count, items = shaped });
+                var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+                if (totalPages <= 0) totalPages = 1;
+
+                return Ok(new
+                {
+                    items = shaped,
+                    totalCount,
+                    page,
+                    pageSize,
+                    totalPages,
+                    summary = new
+                    {
+                        totalQuantity,
+                        totalAmount
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -102,9 +137,10 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             }
         }
 
-        // =====================================================
+
+
         // GET /api/cart/check-medication?userId=5&productId=10
-        // =====================================================
+
         [HttpGet("check-medication")]
         public async Task<IActionResult> CheckMedicationIncompatibility(
             [FromQuery] int userId,
@@ -122,9 +158,9 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             });
         }
 
-        // =====================================================
+
         // POST /api/cart/{productId}?userId=5&qty=2&forceAdd=true
-        // =====================================================
+
         [HttpPost("{productId:int}")]
         public async Task<IActionResult> AddToCart(
             int productId,
@@ -177,9 +213,9 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             }
         }
 
-        // =====================================================
+
         // PUT /api/cart/{productId}?userId=5&qty=3
-        // =====================================================
+
         [HttpPut("{productId:int}")]
         public async Task<IActionResult> UpdateQty(
             int productId,
@@ -213,10 +249,40 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
                 });
             }
         }
+        
+        // GET /api/cart/summary?userId=5
+        [HttpGet("summary")]
+        public async Task<IActionResult> GetCartSummary([FromQuery] int userId)
+        {
+            if (userId <= 0) return BadRequest(new { error = "Invalid userId" });
 
-        // =====================================================
+            try
+            {
+                var summary = await _cartRepository.GetSummaryAsync(userId);
+
+                return Ok(new
+                {
+                    totalQuantity = summary.totalQuantity,   // sum of quantities across ALL cart rows
+                    totalAmount = summary.totalAmount,       // sum(price * qty) across ALL cart rows
+                    totalCount = summary.totalCount          // distinct products (rows)
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    error = "Cart summary failed",
+                    message = ex.Message,
+#if DEBUG
+                    stackTrace = ex.StackTrace
+#endif
+                });
+            }
+        }
+
+
         // DELETE /api/cart/{productId}?userId=5
-        // =====================================================
+
         [HttpDelete("{productId:int}")]
         public async Task<IActionResult> RemoveFromCart(int productId, [FromQuery] int userId)
         {
@@ -241,9 +307,9 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             }
         }
 
-        // =====================================================
+
         // DELETE /api/cart/clear?userId=5
-        // =====================================================
+
         [HttpDelete("clear")]
         public async Task<IActionResult> ClearCart([FromQuery] int userId)
         {
@@ -267,9 +333,9 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             }
         }
 
-        // =====================================================
+
         // HELPER: Medication incompatibility vs cart
-        // =====================================================
+
         private async Task<CustomerIncompatibilitiesDto> BuildMedicationIncompatibilityAgainstCartAsync(int userId, int newProductId)
         {
             List<CartItemDto> cartItems = await _cartRepository.GetMyAsync(userId);
@@ -310,9 +376,9 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             return result;
         }
 
-        // =====================================================
+
         // HELPER: Illness incompatibility map (health profile)
-        // =====================================================
+
         private async Task<Dictionary<int, List<string>>> GetIllnessIncompatibilityMapAsync(int userId, List<int> productIds)
         {
             var result = new Dictionary<int, List<string>>();
@@ -363,9 +429,9 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
             return result;
         }
 
-        // =====================================================
+
         // HELPER: Allergy incompatibility map (health profile)
-        // =====================================================
+
         private async Task<Dictionary<int, List<string>>> GetAllergyIncompatibilityMapAsync(int userId, List<int> productIds)
         {
             var result = new Dictionary<int, List<string>>();

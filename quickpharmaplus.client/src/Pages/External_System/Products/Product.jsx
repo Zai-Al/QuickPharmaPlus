@@ -243,6 +243,7 @@ export default function Product() {
                 setWishlistLoading(true);
 
                 const res = await fetch(`${API_BASE}/api/Wishlist/ids?userId=${currentUserId}`, {
+                    credentials: "include",
                     signal: controller.signal,
                     headers: { "Content-Type": "application/json" },
                 });
@@ -555,6 +556,7 @@ export default function Product() {
     const removeFromWishlistApi = async (productId) => {
         const url = `${API_BASE}/api/Wishlist/${productId}?userId=${currentUserId}`;
         const res = await fetch(url, {
+            credentials: "include",
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
         });
@@ -571,6 +573,7 @@ export default function Product() {
         const url = `${API_BASE}/api/Wishlist/${productId}?userId=${currentUserId}${forceAdd ? "&forceAdd=true" : ""}`;
 
         const res = await fetch(url, {
+            credentials: "include",
             method: "POST",
             headers: { "Content-Type": "application/json" },
         });
@@ -693,6 +696,7 @@ export default function Product() {
         const url = `${API_BASE}/api/Cart/${productId}?userId=${currentUserId}&qty=${qty}${forceAdd ? "&forceAdd=true" : ""}`;
 
         const res = await fetch(url, {
+            credentials: "include",
             method: "POST",
             headers: { "Content-Type": "application/json" },
         });

@@ -85,6 +85,7 @@ export default function IllnessAllergyComponents({
 
             // names (illness/allergy)
             const r1 = await fetch(getLookupUrl(includeNameId), {
+                credentials: "include",
                 signal,
                 headers: { "Content-Type": "application/json" },
             });
@@ -106,6 +107,7 @@ export default function IllnessAllergyComponents({
 
             // severities
             const r2 = await fetch(`${API_BASE}/api/HealthProfileLookup/severities`, {
+                credentials: "include",
                 signal,
                 headers: { "Content-Type": "application/json" },
             });
@@ -148,6 +150,7 @@ export default function IllnessAllergyComponents({
             setLoadError("");
 
             const res = await fetch(`${API_BASE}/api/${getCrudBase()}?userId=${userId}`, {
+                credentials: "include",
                 signal,
                 headers: { "Content-Type": "application/json" },
             });
@@ -220,6 +223,7 @@ export default function IllnessAllergyComponents({
                 : `${API_BASE}/api/${base}?userId=${userId}&${nameQueryKey}=${formData.nameId}&severityId=${formData.severityId}`;
 
             const res = await fetch(url, {
+                credentials: "include",
                 method: isEdit ? "PUT" : "POST",
                 headers: { "Content-Type": "application/json" },
             });

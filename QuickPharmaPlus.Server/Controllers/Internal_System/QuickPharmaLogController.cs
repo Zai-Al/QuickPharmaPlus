@@ -98,7 +98,7 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
         {
             try
             {
-                await _repo.CreateInventoryChangeLogAsync(userId, productName, branchName);
+                //await _repo.CreateInventoryChangeLogAsync(userId, productName, branchName);
                 return Ok(new { logged = true });
             }
             catch (Exception ex)

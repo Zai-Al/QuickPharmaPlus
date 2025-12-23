@@ -1,5 +1,5 @@
 // src/Pages/External_System/WishList/WishList.jsx
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext, useCallback } from "react";
 import PageHeader from "../Shared_Components/PageHeader";
 import TableFormat from "../Shared_Components/TableFormat";
 import formatCurrency from "../Shared_Components/formatCurrency";
@@ -13,6 +13,7 @@ import { Link } from "react-router-dom";
 import { WishlistContext } from "../../../Context/WishlistContext";
 import { CartContext } from "../../../Context/CartContext";
 import { dialogCopy } from "../Shared_Components/dialogCopy";
+import Pagination from "../../../Components/InternalSystem/GeneralComponents/Pagination";
 
 // normalize (supports camelCase OR PascalCase)
 const normalizeInc = (incRaw) => {
@@ -38,13 +39,8 @@ const buildIncompatibilityLines = (incRaw = {}) => {
         );
     }
 
-    if (inc.allergies?.length) {
-        lines.push("Allergy conflict: " + inc.allergies.join(", "));
-    }
-
-    if (inc.illnesses?.length) {
-        lines.push("Illness conflict: " + inc.illnesses.join(", "));
-    }
+    if (inc.allergies?.length) lines.push("Allergy conflict: " + inc.allergies.join(", "));
+    if (inc.illnesses?.length) lines.push("Illness conflict: " + inc.illnesses.join(", "));
 
     return lines;
 };
@@ -64,7 +60,6 @@ const buildIncompatibilitySummary = (incRaw = {}) => {
     if (types.length === 0) return null;
     if (types.length === 1) return `This product may be incompatible with ${types[0]}.`;
     if (types.length === 2) return `This product may be incompatible with ${types[0]} and ${types[1]}.`;
-
     return "This product may be incompatible with your medications, allergies, and illnesses.";
 };
 
@@ -91,7 +86,6 @@ const buildMedicationLines = (incRaw = {}) => {
 
     return lines.filter(Boolean);
 };
-
 
 // helper for image
 const buildWishImageSrc = (x, API_BASE) => {
@@ -129,6 +123,15 @@ export default function WishList() {
     const [rowBusy, setRowBusy] = useState({});
     const [actionError, setActionError] = useState("");
 
+    const PAGE_SIZE = 12;
+
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [TotalCount, setTotalCount] = useState(0);
+
+    const [reloadKey, setReloadKey] = useState(0);
+    const triggerReload = useCallback(() => setReloadKey((k) => k + 1), []);
+
     // health modal (from wishlist item incompatibilities: allergy/illness)
     const [addDialog, setAddDialog] = useState({
         show: false,
@@ -151,7 +154,12 @@ export default function WishList() {
     // =========================
     useEffect(() => {
         if (!currentUserId) {
+            setPage(1);
+            setTotalPages(1);
+            setTotalCount(0);
             setItems([]);
+            setLoadError("");
+            setActionError("");
             return;
         }
 
@@ -163,10 +171,14 @@ export default function WishList() {
                 setLoadError("");
                 setActionError("");
 
-                const res = await fetch(`${API_BASE}/api/Wishlist?userId=${currentUserId}`, {
-                    signal: controller.signal,
-                    headers: { "Content-Type": "application/json" },
-                });
+                const res = await fetch(
+                    `${API_BASE}/api/Wishlist?userId=${currentUserId}&page=${page}&pageSize=${PAGE_SIZE}`,
+                    {
+                        credentials: "include",
+                        signal: controller.signal,
+                        headers: { "Content-Type": "application/json" },
+                    }
+                );
 
                 if (!res.ok) {
                     const body = await res.text().catch(() => "");
@@ -174,6 +186,20 @@ export default function WishList() {
                 }
 
                 const data = await res.json();
+                const apiTotalPages = Number(data?.totalPages ?? 1);
+                const apiTotalCount = Number(data?.totalCount ?? 0);
+
+                const nextTotalPages = apiTotalPages > 0 ? apiTotalPages : 1;
+                setTotalPages(nextTotalPages);
+                setTotalCount(apiTotalCount >= 0 ? apiTotalCount : 0);
+
+                // If the current page is now beyond total pages (e.g., deleted items),
+                // snap back to last valid page and refetch.
+                if (page > nextTotalPages) {
+                    setPage(nextTotalPages);
+                    return;
+                }
+
                 const apiItems = Array.isArray(data?.items) ? data.items : [];
 
                 const mapped = apiItems.map((x, idx) => {
@@ -204,6 +230,12 @@ export default function WishList() {
                     };
                 });
 
+                // If page becomes empty (after deletes) and we're not on page 1, go back.
+                if (mapped.length === 0 && page > 1) {
+                    setPage((p) => Math.max(1, p - 1));
+                    return;
+                }
+
                 setItems(mapped);
                 refreshWishlistCount?.();
             } catch (e) {
@@ -218,13 +250,14 @@ export default function WishList() {
 
         fetchWishlist();
         return () => controller.abort();
-    }, [API_BASE, currentUserId, refreshWishlistCount]);
+    }, [API_BASE, currentUserId, page, PAGE_SIZE, refreshWishlistCount, reloadKey]);
 
     // =========================
     // Remove item
     // =========================
     const removeFromWishlistApi = async (productId) => {
         const res = await fetch(`${API_BASE}/api/Wishlist/${productId}?userId=${currentUserId}`, {
+            credentials: "include",
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
         });
@@ -242,35 +275,60 @@ export default function WishList() {
 
         try {
             setActionError("");
+            setRowBusy((prev) => ({ ...prev, [productId]: true }));
+
             await removeFromWishlistApi(productId);
 
-            setItems((prev) => prev.filter((it) => it.productId !== productId));
             refreshWishlistCount?.();
+            triggerReload(); // refetch + refresh totals/pages
         } catch (e) {
             console.error(e);
             setActionError(e?.message || "Failed to remove item.");
+        } finally {
+            setRowBusy((prev) => ({ ...prev, [productId]: false }));
         }
     };
 
     // =========================
-    // Clear wishlist
+    // Clear wishlist (Option A endpoint)
+    // DELETE /api/Wishlist/clear?userId=...
     // =========================
+    const clearWishlistApi = async () => {
+        const res = await fetch(`${API_BASE}/api/Wishlist/clear?userId=${currentUserId}`, {
+            credentials: "include",
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+        });
+
+        if (!res.ok) {
+            const body = await res.text().catch(() => "");
+            throw new Error(body || "Failed to clear wishlist.");
+        }
+
+        return true;
+    };
+
     const handleClearWishList = async () => {
-        if (!currentUserId || items.length === 0) return;
+        if (!currentUserId) return;
 
         try {
             setActionError("");
+            setLoading(true);
 
-            for (const it of items) {
-                // eslint-disable-next-line no-await-in-loop
-                await removeFromWishlistApi(it.productId);
-            }
+            await clearWishlistApi();
 
+            // reset UI state
             setItems([]);
+            setPage(1);
+            setTotalPages(1);
+            setTotalCount(0);
+
             refreshWishlistCount?.();
         } catch (e) {
             console.error("Failed to clear wishlist:", e);
             setActionError(e?.message || "Failed to clear wishlist.");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -282,6 +340,7 @@ export default function WishList() {
             }`;
 
         const res = await fetch(url, {
+            credentials: "include",
             method: "POST",
             headers: { "Content-Type": "application/json" },
         });
@@ -371,8 +430,8 @@ export default function WishList() {
             // 2) remove from wishlist ONLY if cart add succeeded
             await removeFromWishlistApi(productId);
 
-            setItems((prev) => prev.filter((it) => it.productId !== productId));
             refreshWishlistCount?.();
+            triggerReload(); // refetch page + totals
         } catch (e) {
             console.error("Add-to-cart + remove-from-wishlist failed:", e);
             setActionError(e?.message || "Something went wrong. Please try again.");
@@ -405,7 +464,6 @@ export default function WishList() {
         if (addDialog.item) {
             await addToCartThenRemoveFromWishlist(addDialog.item, false);
         }
-
         setAddDialog({ show: false, item: null, summary: "", detailLines: [] });
     };
 
@@ -416,16 +474,19 @@ export default function WishList() {
     // Medication interaction confirm -> retry with forceAdd=true
     const handleConfirmMedicationAdd = async () => {
         const item = medDialog.item;
-
         setMedDialog({ show: false, item: null, detailLines: [] });
-
-        if (item) {
-            await addToCartThenRemoveFromWishlist(item, true);
-        }
+        if (item) await addToCartThenRemoveFromWishlist(item, true);
     };
 
     const handleCancelMedicationAdd = () => {
         setMedDialog({ show: false, item: null, detailLines: [] });
+    };
+
+    const handlePageChange = (newPage) => {
+        if (!newPage) return;
+        if (newPage < 1) return;
+        if (newPage > totalPages) return;
+        setPage(newPage);
     };
 
     return (
@@ -435,8 +496,14 @@ export default function WishList() {
             <div className="container list-padding py-4">
                 <div className="d-flex justify-content-end mb-2">
                     {!isEmpty && (
-                        <button type="button" className="btn qp-outline-btn" onClick={handleClearWishList}>
-                            Clear Wish List
+                        <button
+                            type="button"
+                            className="btn qp-outline-btn"
+                            onClick={handleClearWishList}
+                            disabled={loading}
+                            title={loading ? "Please wait..." : "Clear Wish List"}
+                        >
+                            {loading ? "Clearing..." : "Clear Wish List"}
                         </button>
                     )}
                 </div>
@@ -524,6 +591,12 @@ export default function WishList() {
                         })
                     )}
                 </TableFormat>
+
+                {!loading && totalPages > 1 && (
+                    <div className="d-flex justify-content-center mt-3">
+                        <Pagination currentPage={page} totalPages={totalPages} onPageChange={handlePageChange} />
+                    </div>
+                )}
             </div>
 
             {/* Health modal (allergy/illness) */}

@@ -1,5 +1,5 @@
 // src/Pages/External_System/Cart/Cart.jsx
-import { useEffect, useMemo, useState, useContext } from "react";
+import { useEffect, useState, useContext } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import PageHeader from "../Shared_Components/PageHeader";
 import TableFormat from "../Shared_Components/TableFormat";
@@ -10,6 +10,7 @@ import DialogModal from "../Shared_Components/DialogModal";
 import "../Shared_Components/External_Style.css";
 import { AuthContext } from "../../../Context/AuthContext";
 import { CartContext } from "../../../Context/CartContext";
+import Pagination from "../../../Components/InternalSystem/GeneralComponents/Pagination";
 
 /* ---------------- helpers ---------------- */
 
@@ -87,12 +88,28 @@ export default function Cart() {
     const [quantityErrors, setQuantityErrors] = useState({});
     const [showProceedWarning, setShowProceedWarning] = useState(false);
 
+    const PAGE_SIZE = 12;
+
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
+    const [summary, setSummary] = useState({ totalQuantity: 0, totalAmount: 0 });
+
+
+
     /* =========================
        Load cart
        ========================= */
+    /* =========================
+   Load cart (paged items + global summary)
+   ========================= */
     useEffect(() => {
         if (!currentUserId) {
             setItems([]);
+            setPage(1);
+            setTotalPages(1);
+            setTotalCount(0);
+            setSummary({ totalQuantity: 0, totalAmount: 0 });
             return;
         }
 
@@ -103,25 +120,57 @@ export default function Cart() {
                 setLoading(true);
                 setLoadError("");
 
-                const res = await fetch(`${API_BASE}/api/Cart?userId=${currentUserId}`, {
-                    signal: controller.signal,
-                    headers: { "Content-Type": "application/json" },
+                const res = await fetch(
+                    `${API_BASE}/api/Cart?userId=${encodeURIComponent(
+                        currentUserId
+                    )}&page=${encodeURIComponent(page)}&pageSize=${encodeURIComponent(PAGE_SIZE)}`,
+                    {
+                        credentials: "include",
+                        signal: controller.signal,
+                        headers: { "Content-Type": "application/json" },
+                    }
+                );
+
+                if (!res.ok) {
+                    const body = await res.text().catch(() => "");
+                    throw new Error(body || "Failed to load cart.");
+                }
+
+                const data = await res.json().catch(() => ({}));
+
+                // ? global summary (whole cart, not just this page)
+                const apiSummary = data?.summary ?? {};
+                setSummary({
+                    totalQuantity: Number(apiSummary?.totalQuantity ?? 0),
+                    totalAmount: Number(apiSummary?.totalAmount ?? 0),
                 });
 
-                if (!res.ok) throw new Error("Failed to load cart.");
+                // ? paging info
+                const apiTotalPages = Number(data?.totalPages ?? 1);
+                const apiTotalCount = Number(data?.totalCount ?? 0);
 
-                const data = await res.json();
+                const safeTotalPages = apiTotalPages > 0 ? apiTotalPages : 1;
+                setTotalPages(safeTotalPages);
+                setTotalCount(apiTotalCount >= 0 ? apiTotalCount : 0);
+
                 const apiItems = Array.isArray(data?.items) ? data.items : [];
 
+                // ? if current page becomes invalid after deletions, step back
+                if (apiItems.length === 0 && page > 1) {
+                    // prevent double refreshCartCount call by returning early
+                    setPage((p) => Math.max(1, p - 1));
+                    return;
+                }
+
                 const mapped = apiItems.map((x, idx) => {
-                    const productId = x.productId ?? x.ProductId;
+                    const productId = x.productId ?? x.ProductId ?? null;
 
                     const qty =
                         x.cartQuantity ??
                         x.CartQuantity ??
                         x.cartItemQuantity ??
                         x.CartItemQuantity ??
-                        x.quantity ?? // fallback
+                        x.quantity ??
                         1;
 
                     const inv =
@@ -136,17 +185,15 @@ export default function Cart() {
                         x.StockStatus ??
                         (inv <= 0 ? "OUT_OF_STOCK" : inv <= 5 ? "LOW_STOCK" : "IN_STOCK");
 
-                    // ? normalize incompatibilities coming from API
                     const inc = normalizeInc(x.incompatibilities ?? x.Incompatibilities ?? null);
 
                     return {
-                        // keep row key stable (prefer cartItemId if backend returns it)
                         id: x.cartItemId ?? x.CartItemId ?? x.id ?? idx + 1,
                         productId,
                         name: x.name ?? x.Name ?? "—",
                         category: x.categoryName ?? x.CategoryName ?? "—",
                         type: x.productTypeName ?? x.ProductTypeName ?? "—",
-                        price: x.price ?? x.Price ?? 0,
+                        price: Number(x.price ?? x.Price ?? 0) || 0,
                         quantity: Number(qty) || 1,
                         stockAvailable: Number(inv) || 0,
                         stockStatus,
@@ -157,11 +204,16 @@ export default function Cart() {
                 });
 
                 setItems(mapped);
+
+                // ? keep navbar badge in sync (your context should use /cart/summary ideally)
                 refreshCartCount?.();
             } catch (e) {
-                if (e.name !== "AbortError") {
+                if (e?.name !== "AbortError") {
                     setLoadError(e?.message || "Error loading cart.");
                     setItems([]);
+                    setTotalPages(1);
+                    setTotalCount(0);
+                    setSummary({ totalQuantity: 0, totalAmount: 0 });
                 }
             } finally {
                 setLoading(false);
@@ -170,20 +222,25 @@ export default function Cart() {
 
         fetchCart();
         return () => controller.abort();
-    }, [API_BASE, currentUserId, refreshCartCount]);
+    }, [API_BASE, currentUserId, page]); 
+
+    /* =========================
+       Pagination click
+       ========================= */
+    const handlePageChange = (newPage) => {
+        const p = Number(newPage);
+        if (!Number.isFinite(p)) return;
+        if (p < 1) return;
+        if (p > totalPages) return;
+        setPage(p);
+    };
+
+
 
     /* =========================
        Derived values
        ========================= */
-    const itemsCount = useMemo(
-        () => items.reduce((sum, it) => sum + (it.quantity || 0), 0),
-        [items]
-    );
-
-    const subtotal = useMemo(
-        () => items.reduce((sum, it) => sum + (it.price || 0) * (it.quantity || 0), 0),
-        [items]
-    );
+    
 
     const isCartEmpty = items.length === 0;
 
@@ -195,7 +252,7 @@ export default function Cart() {
     const updateQtyApi = async (productId, qty) => {
         const res = await fetch(
             `${API_BASE}/api/Cart/${productId}?userId=${currentUserId}&qty=${qty}`,
-            { method: "PUT", headers: { "Content-Type": "application/json" } }
+            { credentials: "include", method: "PUT", headers: { "Content-Type": "application/json" } }
         );
 
         if (res.status === 409) {
@@ -266,6 +323,7 @@ export default function Cart() {
 
         try {
             const res = await fetch(`${API_BASE}/api/Cart/${row.productId}?userId=${currentUserId}`, {
+                credentials: "include",
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
             });
@@ -293,6 +351,7 @@ export default function Cart() {
 
         try {
             await fetch(`${API_BASE}/api/Cart/clear?userId=${currentUserId}`, {
+                credentials: "include",
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
             });
@@ -348,11 +407,13 @@ export default function Cart() {
                             <h5 className="fw-bold text-center mb-3">Order Summary</h5>
 
                             <div className="order-summary-grid mb-5">
+                                <div className="fw-bold">Products</div>
+                                <div className="text-end fw-semibold">{totalCount}</div>
                                 <div className="fw-bold">Items</div>
-                                <div className="text-end fw-semibold">{itemsCount}</div>
+                                <div className="text-end fw-semibold">{summary.totalQuantity}</div>
 
                                 <div className="fw-bold">Subtotal</div>
-                                <div className="text-end fw-semibold">{formatCurrency(subtotal)}</div>
+                                <div className="text-end fw-semibold">{formatCurrency(summary.totalAmount)}</div>
                             </div>
 
                             <div className="text-center">
@@ -383,6 +444,7 @@ export default function Cart() {
                         </button>
                     </div>
                 )}
+
 
                 {/* Cart table */}
                 <TableFormat headers={["", "Product", "Price", "Quantity", "Stock Status", "Subtotal"]} headerBg="#54B2B5">
@@ -492,6 +554,16 @@ export default function Cart() {
                         })
                     )}
                 </TableFormat>
+                {!loading && totalPages > 1 && (
+                    <div className="d-flex justify-content-center mt-3">
+                        <Pagination
+                            currentPage={page}
+                            totalPages={totalPages}
+                            onPageChange={handlePageChange}
+                        />
+                    </div>
+                )}
+
             </div>
 
             {/* incompatibility proceed warning */}

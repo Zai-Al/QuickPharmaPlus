@@ -1,11 +1,13 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Stripe.Checkout;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Stripe;
+using Stripe.Checkout;
 
 namespace QuickPharmaPlus.Server.Controllers.External_System
 {
     [ApiController]
     [Route("api/stripe")]
+    [Authorize(Roles = "Customer")]
     public class StripeController : ControllerBase
     {
         [HttpPost("create-checkout-session")]
