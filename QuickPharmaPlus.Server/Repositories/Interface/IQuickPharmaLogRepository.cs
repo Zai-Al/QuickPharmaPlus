@@ -18,7 +18,7 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
         Task<List<QuickPharmaLogTypeDto>> GetAllLogTypesAsync();
 
         // Auto-generated log creation methods
-        Task CreateInventoryChangeLogAsync(int? userId, string? productName, string? branchName);
+        Task CreateInventoryChangeLogAsync(int? userId, string? productName, int? branchId);
         Task CreateLoginFailureLogAsync(string email);
         
         // ENHANCED: Added optional details parameter for rich descriptions

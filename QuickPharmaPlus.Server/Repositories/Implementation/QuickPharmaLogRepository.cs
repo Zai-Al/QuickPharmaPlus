@@ -109,12 +109,25 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 .ToListAsync();
         }
 
-        public async Task CreateInventoryChangeLogAsync(int? userId, string? productName, string? branchName)
+        public async Task CreateInventoryChangeLogAsync(int? userId, string? productName, int? branchId)
         {
             var user = userId.HasValue ? await _context.Users.FindAsync(userId.Value) : null;
             var userName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : "System";
 
-            var description = $"Inventory update for product '{productName ?? "Unknown"}' at branch '{branchName ?? "Unknown"}' by {userName}";
+            string? branchName = null;
+
+            if (branchId.HasValue && branchId.Value > 0)
+            {
+                branchName = await _context.Branches
+                    .Where(b => b.BranchId == branchId.Value)
+                    .Select(b => b.Address != null && b.Address.City != null
+                        ? b.Address.City.CityName
+                        : null)
+                    .FirstOrDefaultAsync();
+            }
+
+            var description =
+                $"Inventory update for product '{productName ?? "Unknown"}' at branch '{branchName ?? "Unknown"}' by {userName}";
 
             var log = new Log
             {

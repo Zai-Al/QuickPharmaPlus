@@ -166,10 +166,6 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
             if (!model.ProductPrice.HasValue || model.ProductPrice.Value <= 0)
                 return BadRequest("Product price must be greater than 0.");
 
-            // 10. NEW: Validate ingredients - at least one must be selected
-            // REMOVE this block:
-            // if (model.IngredientIds == null || model.IngredientIds.Count == 0)
-            //     return BadRequest("At least one active ingredient must be selected.");
 
             // KEEP the invalid-id check, but only when IngredientIds is provided:
             if (model.IngredientIds != null && model.IngredientIds.Any(id => id <= 0))
