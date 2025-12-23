@@ -9,8 +9,8 @@ import AddButton from "../../../../Components/Form/FormAddButton";
 import FormHeader from "../../../../Components/InternalSystem/FormHeader";
 
 export default function GenerateReport() {
-
     const navigate = useNavigate();
+    const baseURL = ""; // use Vite proxy
 
     // ===================== STATE =====================
     const [reportType, setReportType] = useState("");
@@ -68,9 +68,10 @@ export default function GenerateReport() {
         };
 
         try {
-            const response = await fetch("https://localhost:7231/api/Reports/Generate", {
+            const response = await fetch(`${baseURL}/api/Reports/Generate`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify(payload),
             });
 
@@ -78,7 +79,8 @@ export default function GenerateReport() {
                 setSuccessMessage("Report generated successfully!");
                 setTimeout(() => navigate("/reports"), 1500);
             } else {
-                setErrorMessage("Failed to generate report.");
+                const body = await response.text().catch(() => "");
+                setErrorMessage(body || "Failed to generate report.");
             }
         } catch {
             setErrorMessage("Server error.");

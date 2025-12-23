@@ -16,7 +16,4 @@ public partial class ReportType
     [Column("Report_Type_name")]
     [StringLength(600)]
     public string? ReportTypeName { get; set; }
-
-    [InverseProperty("ReportType")]
-    public virtual ICollection<Report> Reports { get; set; } = new List<Report>();
 }

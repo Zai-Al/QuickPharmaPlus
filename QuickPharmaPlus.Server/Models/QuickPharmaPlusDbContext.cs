@@ -348,13 +348,7 @@ public partial class QuickPharmaPlusDbContext : DbContext
 
         modelBuilder.Entity<Report>(entity =>
         {
-            entity.HasOne(d => d.Inventory).WithMany(p => p.Reports).HasConstraintName("FK_Report_Inventory");
-
-            entity.HasOne(d => d.Log).WithMany(p => p.Reports).HasConstraintName("FK_Report_Log");
-
-            entity.HasOne(d => d.Order).WithMany(p => p.Reports).HasConstraintName("FK_Report_Order");
-
-            entity.HasOne(d => d.ReportType).WithMany(p => p.Reports).HasConstraintName("FK_Report_Report_Type");
+            entity.Property(e => e.ReportCreationTimestamp).HasDefaultValueSql("(sysutcdatetime())");
         });
 
         modelBuilder.Entity<Role>(entity =>

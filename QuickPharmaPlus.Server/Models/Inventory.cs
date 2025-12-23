@@ -35,7 +35,4 @@ public partial class Inventory
     [ForeignKey("ProductId")]
     [InverseProperty("Inventories")]
     public virtual Product? Product { get; set; }
-
-    [InverseProperty("Inventory")]
-    public virtual ICollection<Report> Reports { get; set; } = new List<Report>();
 }

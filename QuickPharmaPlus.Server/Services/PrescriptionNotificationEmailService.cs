@@ -129,7 +129,7 @@ namespace QuickPharmaPlus.Server.Services
     <div style='background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;'>
         <h2 style='color: white; margin: 0; font-size: 22px;'>Prescription Approved</h2>
         <p style='color: rgba(255,255,255,0.9); margin: 6px 0 0 0; font-size: 13px;'>
-            Reference ID: <strong>{prescriptionId}</strong>
+            Reference ID: <strong>{prescriptionId}</strong> 
         </p>
     </div>
 
@@ -185,6 +185,10 @@ namespace QuickPharmaPlus.Server.Services
 
     <p style='margin: 16px 0; font-size: 14px; color: #555;'>
         Please proceed with your checkout/order process to complete your purchase using this approved prescription.
+    </p>
+
+    <p style='margin: 8px 0 16px 0; font-size: 14px; color: #d32f2f; font-weight: bold; font-style: italic; text-decoration: underline;'>
+        Note: usee this refrence Id as acode when prombted for the checkout
     </p>
 
     <div style='margin-top: 26px; padding-top: 16px; border-top: 1px solid #e0e0e0;'>
