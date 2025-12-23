@@ -10,6 +10,7 @@ using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.Repositories.Implementation;
 using QuickPharmaPlus.Server.Repositories.Interface;
 using QuickPharmaPlus.Server.Services;
+using QuickPharmaPlus.Server.Services.Reports;
 using Stripe;
 
 namespace QuickPharmaPlus.Server
@@ -183,6 +184,7 @@ namespace QuickPharmaPlus.Server
             builder.Services.AddScoped<IDeliveryNotificationEmailService, DeliveryNotificationEmailService>();
             builder.Services.AddScoped<IDeliveryRequestRepository, DeliveryRequestRepository>();
             builder.Services.AddScoped<IReportRepository, ReportRepository>();
+            builder.Services.AddScoped<IReportPdfGenerator, QuestPdfReportPdfGenerator>();
 
             // =========================
             // BACKGROUND SERVICES

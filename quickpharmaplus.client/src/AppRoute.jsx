@@ -436,7 +436,7 @@ export default function AppRoutes() {
                             />
 
                             <Route
-                                path="/report/details"
+                                path="/report/details/:reportId"
                                 element={
                                     <ProtectedRoute allowedRoles={["Admin"]}>
                                         <ReportDetails />
