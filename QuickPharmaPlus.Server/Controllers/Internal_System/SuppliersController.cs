@@ -14,7 +14,6 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
 {
     [Route("api/[controller]")]
     [ApiController]
-    //[Authorize(Roles = "Admin,Pharmacist,Manager")]
     public class SuppliersController : ControllerBase
     {
         private readonly ISupplierRepository _repo;
@@ -72,6 +71,7 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
         // =============================================================
         // GET: api/Suppliers?pageNumber=1&pageSize=10&search=...
         // =============================================================
+        [AllowAnonymous]
         [HttpGet]
         public async Task<IActionResult> GetAll(int pageNumber = 1, int pageSize = 10, string? search = null)
         {

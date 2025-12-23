@@ -60,7 +60,7 @@ namespace QuickPharmaPlus.Server.Controllers
         // =====================================================
         // FETCH PAGED + FILTERED CATEGORY LIST
         // =====================================================
-
+        [AllowAnonymous]
         [HttpGet]
         public async Task<IActionResult> GetAllCategories(
             [FromQuery] int pageNumber = 1,
@@ -103,6 +103,7 @@ namespace QuickPharmaPlus.Server.Controllers
         // =====================================================
         // GET CATEGORY IMAGE
         // =====================================================
+        [AllowAnonymous]
         [HttpGet("{id:int}/image")]
         public async Task<IActionResult> GetCategoryImage(int id)
         {
@@ -122,7 +123,8 @@ namespace QuickPharmaPlus.Server.Controllers
         // =====================================================
         // GET CATEGORY DETAILS BY ID
         // =====================================================
-        [Authorize]
+
+        [Authorize(Roles = "Admin")]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetCategoryById(int id)
         {
@@ -141,6 +143,8 @@ namespace QuickPharmaPlus.Server.Controllers
         // =====================================================
         // CHECK IF CATEGORY NAME EXISTS (FOR REAL-TIME VALIDATION)
         // =====================================================
+
+        [Authorize(Roles = "Admin,Pharmacist,Manager")]
         [HttpGet("check-name")]
         public async Task<IActionResult> CheckCategoryName(
             [FromQuery] string name,
@@ -157,6 +161,8 @@ namespace QuickPharmaPlus.Server.Controllers
         // =====================================================
         // CHECK IF TYPE NAME EXISTS (FOR REAL-TIME VALIDATION)
         // =====================================================
+
+        [Authorize(Roles = "Admin,Pharmacist,Manager")]
         [HttpGet("type/check-name")]
         public async Task<IActionResult> CheckTypeName(
             [FromQuery] string name,
@@ -395,6 +401,7 @@ namespace QuickPharmaPlus.Server.Controllers
         // =====================================================
         // GET PAGED PRODUCT TYPES FOR CATEGORY
         // =====================================================
+        [AllowAnonymous]
         [HttpGet("types/{categoryId}")]
         public async Task<IActionResult> GetTypes(
             int categoryId,
