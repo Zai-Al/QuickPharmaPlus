@@ -2,7 +2,7 @@
 import { useEffect, useState, useContext, useCallback, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AuthContext } from "../../../Context/AuthContext.jsx";
-import { CartContext } from "../../../Context/CartContext.jsx";
+import { CartContext } from "../../../Context/CartContext.js";
 
 import PageHeader from "../Shared_Components/PageHeader";
 import NavigationTab from "../Shared_Components/NavigationTab";

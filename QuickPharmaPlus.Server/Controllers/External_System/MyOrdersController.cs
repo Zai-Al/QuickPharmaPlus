@@ -1,5 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using QuickPharmaPlus.Server.Identity;
+using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.ModelsDTO.Order;
 using QuickPharmaPlus.Server.Repositories.Interface;
 using QuickPharmaPlus.Server.Services;
@@ -13,12 +17,29 @@ namespace QuickPharmaPlus.Server.Controllers
     {
         private readonly IOrderRepository _orders;
         private readonly IOrderEmailService _orderEmail;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly QuickPharmaPlusDbContext _context;
+        private readonly IQuickPharmaLogRepository _logRepo;
 
-        public MyOrdersController(IOrderRepository orders, IOrderEmailService orderEmail)
+        public MyOrdersController(IOrderRepository orders, IOrderEmailService orderEmail, UserManager<ApplicationUser> userManager,
+    QuickPharmaPlusDbContext context, IQuickPharmaLogRepository logRepo)
         {
             _orders = orders;
             _orderEmail = orderEmail;
+            _userManager = userManager;
+            _context = context;
+            _logRepo = logRepo;
         }
+
+        private async Task<int?> GetCurrentUserIdAsync()
+        {
+            var email = User?.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(email)) return null;
+
+            var domainUser = await _context.Users.FirstOrDefaultAsync(u => u.EmailAddress == email);
+            return domainUser?.UserId;
+        }
+
 
         // GET api/MyOrders?userId=1&pageNumber=1&pageSize=10&statusId=2&search=123&sortBy=date-desc
         [HttpGet]
@@ -56,11 +77,30 @@ namespace QuickPharmaPlus.Server.Controllers
         [HttpPost("{orderId:int}/reschedule")]
         public async Task<IActionResult> Reschedule(int orderId, [FromBody] OrderRescheduleRequestDto req)
         {
+            var currentUserId = await GetCurrentUserIdAsync();
+            if (!currentUserId.HasValue || currentUserId.Value != req.UserId)
+                return Forbid();
+
+            // BEFORE (for log)
+            var before = await _orders.GetMyOrderDetailsAsync(req.UserId, orderId);
+
             var ok = await _orders.RescheduleDeliveryAsync(req.UserId, orderId, req.ShippingDate, req.SlotId);
             if (!ok) return BadRequest("Unable to reschedule. Slot might be full or outside allowed dates.");
 
             // Send rescheduled email (same template, different title/text)
             await _orderEmail.TrySendOrderRescheduledEmailAsync(orderId, req.UserId);
+
+            var details =
+        $"Order rescheduled. " +
+        $"Date: {before?.ShippingDate?.ToString("yyyy-MM-dd") ?? "N/A"} → {req.ShippingDate:yyyy-MM-dd}, " +
+        $"SlotId: {before?.SlotId?.ToString() ?? "N/A"} → {req.SlotId}";
+
+            await _logRepo.CreateEditRecordLogAsync(
+                userId: currentUserId.Value,
+                tableName: "Order",
+                recordId: orderId,
+                details: details
+            );
 
             return Ok(new { updated = true });
         }

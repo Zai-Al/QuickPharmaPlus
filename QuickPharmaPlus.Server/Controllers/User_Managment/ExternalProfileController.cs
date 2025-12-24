@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using QuickPharmaPlus.Server.Identity;
 using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.ModelsDTO.Auth;
+using QuickPharmaPlus.Server.Repositories.Interface;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -14,19 +15,24 @@ namespace QuickPharmaPlus.Server.Controllers.User_Managment
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Customer")] // or just [Authorize] if you prefer
+    [Authorize(Roles = "Customer")] 
     public class ExternalProfileController : ControllerBase
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly QuickPharmaPlusDbContext _db;
+        private readonly IQuickPharmaLogRepository _logRepo;
+
 
         public ExternalProfileController(
-            UserManager<ApplicationUser> userManager,
-            QuickPharmaPlusDbContext db)
+    UserManager<ApplicationUser> userManager,
+    QuickPharmaPlusDbContext db,
+    IQuickPharmaLogRepository logRepo)
         {
             _userManager = userManager;
             _db = db;
+            _logRepo = logRepo;
         }
+
 
         // ==========================
         // GET CURRENT CUSTOMER PROFILE
@@ -156,6 +162,14 @@ namespace QuickPharmaPlus.Server.Controllers.User_Managment
 
             await _db.SaveChangesAsync();
 
+            await _logRepo.CreateEditRecordLogAsync(
+                userId: domainUser.UserId,
+                tableName: "CustomerProfile",
+                recordId: domainUser.UserId,
+                details: "Customer updated profile information."
+            );
+
+
             return Ok(new { success = true });
         }
 
@@ -190,6 +204,17 @@ namespace QuickPharmaPlus.Server.Controllers.User_Managment
 
                 // =================== DELETE FROM IDENTITY FIRST ===================
                 // (same idea as employee delete, but we already have the identityUser)
+
+                if (domainUser != null)
+                {
+                    await _logRepo.CreateDeleteRecordLogAsync(
+                        userId: domainUser.UserId,
+                        tableName: "CustomerProfile",
+                        recordId: domainUser.UserId,
+                        details: "Customer deleted profile."
+                    );
+                }
+
                 var identityResult = await _userManager.DeleteAsync(identityUser);
                 if (!identityResult.Succeeded)
                 {
@@ -224,44 +249,5 @@ namespace QuickPharmaPlus.Server.Controllers.User_Managment
         }
 
 
-        /*
-        [HttpDelete]
-        public async Task<IActionResult> DeleteProfile()
-        {
-            var identityUser = await _userManager.GetUserAsync(User);
-            if (identityUser == null)
-                return Unauthorized();
-
-            // Load Domain User (from QuickPharmaPlusDbContext)
-            var domainUser = await _db.Users
-                .Include(u => u.Address)
-        .FirstOrDefaultAsync(u => u.EmailAddress == identityUser.Email);
-
-            // Delete domain user row if exists
-            if (domainUser != null)
-            {
-                if (domainUser.Address != null)
-                {
-                    _db.Addresses.Remove(domainUser.Address);
-                }
-
-                _db.Users.Remove(domainUser);
-                await _db.SaveChangesAsync();
-            }
-
-            // Delete identity user from AspNetUsers
-            var identityResult = await _userManager.DeleteAsync(identityUser);
-
-            if (!identityResult.Succeeded)
-            {
-                var errors = identityResult.Errors.Select(e => e.Description).ToArray();
-                return BadRequest(new { errors });
-            }
-
-            
-
-            return Ok(new { success = true });
-        }
-        */
     }
 }

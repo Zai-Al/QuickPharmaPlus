@@ -1,14 +1,12 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
+import { CartContext } from "./CartContext";
 import { AuthContext } from "./AuthContext";
-
-export const CartContext = createContext();
 
 export function CartProvider({ children }) {
     const { user } = useContext(AuthContext);
     const userId = user?.userId ?? user?.id ?? user?.UserId ?? null;
 
     const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
-
     const [cartCount, setCartCount] = useState(0);
 
     const refreshCartCount = async () => {
@@ -29,8 +27,6 @@ export function CartProvider({ children }) {
             }
 
             const data = await res.json().catch(() => ({}));
-
-            // navbar badge should be TOTAL quantity across whole cart
             setCartCount(Number(data?.totalQuantity ?? 0));
         } catch (e) {
             console.error("Failed to refresh cart count", e);
@@ -38,19 +34,13 @@ export function CartProvider({ children }) {
         }
     };
 
-
-    // Load once on login
     useEffect(() => {
         refreshCartCount();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userId]);
 
     return (
-        <CartContext.Provider
-            value={{
-                cartCount,
-                refreshCartCount,
-            }}
-        >
+        <CartContext.Provider value={{ cartCount, refreshCartCount }}>
             {children}
         </CartContext.Provider>
     );
