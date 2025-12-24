@@ -2,7 +2,7 @@
 import { useEffect, useState, useContext, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AuthContext } from "../../../Context/AuthContext.jsx";
-import { CartContext } from "../../../Context/CartContext.jsx";
+import { CartContext } from "../../../Context/CartContext.js";
 
 const DRAFT_KEY = "qp_checkout_draft_v1";
 

@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.ModelsDTO.PrescriptionPlan;
+using QuickPharmaPlus.Server.Repositories.Interface;
 using System.Text.Json;
 
 namespace QuickPharmaPlus.Server.Services
@@ -17,20 +18,26 @@ namespace QuickPharmaPlus.Server.Services
         private const string SCHEDULED_PREFIX = "PP_EMAIL_SCHEDULED|";
         private const string SENT_PREFIX = "PP_EMAIL_SENT|";
         private const string STOCK_APPLIED_PREFIX = "PP_STOCK_APPLIED|";
+        private static readonly TimeOnly BAHRAIN_SEND_TIME = new(7, 30); // 07:30 AM
 
         private readonly QuickPharmaPlusDbContext _db;
         private readonly IEmailSender _emailSender;
         private readonly ILogger<PrescriptionPlanEmailLogService> _logger;
+        private readonly IQuickPharmaLogRepository _logRepo;
+
 
         public PrescriptionPlanEmailLogService(
-            QuickPharmaPlusDbContext db,
-            IEmailSender emailSender,
-            ILogger<PrescriptionPlanEmailLogService> logger)
+     QuickPharmaPlusDbContext db,
+     IEmailSender emailSender,
+     ILogger<PrescriptionPlanEmailLogService> logger,
+     IQuickPharmaLogRepository logRepo)
         {
             _db = db;
             _emailSender = emailSender;
             _logger = logger;
+            _logRepo = logRepo;
         }
+
 
         private class Payload
         {
@@ -51,8 +58,9 @@ namespace QuickPharmaPlus.Server.Services
     DateOnly? expiryDateBahrain,
     CancellationToken ct = default)
         {
-            var createdLocal = creationDateBahrain.ToDateTime(TimeOnly.MinValue); // Bahrain local 00:00
-            DateTime? expiryLocal = expiryDateBahrain?.ToDateTime(TimeOnly.MinValue);
+            var createdLocal = creationDateBahrain.ToDateTime(BAHRAIN_SEND_TIME); // 07:30 Bahrain
+            DateTime? expiryLocal = expiryDateBahrain?.ToDateTime(BAHRAIN_SEND_TIME);
+
 
             var jobs = new List<Payload>();
 
@@ -217,6 +225,14 @@ namespace QuickPharmaPlus.Server.Services
 
                         if (applied)
                         {
+                            // Log inventory decrease 
+                            await _logRepo.CreateInventoryChangeLogAsync(
+                                userId: user.UserId,
+                                productName: plan.Approval?.ApprovalProductName ?? "Plan item",
+                                branchId: plan.Shipping?.BranchId
+                            );
+
+                            // keep your existing plan-email stock marker 
                             _db.Logs.Add(new Log
                             {
                                 UserId = user.UserId,
@@ -227,6 +243,7 @@ namespace QuickPharmaPlus.Server.Services
 
                             await _db.SaveChangesAsync(ct);
                         }
+
                     }
                 }
 

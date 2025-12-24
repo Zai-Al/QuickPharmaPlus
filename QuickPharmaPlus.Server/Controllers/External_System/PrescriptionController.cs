@@ -5,6 +5,10 @@ using QuickPharmaPlus.Server.Models;
 using QuickPharmaPlus.Server.ModelsDTO.Prescription;
 using QuickPharmaPlus.Server.ModelsDTO.Prescription.Checkout;
 using QuickPharmaPlus.Server.Repositories.Interface;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using QuickPharmaPlus.Server.Identity;
+
 
 namespace QuickPharmaPlus.Server.Controllers.External_System
 {
@@ -15,12 +19,40 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
     {
         private readonly IPrescriptionRepository _repo;
         private readonly ILogger<PrescriptionController> _logger;
+        private readonly IQuickPharmaLogRepository _logRepo;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly QuickPharmaPlusDbContext _context;
 
-        public PrescriptionController(IPrescriptionRepository repo, ILogger<PrescriptionController> logger)
+        public PrescriptionController(
+            IPrescriptionRepository repo,
+            ILogger<PrescriptionController> logger,
+            IQuickPharmaLogRepository logRepo,
+            UserManager<ApplicationUser> userManager,
+            QuickPharmaPlusDbContext context)
         {
             _repo = repo;
             _logger = logger;
+            _logRepo = logRepo;
+            _userManager = userManager;
+            _context = context;
         }
+
+        private async Task<int?> GetCurrentUserIdAsync()
+        {
+            var userEmail = User?.Identity?.Name;
+            if (string.IsNullOrEmpty(userEmail))
+                return null;
+
+            var identityUser = await _userManager.FindByEmailAsync(userEmail);
+            if (identityUser == null)
+                return null;
+
+            var domainUser = await _context.Users
+                .FirstOrDefaultAsync(u => u.EmailAddress == userEmail);
+
+            return domainUser?.UserId;
+        }
+
 
         [HttpGet("ping")]
         public IActionResult Ping() => Ok(new { ok = true, where = "PrescriptionController" });
@@ -59,11 +91,32 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
         {
             if (userId <= 0) return BadRequest(new { error = "Invalid userId" });
 
+            // must match logged-in user
+            var currentUserId = await GetCurrentUserIdAsync();
+            if (!currentUserId.HasValue || currentUserId.Value != userId)
+                return Forbid();
+
             var newId = await _repo.CreateAsync(userId, dto);
             if (newId <= 0) return BadRequest(new { error = "Invalid prescription data" });
 
+            // log add
+            await _logRepo.CreateAddRecordLogAsync(
+                userId: currentUserId.Value,
+                tableName: "Prescription",
+                recordId: newId,
+                details: $"Customer created prescription. Name: {dto?.PrescriptionName ?? "N/A"}"
+                + $" IsHealthProfile: {dto?.IsHealthPerscription.ToString() ?? "N/A"}"
+                + $" CityId: {dto?.CityId.ToString() ?? "N/A"}"
+                + $" Block: {dto?.Block ?? "N/A"}"
+                + $" Road: {dto?.Road ?? "N/A"}"
+                + $" BuildingFloor: {dto?.BuildingFloor ?? "N/A"}"
+                + $" Has PrescriptionDocument: {(dto?.PrescriptionDocument != null ? "Yes" : "No")}"
+                + $" Has PrescriptionCprDocument: {(dto?.PrescriptionCprDocument != null ? "Yes" : "No")}"
+            );
+
             return Ok(new { message = "Prescription created successfully.", prescriptionId = newId });
         }
+
 
         // PUT: /api/Prescription/user/5/123 (multipart/form-data)
         [HttpPut("user/{userId:int}/{prescriptionId:int}")]
@@ -72,11 +125,30 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
         {
             if (userId <= 0 || prescriptionId <= 0) return BadRequest(new { error = "Invalid ids" });
 
+            var currentUserId = await GetCurrentUserIdAsync();
+            if (!currentUserId.HasValue || currentUserId.Value != userId)
+                return Forbid();
+
             var ok = await _repo.UpdateAsync(userId, prescriptionId, dto);
             if (!ok) return NotFound(new { error = "Prescription not found (or invalid address)." });
 
+            await _logRepo.CreateEditRecordLogAsync(
+                userId: currentUserId.Value,
+                tableName: "Prescription",
+                recordId: prescriptionId,
+                details: $"Customer updated prescription. Name: {dto?.PrescriptionName ?? "N/A"}"
+                + $" IsHealthProfile: {dto?.IsHealthPerscription.ToString() ?? "N/A"}"
+                + $" CityId: {dto?.CityId.ToString() ?? "N/A"}"
+                + $" Block: {dto?.Block ?? "N/A"}"
+                + $" Road: {dto?.Road ?? "N/A"}"
+                + $" BuildingFloor: {dto?.BuildingFloor ?? "N/A"}"
+                + $" Has PrescriptionDocument: {(dto?.PrescriptionDocument != null ? "Yes" : "No")}"
+                + $" Has PrescriptionCprDocument: {(dto?.PrescriptionCprDocument != null ? "Yes" : "No")}"
+            );
+
             return Ok(new { message = "Prescription updated successfully." });
         }
+
 
         // DELETE: /api/Prescription/user/5/123
         [HttpDelete("user/{userId:int}/{prescriptionId:int}")]
@@ -84,11 +156,23 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
         {
             if (userId <= 0 || prescriptionId <= 0) return BadRequest(new { error = "Invalid ids" });
 
+            var currentUserId = await GetCurrentUserIdAsync();
+            if (!currentUserId.HasValue || currentUserId.Value != userId)
+                return Forbid();
+
             var ok = await _repo.DeleteAsync(userId, prescriptionId);
             if (!ok) return NotFound(new { error = "Prescription not found." });
 
+            await _logRepo.CreateDeleteRecordLogAsync(
+                userId: currentUserId.Value,
+                tableName: "Prescription",
+                recordId: prescriptionId,
+                details: $"Customer deleted prescription."
+            );
+
             return Ok(new { message = "Prescription deleted successfully." });
         }
+
 
         [HttpGet("user/{userId:int}/{prescriptionId:int}/document")]
         public async Task<IActionResult> GetDocument(int userId, int prescriptionId)
@@ -121,11 +205,30 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
         {
             if (userId <= 0) return BadRequest(new { error = "Invalid userId" });
 
+            var currentUserId = await GetCurrentUserIdAsync();
+            if (!currentUserId.HasValue || currentUserId.Value != userId)
+                return Forbid();
+
             var newId = await _repo.CreateCheckoutAsync(userId, dto);
             if (newId <= 0) return BadRequest(new { error = "Invalid prescription data" });
 
+            await _logRepo.CreateAddRecordLogAsync(
+                userId: currentUserId.Value,
+                tableName: "Prescription",
+                recordId: newId,
+                details: $"Customer created checkout prescription. Name: {dto?.PrescriptionName ?? "N/A"}" 
+                + $" IsHealthProfile: {dto?.IsHealthPerscription.ToString() ?? "N/A"}"
+                + $" CityId: {dto?.CityId.ToString() ?? "N/A"}" 
+                + $" Block: {dto?.Block ?? "N/A"}" 
+                + $" Road: {dto?.Road ?? "N/A"}" 
+                + $" BuildingFloor: {dto?.BuildingFloor ?? "N/A"}"
+                + $" Has PrescriptionDocument: {(dto?.PrescriptionDocument != null ? "Yes" : "No")}"
+                + $" Has PrescriptionCprDocument: {(dto?.PrescriptionCprDocument != null ? "Yes" : "No")}"
+            );
+
             return Ok(new { message = "Checkout prescription created successfully.", prescriptionId = newId });
         }
+
 
         [HttpPost("checkout/validate")]
         public async Task<IActionResult> ValidateCheckoutPrescription(
