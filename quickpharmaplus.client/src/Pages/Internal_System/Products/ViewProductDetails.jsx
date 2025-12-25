@@ -6,11 +6,9 @@ import FormHeader from "../../../Components/InternalSystem/FormHeader";
 
 import "./ViewProductDetails.css";
 
-
 export default function ViewProductDetails() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
 
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -24,24 +22,25 @@ export default function ViewProductDetails() {
     const fetchProductDetails = async () => {
         try {
             setLoading(true);
-            const url = `${baseURL}/api/Products/${id}/details`;
-            console.log("Fetching from URL:", url); // ADD THIS
-            
+            setError("");
+
+            const url = `/api/Products/${encodeURIComponent(id)}/details`;
+
             const response = await fetch(url, {
                 credentials: "include"
             });
-            
-            console.log("Response status:", response.status); // ADD THIS
-            console.log("Response headers:", response.headers); // ADD THIS
-            
-            const text = await response.text(); // Change to text first
-            console.log("Response body:", text); // ADD THIS
-            
-            const data = JSON.parse(text); // Then parse
+
+            if (!response.ok) {
+                const t = await response.text().catch(() => "");
+                throw new Error(t || `Failed to load product details (${response.status}).`);
+            }
+
+            const data = await response.json();
             setProduct(data);
         } catch (err) {
             console.error("Error fetching product details:", err);
-            setError("Unable to load product details. Please try again.");
+            setProduct(null);
+            setError(err?.message || "Unable to load product details. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -62,7 +61,8 @@ export default function ViewProductDetails() {
         return (
             <ul className="ingredients-list fw-bold">
                 {product.ingredients.map((ingredient, index) => (
-                    <li key={ingredient.ingredientId || index}
+                    <li
+                        key={ingredient.ingredientId || index}
                         style={{ marginBottom: "8px" }}
                     >
                         {ingredient.ingredientName}
@@ -76,7 +76,8 @@ export default function ViewProductDetails() {
     const formatInteractions = () => {
         if (!product?.knownInteractions || product.knownInteractions.length === 0) {
             return (
-                <div className="no-interactions-message"
+                <div
+                    className="no-interactions-message"
                     style={{ color: "#2e7d32", fontWeight: "500" }}
                 >
                     <i className="bi bi-check-circle-fill text-success me-2"></i>
@@ -91,11 +92,13 @@ export default function ViewProductDetails() {
                     <div key={index} className="interaction-item">
                         <div className="interaction-header">
                             <i className="bi bi-exclamation-triangle-fill text-warning me-2"></i>
-                            <span className="interaction-type text-warning fw-bold">{interaction.interactionTypeName}</span>
+                            <span className="interaction-type text-warning fw-bold">
+                                {interaction.interactionTypeName}
+                            </span>
                         </div>
                         <div className="interaction-ingredients mb-3">
-                            <strong>{interaction.ingredientAName}</strong> 
-                            <span className="mx-2">↔</span> 
+                            <strong>{interaction.ingredientAName}</strong>
+                            <span className="mx-2">↔</span>
                             <strong>{interaction.ingredientBName}: </strong>
                             {interaction.interactionDescription}
                         </div>
@@ -125,8 +128,8 @@ export default function ViewProductDetails() {
                     <i className="bi bi-exclamation-triangle-fill me-2"></i>
                     {error || "Product not found."}
                 </div>
-                <button 
-                    className="btn btn-primary" 
+                <button
+                    className="btn btn-primary"
                     onClick={() => navigate("/products")}
                 >
                     <i className="bi bi-arrow-left me-2"></i>
@@ -138,8 +141,6 @@ export default function ViewProductDetails() {
 
     return (
         <div className="container mt-4 view-product-details-page">
-
-
             {/* ===========================
                 PRODUCT HEADER COMPONENT
             =========================== */}
@@ -151,7 +152,7 @@ export default function ViewProductDetails() {
             {/* ===========================
                 PRODUCT DETAIL CARDS
             =========================== */}
-            
+
             {/* Description Card */}
             <ProductCard
                 title="Description"
@@ -182,8 +183,8 @@ export default function ViewProductDetails() {
                         <div className="info-item mb-1">
                             <span className="info-label fw-bold">Price: </span>
                             <span className="info-value">
-                                {product.productPrice 
-                                    ? ` BHD${product.productPrice.toFixed(2)}` 
+                                {product.productPrice
+                                    ? ` BHD${product.productPrice.toFixed(2)}`
                                     : "N/A"}
                             </span>
                         </div>
@@ -193,7 +194,7 @@ export default function ViewProductDetails() {
                                 {product.isControlled ? (
                                     <span style={{ color: "#c62828", fontWeight: "500" }}>Yes</span>
                                 ) : (
-                                        <span style={{ color: "#2e7d32", fontWeight: "500" }}>No</span>
+                                    <span style={{ color: "#2e7d32", fontWeight: "500" }}>No</span>
                                 )}
                             </span>
                         </div>
@@ -209,7 +210,7 @@ export default function ViewProductDetails() {
 
             {/* Known Interactions Card */}
             <ProductCard
-                title={`Known Interactions ${product.knownInteractions?.length > 0 ? `(${product.knownInteractions.length})` : ''}`}
+                title={`Known Interactions ${product.knownInteractions?.length > 0 ? `(${product.knownInteractions.length})` : ""}`}
                 content={formatInteractions()}
             />
         </div>

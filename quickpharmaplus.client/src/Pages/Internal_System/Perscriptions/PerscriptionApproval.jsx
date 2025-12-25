@@ -8,7 +8,6 @@ import DatePicker from "../../../Components/Form/FormDatePicker";
 
 export default function PrescriptionApprovalForm() {
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
 
     const { prescriptionId } = useParams();
 
@@ -58,7 +57,7 @@ export default function PrescriptionApprovalForm() {
     const fetchProducts = async () => {
         try {
             setLoadingProducts(true);
-            const response = await fetch(`${baseURL}/api/Products?pageNumber=1&pageSize=200`, {
+            const response = await fetch(`/api/Products?pageNumber=1&pageSize=200`, {
                 credentials: "include"
             });
 
@@ -259,7 +258,7 @@ export default function PrescriptionApprovalForm() {
         };
 
         try {
-            const response = await fetch(`${baseURL}/api/Prescription/${encodeURIComponent(prescriptionId)}/approve`, {
+            const response = await fetch(`/api/Prescription/${encodeURIComponent(prescriptionId)}/approve`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",

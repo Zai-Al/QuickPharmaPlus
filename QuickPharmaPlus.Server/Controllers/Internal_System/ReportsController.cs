@@ -256,4 +256,49 @@ public sealed class ReportsController : ControllerBase
 
         return Ok(details);
     }
+
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete([FromRoute] int id)
+    {
+        if (id <= 0)
+            return BadRequest("Invalid report ID.");
+
+        // Get details before deletion (for logging)
+        var reportToDelete = await _context.Reports
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.ReportId == id);
+
+        if (reportToDelete == null)
+            return NotFound("Report not found.");
+
+        var reportTypeName = await _context.ReportTypes
+            .AsNoTracking()
+            .Where(rt => rt.ReportTypeId == reportToDelete.ReportTypeId)
+            .Select(rt => rt.ReportTypeName)
+            .FirstOrDefaultAsync();
+
+        var currentUserId = await GetCurrentUserIdAsync();
+
+        var deleted = await _repo.DeleteReportAsync(id);
+        if (!deleted)
+            return NotFound("Report not found or could not be deleted.");
+
+        // Log deletion (uses your local repository function)
+        if (currentUserId.HasValue)
+        {
+            var details =
+                $"Deleted Report: {reportToDelete.ReportName ?? "Unknown"}, " +
+                $"Type: {reportTypeName ?? "Unknown"}, " +
+                $"File: {reportToDelete.FileName ?? "Unknown"}";
+
+            await _logger.CreateDeleteRecordLogAsync(
+                userId: currentUserId.Value,
+                tableName: "Report",
+                recordId: id,
+                details: details
+            );
+        }
+
+        return Ok(new { deleted = true, message = "Report deleted successfully." });
+    }
 }

@@ -11,7 +11,6 @@ import { AuthContext } from "../../../Context/AuthContext";
 export default function EditAutomatedOrder() {
     const navigate = useNavigate();
     const { id } = useParams(); // Get the reorder ID from the URL
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
     const { user } = useContext(AuthContext);
 
     // ===================== STATE =====================
@@ -71,7 +70,6 @@ export default function EditAutomatedOrder() {
         }
     }, [supplierOptions]);
 
-
     // Close supplier dropdown on outside click
     useEffect(() => {
         const onDocClick = (e) => {
@@ -108,12 +106,11 @@ export default function EditAutomatedOrder() {
         }
     }, [productOptions, productId]);
 
-
     // =================== FETCH FUNCTIONS ===================
     const fetchSuppliers = async () => {
         try {
             setLoadingSuppliers(true);
-            const response = await fetch(`${baseURL}/api/Suppliers?pageNumber=1&pageSize=200`, {
+            const response = await fetch(`/api/Suppliers?pageNumber=1&pageSize=200`, {
                 credentials: "include"
             });
 
@@ -141,7 +138,7 @@ export default function EditAutomatedOrder() {
         try {
             setLoadingProducts(true);
             const response = await fetch(
-                `${baseURL}/api/SupplierOrder/supplier/${selectedSupplierId}/products`,
+                `/api/SupplierOrder/supplier/${selectedSupplierId}/products`,
                 { credentials: "include" }
             );
 
@@ -168,7 +165,7 @@ export default function EditAutomatedOrder() {
     const fetchBranches = async () => {
         try {
             setLoadingBranches(true);
-            const response = await fetch(`${baseURL}/api/Branch?pageNumber=1&pageSize=100`, {
+            const response = await fetch(`/api/Branch?pageNumber=1&pageSize=100`, {
                 credentials: "include"
             });
 
@@ -193,7 +190,7 @@ export default function EditAutomatedOrder() {
 
     const fetchReorderDetails = async () => {
         try {
-            const response = await fetch(`${baseURL}/api/Reorder/${id}`, {
+            const response = await fetch(`/api/Reorder/${id}`, {
                 credentials: "include"
             });
 
@@ -228,14 +225,11 @@ export default function EditAutomatedOrder() {
             );
 
             setBranchId(data.branchId || "");
-
         } catch (err) {
             console.error("Error fetching reorder details:", err);
             setErrorMessage("Failed to load reorder details.");
         }
     };
-
-
 
     // =================== HANDLE SUBMIT ===================
     const handleSubmit = async (e) => {
@@ -286,7 +280,7 @@ export default function EditAutomatedOrder() {
         }
 
         try {
-            const response = await fetch(`${baseURL}/api/Reorder/${id}`, {
+            const response = await fetch(`/api/Reorder/${id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
@@ -323,7 +317,7 @@ export default function EditAutomatedOrder() {
                 timestamp: new Date().toISOString()
             };
 
-            await fetch(`${baseURL}/api/Logs`, {
+            await fetch(`/api/Logs`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",

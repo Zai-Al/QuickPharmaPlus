@@ -16,8 +16,6 @@ import FilterSection from "../../../../Components/InternalSystem/GeneralComponen
 import Pagination from "../../../../Components/InternalSystem/GeneralComponents/Pagination";
 
 export default function Logs() {
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
-
     /* -------------------------------------------- */
     /*                   STATE                      */
     /* -------------------------------------------- */
@@ -89,7 +87,7 @@ export default function Logs() {
     /* -------------------------------------------- */
     async function fetchLogTypes() {
         try {
-            const res = await fetch(`${baseURL}/api/QuickPharmaLog/types`, {
+            const res = await fetch("/api/QuickPharmaLog/types", {
                 credentials: "include"
             });
             if (!res.ok) return;
@@ -103,7 +101,7 @@ export default function Logs() {
     async function fetchEmployees() {
         try {
             // FIXED: Changed from /api/Employees/employees to /api/Employees
-            const res = await fetch(`${baseURL}/api/Employees?pageNumber=1&pageSize=500`, {
+            const res = await fetch("/api/Employees?pageNumber=1&pageSize=500", {
                 credentials: "include"
             });
             if (!res.ok) return;
@@ -145,7 +143,7 @@ export default function Logs() {
                 params.set("actionDate", `${raw.getFullYear()}-${String(raw.getMonth() + 1).padStart(2, "0")}-${String(raw.getDate()).padStart(2, "0")}`);
             }
 
-            const res = await fetch(`${baseURL}/api/QuickPharmaLog?${params.toString()}`, {
+            const res = await fetch(`/api/QuickPharmaLog?${params.toString()}`, {
                 credentials: "include"
             });
 
@@ -165,7 +163,6 @@ export default function Logs() {
 
             const totalCount = data.totalCount || mapped.length;
             setTotalPages(Math.max(1, Math.ceil(totalCount / pageSize)));
-
         } catch (err) {
             console.error("Error fetching QuickPharma logs:", err);
             setError("Unable to load QuickPharma logs.");
@@ -289,7 +286,7 @@ export default function Logs() {
     /* -------------------------------------------- */
     /*          VALIDATION HANDLERS                 */
     /* -------------------------------------------- */
-    
+
     // LIVE VALIDATION FOR LOG ID (NUMBERS ONLY)
     const handleLogIdChange = (e) => {
         const val = e.target.value;
@@ -330,6 +327,7 @@ export default function Logs() {
 
     useEffect(() => {
         fetchQuickPharmaLogs(currentPage);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentPage]);
 
     useEffect(() => {
@@ -341,6 +339,7 @@ export default function Logs() {
         }, 300);
 
         return () => clearTimeout(filterDebounceRef.current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [logIdSearch, selectedLogType, selectedEmployee, filterDate]);
 
     // Update query when selection changes
@@ -378,7 +377,6 @@ export default function Logs() {
 
     return (
         <div className="logs-page">
-
             {/* TITLE */}
             <h2 className="text-center fw-bold logs-title">QuickPharma Logs</h2>
 
@@ -448,8 +446,12 @@ export default function Logs() {
             <FilterSection>
                 <FilterLeft>
                     <div className="mb-2" ref={employeeRef} style={{ position: "relative" }}>
-                        <div className="filter-label fst-italic small"
-                            style={{ fontSize: "0.9rem", whiteSpace: "nowrap" }}>Search or select employee name for automatic search</div>
+                        <div
+                            className="filter-label fst-italic small"
+                            style={{ fontSize: "0.9rem", whiteSpace: "nowrap" }}
+                        >
+                            Search or select employee name for automatic search
+                        </div>
 
                         <input
                             type="text"
@@ -517,7 +519,6 @@ export default function Logs() {
                 totalPages={totalPages}
                 onPageChange={setCurrentPage}
             />
-
         </div>
     );
 }

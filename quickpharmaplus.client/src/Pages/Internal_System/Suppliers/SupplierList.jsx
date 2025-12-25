@@ -44,8 +44,6 @@ export default function SupplierList() {
     const pageSize = 10;
     const [totalPages, setTotalPages] = useState(1);
 
-    const baseURL = import.meta.env.VITE_API_BASE_URL || "";
-
     // =========================================================
     // HANDLE VALIDATION FOR NAME
     // =========================================================
@@ -116,7 +114,7 @@ export default function SupplierList() {
         setError("");
 
         try {
-            let url = `${baseURL.replace(/\/$/, "")}/api/Suppliers?pageNumber=${currentPage}&pageSize=${pageSize}`;
+            let url = `/api/Suppliers?pageNumber=${currentPage}&pageSize=${pageSize}`;
 
             const search = nameSearch?.trim() || idSearch?.trim() || "";
             if (search) url += `&search=${encodeURIComponent(search)}`;
@@ -183,7 +181,7 @@ export default function SupplierList() {
         }
 
         try {
-            const res = await fetch(`${baseURL.replace(/\/$/, "")}/api/Suppliers/${deleteId}`, {
+            const res = await fetch(`/api/Suppliers/${encodeURIComponent(deleteId)}`, {
                 method: "DELETE",
                 credentials: "include"
             });

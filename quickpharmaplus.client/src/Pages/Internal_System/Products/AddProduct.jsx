@@ -10,7 +10,6 @@ import ImagePreview from "../../../Components/InternalSystem/GeneralComponents/I
 
 export default function AddProduct() {
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
 
     // ===================== STATE =====================
     const [productName, setProductName] = useState("");
@@ -69,6 +68,7 @@ export default function AddProduct() {
         fetchCategories();
         fetchSuppliers();
         fetchIngredients();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Close supplier dropdown on outside click
@@ -120,7 +120,7 @@ export default function AddProduct() {
     const fetchCategories = async () => {
         try {
             setLoadingCategories(true);
-            const response = await fetch(`${baseURL}/api/Category?pageNumber=1&pageSize=200`, {
+            const response = await fetch(`/api/Category?pageNumber=1&pageSize=200`, {
                 credentials: "include"
             });
 
@@ -147,7 +147,7 @@ export default function AddProduct() {
     const fetchSuppliers = async () => {
         try {
             setLoadingSuppliers(true);
-            const response = await fetch(`${baseURL}/api/Suppliers?pageNumber=1&pageSize=200`, {
+            const response = await fetch(`/api/Suppliers?pageNumber=1&pageSize=200`, {
                 credentials: "include"
             });
 
@@ -174,7 +174,7 @@ export default function AddProduct() {
     const fetchIngredients = async () => {
         try {
             setLoadingIngredients(true);
-            const response = await fetch(`${baseURL}/api/Ingredients?pageNumber=1&pageSize=500`, {
+            const response = await fetch(`/api/Ingredients?pageNumber=1&pageSize=500`, {
                 credentials: "include"
             });
 
@@ -201,7 +201,7 @@ export default function AddProduct() {
     const fetchTypesForCategory = async (catId) => {
         try {
             setLoadingTypes(true);
-            const response = await fetch(`${baseURL}/api/Category/types/${catId}?pageNumber=1&pageSize=200`, {
+            const response = await fetch(`/api/Category/types/${catId}?pageNumber=1&pageSize=200`, {
                 credentials: "include"
             });
 
@@ -230,7 +230,7 @@ export default function AddProduct() {
 
         try {
             const response = await fetch(
-                `${baseURL}/api/Products/check-name?name=${encodeURIComponent(name.trim())}`,
+                `/api/Products/check-name?name=${encodeURIComponent(name.trim())}`,
                 { credentials: "include" }
             );
 
@@ -612,7 +612,7 @@ export default function AddProduct() {
         }
 
         try {
-            const response = await fetch(`${baseURL}/api/Products`, {
+            const response = await fetch(`/api/Products`, {
                 method: "POST",
                 body: formData,
                 credentials: "include"
@@ -738,7 +738,6 @@ export default function AddProduct() {
                         )}
                     </div>
 
-
                     {/* CATEGORY SEARCHABLE DROPDOWN */}
                     <div
                         className="mb-3 product-input-container add-product-searchable-dropdown"
@@ -785,7 +784,6 @@ export default function AddProduct() {
                             </div>
                         )}
                     </div>
-
 
                     {/* TYPE DROPDOWN (Only enabled when category is selected) */}
                     <div className="mb-3 product-input-container add-product-searchable-dropdown">
@@ -847,13 +845,12 @@ export default function AddProduct() {
                                     const isSelected = selectedIngredients.some(
                                         selected => selected.value === i.value
                                     );
-                                    
+
                                     return (
                                         <li
                                             key={i.value}
-                                            className={`add-product-dropdown-item ${
-                                                idx === ingredientHighlightIndex ? "active" : ""
-                                            } ${isSelected ? "selected" : ""}`}
+                                            className={`add-product-dropdown-item ${idx === ingredientHighlightIndex ? "active" : ""
+                                                } ${isSelected ? "selected" : ""}`}
                                             onMouseDown={(ev) => ev.preventDefault()}
                                             onClick={() => handleSelectIngredient(i)}
                                             onMouseEnter={() => setIngredientHighlightIndex(idx)}
@@ -877,7 +874,7 @@ export default function AddProduct() {
                         {/* Display selected ingredients count (only if more than 0) */}
                         {selectedIngredients.length > 0 && (
                             <div className="selected-ingredients-count">
-                                {selectedIngredients.length} ingredient{selectedIngredients.length > 1 ? 's' : ''} selected
+                                {selectedIngredients.length} ingredient{selectedIngredients.length > 1 ? "s" : ""} selected
                             </div>
                         )}
                     </div>
@@ -892,7 +889,7 @@ export default function AddProduct() {
                             value={description}
                             onChange={handleDescriptionChange}
                             rows="4"
-                            style={{ resize: "vertical" }}
+                            style={{ resize: "vertical", width:"100%" }}
                         />
                         {touched.description && errors.description && (
                             <div className="invalid-feedback d-block">{errors.description}</div>
@@ -929,8 +926,8 @@ export default function AddProduct() {
                     </div>
 
                     {/* UPLOAD PRODUCT PHOTO */}
-                    <UploadButton 
-                        text="Upload Product Photo" 
+                    <UploadButton
+                        text="Upload Product Photo"
                         onUpload={handleUpload}
                     />
 

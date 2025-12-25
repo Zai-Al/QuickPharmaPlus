@@ -3,7 +3,6 @@ import { AuthContext } from "../../../Context/AuthContext.jsx";
 import "./Dashboard.css";
 
 export default function DriverDashboard() {
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
     const { user: ctxUser } = useContext(AuthContext);
 
     // State for dashboard data
@@ -19,7 +18,7 @@ export default function DriverDashboard() {
     const fetchDashboardData = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${baseURL}/api/DriverDashboard`, {
+            const response = await fetch("/api/DriverDashboard", {
                 method: "GET",
                 credentials: "include"
             });
@@ -78,23 +77,20 @@ export default function DriverDashboard() {
 
     return (
         <div className="admin-container">
-
             {/* PAGE TITLE */}
             <h2 className="dashboard-title text-center mb-0">
                 Welcome <span style={{ color: "#1D2D44" }}>{firstName}</span>
             </h2>
 
-
             {/* SLOT INFORMATION */}
             {dashboardData.driverSlotName && (
                 <h5 className="text-center mt-1 text-muted fw-normal">
-                   (Slot - {dashboardData.driverSlotName})
+                    (Slot - {dashboardData.driverSlotName})
                 </h5>
             )}
 
             {/* ========== METRIC CARDS ========== */}
             <div className="row justify-content-center mt-5">
-
                 {/* My Slot Pending Deliveries */}
                 <div className="col-md-5">
                     <div className="card dashboard-card border-teal mb-4">
@@ -178,7 +174,6 @@ export default function DriverDashboard() {
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
     );

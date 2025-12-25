@@ -8,7 +8,6 @@ import SearchButton from "../../../Components/Form/SearchButton";
 import FormHeader from "../../../Components/InternalSystem/FormHeader";
 
 export default function SafetyCheck() {
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
     const navigate = useNavigate();
 
     // ===================== STATE =====================
@@ -42,7 +41,7 @@ export default function SafetyCheck() {
 
     const fetchProducts = async () => {
         try {
-            const response = await fetch(`${baseURL}/api/Products?pageNumber=1&pageSize=200`, {
+            const response = await fetch(`/api/Products?pageNumber=1&pageSize=200`, {
                 credentials: "include"
             });
 
@@ -197,7 +196,7 @@ export default function SafetyCheck() {
         };
 
         try {
-            const response = await fetch(`${baseURL}/api/SafetyCheck/check-interaction`, {
+            const response = await fetch(`/api/SafetyCheck/check-interaction`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
@@ -300,7 +299,7 @@ export default function SafetyCheck() {
             {/* INTERACTION RESULT ALERT - Same width as form */}
             {interactionResult && (
                 <div className="interaction-result-container">
-                    <div className={`alert ${interactionResult.hasInteraction ? 'alert-danger' : 'alert-success'} interaction-alert`}>
+                    <div className={`alert ${interactionResult.hasInteraction ? "alert-danger" : "alert-success"} interaction-alert`}>
                         <div className="d-flex align-items-start">
                             <div className="flex-grow-1">
                                 <h5 className="alert-heading mb-2">

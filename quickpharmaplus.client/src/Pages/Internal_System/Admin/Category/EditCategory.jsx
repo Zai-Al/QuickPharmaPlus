@@ -13,7 +13,6 @@ import FormHeader from "../../../../Components/InternalSystem/FormHeader";
 export default function EditCategory() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
 
     const [categoryName, setCategoryName] = useState("");
     const [originalCategoryName, setOriginalCategoryName] = useState("");
@@ -39,7 +38,7 @@ export default function EditCategory() {
 
     async function fetchCategory() {
         try {
-            const response = await fetch(`${baseURL}/api/Category/${id}`, {
+            const response = await fetch(`/api/Category/${id}`, {
                 credentials: "include"
             });
 
@@ -91,7 +90,7 @@ export default function EditCategory() {
 
         try {
             const response = await fetch(
-                `${baseURL}/api/Category/check-name?name=${encodeURIComponent(name.trim())}&excludeId=${id}`,
+                `/api/Category/check-name?name=${encodeURIComponent(name.trim())}&excludeId=${id}`,
                 { credentials: "include" }
             );
 
@@ -120,7 +119,7 @@ export default function EditCategory() {
         // Update value and validate
         setCategoryName(value);
         setIsNameTouched(true);
-        
+
         // Run validation
         const error = validateName(value);
         setNameError(error);
@@ -147,7 +146,7 @@ export default function EditCategory() {
         }
 
         try {
-            const response = await fetch(`${baseURL}/api/Category/${id}`, {
+            const response = await fetch(`/api/Category/${id}`, {
                 method: "PUT",
                 body: formData,
                 credentials: "include"
@@ -204,7 +203,6 @@ export default function EditCategory() {
 
             <FormWrapper title="Edit Category Details:">
                 <form className="add-category-form" onSubmit={handleSubmit}>
-
                     {/* IMAGE PREVIEW */}
                     <div style={{ textAlign: "center", marginBottom: "20px" }}>
                         <div
@@ -255,7 +253,6 @@ export default function EditCategory() {
 
                     {/* SAVE */}
                     <AddButton text="Save Changes" type="submit" icon="file-earmark-check" />
-
                 </form>
             </FormWrapper>
         </div>

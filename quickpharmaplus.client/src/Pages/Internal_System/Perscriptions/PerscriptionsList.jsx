@@ -18,8 +18,6 @@ import CLearButton from "../../../Components/InternalSystem//Buttons/CLearButton
 import { StatusBadge } from "../../External_System/Shared_Components/statusUI.jsx";
 
 export default function PrescriptionList() {
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
-
     /* ---------------------------- */
     /*         FILTER STATES        */
     /* ---------------------------- */
@@ -63,6 +61,7 @@ export default function PrescriptionList() {
         fetchPrescriptions(1);
         fetchStatuses();
         fetchCustomers();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // ================
@@ -77,6 +76,7 @@ export default function PrescriptionList() {
         }, 300);
 
         return () => clearTimeout(filterDebounceRef.current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedCustomer, selectedStatus, filterDate, pageSize]);
 
     // ================
@@ -84,6 +84,7 @@ export default function PrescriptionList() {
     // ================
     useEffect(() => {
         fetchPrescriptions(currentPage);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentPage]);
 
     // ================
@@ -147,7 +148,7 @@ export default function PrescriptionList() {
             }
 
             const res = await fetch(
-                `${baseURL}/api/Prescription?${params.toString()}`,
+                `/api/Prescription?${params.toString()}`,
                 { credentials: "include" }
             );
 
@@ -185,7 +186,7 @@ export default function PrescriptionList() {
     async function fetchStatuses() {
         try {
             const res = await fetch(
-                `${baseURL}/api/Prescription/statuses`,
+                `/api/Prescription/statuses`,
                 { credentials: "include" }
             );
 
@@ -207,7 +208,7 @@ export default function PrescriptionList() {
 
     async function fetchCustomers() {
         try {
-            const res = await fetch(`${baseURL}/api/user/customers`, { credentials: "include" });
+            const res = await fetch(`/api/user/customers`, { credentials: "include" });
             if (!res.ok) throw new Error(`Failed to fetch customers (${res.status})`);
 
             const data = await res.json();
@@ -317,7 +318,7 @@ export default function PrescriptionList() {
                         </div>
 
                         {showCustomerDropdown && (filteredCustomers || []).length > 0 && (
-                            <ul className="list-group position-absolute searchable-dropdown product-filter-dropdown" style={{ zIndex: 1500, maxHeight: 200, overflowY: "auto", width:340 }}>
+                            <ul className="list-group position-absolute searchable-dropdown product-filter-dropdown" style={{ zIndex: 1500, maxHeight: 200, overflowY: "auto", width: 340 }}>
                                 {filteredCustomers.map((c, idx) => (
                                     <li
                                         key={c.value}

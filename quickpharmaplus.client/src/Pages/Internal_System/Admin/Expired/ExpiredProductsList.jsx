@@ -21,8 +21,6 @@ import DisposalModal from "../../../../Components/InternalSystem/Modals/Disposal
 import ClearButton from "../../../../Components/InternalSystem/Buttons/ClearButton";
 
 export default function ExpiredProductsList() {
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
-
     // State management
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -38,6 +36,14 @@ export default function ExpiredProductsList() {
     const [idSearch, setIdSearch] = useState("");
     const [supplierSearch, setSupplierSearch] = useState("");
     const [filterDate, setFilterDate] = useState(null);
+
+    // NEW: supplier options + searchable dropdown (InventoryList-style)
+    const [supplierOptions, setSupplierOptions] = useState([]);
+    const [supplierQuery, setSupplierQuery] = useState("");
+    const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
+    const [supplierHighlightIndex, setSupplierHighlightIndex] = useState(0);
+    const [supplierError, setSupplierError] = useState("");
+    const supplierRef = useRef(null);
 
     // Disposal modal
     const [showModal, setShowModal] = useState(false);
@@ -79,8 +85,26 @@ export default function ExpiredProductsList() {
         return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
     }
 
+    // NEW: fetch suppliers once (for dropdown)
+    useEffect(() => {
+        fetchSuppliersForFilter();
+    }, []);
+
+    // NEW: close supplier dropdown on outside click
+    useEffect(() => {
+        const onDocClick = (e) => {
+            if (supplierRef.current && !supplierRef.current.contains(e.target)) {
+                setShowSupplierDropdown(false);
+                setSupplierHighlightIndex(0);
+            }
+        };
+        document.addEventListener("mousedown", onDocClick);
+        return () => document.removeEventListener("mousedown", onDocClick);
+    }, []);
+
     useEffect(() => {
         fetchExpiredProducts(currentPage);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentPage]);
 
     useEffect(() => {
@@ -92,7 +116,27 @@ export default function ExpiredProductsList() {
         }, 300);
 
         return () => clearTimeout(filterDebounceRef.current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [idSearch, supplierSearch, filterDate, pageSize]);
+
+    async function fetchSuppliersForFilter() {
+        try {
+            const res = await fetch("/api/Suppliers?pageNumber=1&pageSize=500", { credentials: "include" });
+            if (!res.ok) return setSupplierOptions([]);
+
+            const data = await res.json();
+            const items = data.items ?? [];
+
+            const opts = (items || []).map((s) => ({
+                supplierId: s.supplierId ?? s.SupplierId ?? null,
+                supplierName: s.supplierName ?? s.SupplierName ?? "—"
+            }));
+
+            setSupplierOptions(opts);
+        } catch {
+            setSupplierOptions([]);
+        }
+    }
 
     async function fetchExpiredProducts(pageNumber = 1) {
         setLoading(true);
@@ -117,7 +161,7 @@ export default function ExpiredProductsList() {
                 params.set("expiryDate", `${raw.getFullYear()}-${String(raw.getMonth() + 1).padStart(2, "0")}-${String(raw.getDate()).padStart(2, "0")}`);
             }
 
-            const res = await fetch(`${baseURL}/api/ExpiredProducts?${params.toString()}`, { credentials: "include" });
+            const res = await fetch(`/api/ExpiredProducts?${params.toString()}`, { credentials: "include" });
             if (!res.ok) throw new Error(`Failed to load expired products (${res.status})`);
 
             const data = await res.json();
@@ -140,7 +184,6 @@ export default function ExpiredProductsList() {
 
             const totalCount = data.totalCount ?? mapped.length;
             setTotalPages(Math.max(1, Math.ceil(totalCount / pageSize)));
-
         } catch (err) {
             setError("Unable to load expired products.");
             console.error(err);
@@ -161,6 +204,67 @@ export default function ExpiredProductsList() {
         }
     };
 
+    // NEW: supplier searchable dropdown logic (InventoryList-style)
+    const isValidSupplierInput = (val) => /^[A-Za-z0-9+\- ]*$/.test(val);
+
+    const filteredSuppliers = (supplierQuery ?? "")
+        ? (supplierOptions || []).filter(s =>
+            String(s.supplierName ?? "").toLowerCase().startsWith(String(supplierQuery).toLowerCase())
+        )
+        : supplierOptions;
+
+    const handleSupplierInputChange = (e) => {
+        const val = e.target.value;
+
+        if (!isValidSupplierInput(val)) {
+            setSupplierError("Only letters, numbers, spaces, - and + allowed.");
+        } else {
+            setSupplierError("");
+            setSupplierQuery(val);
+            setShowSupplierDropdown(true);
+            setSupplierHighlightIndex(0);
+
+            // keep existing filter state in sync
+            if (!val) setSupplierSearch("");
+            else setSupplierSearch(val);
+        }
+    };
+
+    const handleSupplierInputFocus = () => {
+        setShowSupplierDropdown(true);
+        setSupplierHighlightIndex(0);
+    };
+
+    const handleSupplierKeyDown = (e) => {
+        if (!showSupplierDropdown) return;
+        const list = filteredSuppliers || [];
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setSupplierHighlightIndex(i => Math.min(i + 1, list.length - 1));
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setSupplierHighlightIndex(i => Math.max(i - 1, 0));
+        } else if (e.key === "Enter") {
+            e.preventDefault();
+            const picked = list[supplierHighlightIndex];
+            if (picked) {
+                setSupplierQuery(picked.supplierName ?? "");
+                setSupplierSearch(picked.supplierName ?? "");
+                setShowSupplierDropdown(false);
+                setSupplierHighlightIndex(0);
+            }
+        } else if (e.key === "Escape") {
+            setShowSupplierDropdown(false);
+        }
+    };
+
+    const handleSelectSupplier = (supplier) => {
+        setSupplierQuery(supplier.supplierName ?? "");
+        setSupplierSearch(supplier.supplierName ?? "");
+        setShowSupplierDropdown(false);
+        setSupplierHighlightIndex(0);
+    };
+
     // =================== DISPOSAL HANDLER ===================
     async function handleDisposeConfirm() {
         if (!disposeProduct) {
@@ -169,7 +273,7 @@ export default function ExpiredProductsList() {
         }
 
         try {
-            const res = await fetch(`${baseURL}/api/ExpiredProducts/dispose/${disposeProduct.inventoryId}`, {
+            const res = await fetch(`/api/ExpiredProducts/dispose/${disposeProduct.inventoryId}`, {
                 method: "POST",
                 credentials: "include"
             });
@@ -191,7 +295,6 @@ export default function ExpiredProductsList() {
             setTimeout(() => {
                 setSuccessMessage("");
             }, 3000);
-
         } catch (err) {
             console.error("Dispose inventory error:", err);
             setError(err.message || "Failed to dispose inventory batch.");
@@ -211,7 +314,7 @@ export default function ExpiredProductsList() {
 
             {/* SUCCESS MESSAGE */}
             {successMessage && (
-                <div className="alert alert-success alert-dismissible w-50" style={{margin: "20px auto" }}>
+                <div className="alert alert-success alert-dismissible w-50" style={{ margin: "20px auto" }}>
                     <button className="btn-close" data-bs-dismiss="alert" onClick={() => setSuccessMessage("")}></button>
                     <strong>Success!</strong> {successMessage}
                 </div>
@@ -242,15 +345,44 @@ export default function ExpiredProductsList() {
                         </div>
                     </div>
 
-                    <div className="mb-2">
-                        <div className="filter-label fst-italic small">Enter supplier name for automatic search</div>
+                    {/* NEW: SUPPLIER SEARCHABLE DROPDOWN (InventoryList-style) */}
+                    <div className="mb-2" ref={supplierRef} style={{ position: "relative" }}>
+                        <div className="filter-label fst-italic small">Search or select supplier for automatic search</div>
+
                         <input
                             type="text"
-                            className="form-control filter-text-input"
-                            placeholder="Filter Products by Supplier Name"
-                            value={supplierSearch}
-                            onChange={(e) => setSupplierSearch(e.target.value)}
+                            className={`form-control filter-text-input ${supplierError ? "is-invalid" : ""}`}
+                            placeholder={supplierOptions.length === 0 ? "Loading suppliers..." : "Search or select supplier"}
+                            value={supplierQuery ?? ""}
+                            onChange={handleSupplierInputChange}
+                            onFocus={handleSupplierInputFocus}
+                            onKeyDown={handleSupplierKeyDown}
+                            disabled={supplierOptions.length === 0}
+                            autoComplete="off"
                         />
+
+                        <div style={{ height: "20px" }}>
+                            {supplierError && <div className="invalid-feedback d-block">{supplierError}</div>}
+                        </div>
+
+                        {showSupplierDropdown && (filteredSuppliers || []).length > 0 && (
+                            <ul
+                                className="list-group position-absolute searchable-dropdown product-filter-dropdown"
+                                style={{ zIndex: 1500, maxHeight: 200, overflowY: "auto" }}
+                            >
+                                {filteredSuppliers.map((s, idx) => (
+                                    <li
+                                        key={s.supplierId ?? `${s.supplierName}_${idx}`}
+                                        className={`list-group-item list-group-item-action ${idx === supplierHighlightIndex ? "active" : ""}`}
+                                        onMouseDown={(ev) => { ev.preventDefault(); }}
+                                        onClick={() => handleSelectSupplier(s)}
+                                        onMouseEnter={() => setSupplierHighlightIndex(idx)}
+                                    >
+                                        {s.supplierName}
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                     </div>
                 </FilterLeft>
 
@@ -259,6 +391,8 @@ export default function ExpiredProductsList() {
                         onClear={() => {
                             setIdSearch("");
                             setSupplierSearch("");
+                            setSupplierQuery("");
+                            setSupplierError("");
                             setFilterDate(null);
                             setIdError("");
 

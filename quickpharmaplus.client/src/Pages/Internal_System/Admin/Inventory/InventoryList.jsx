@@ -20,13 +20,11 @@ import DeleteModal from "../../../../Components/InternalSystem/Modals/DeleteModa
 import FilterDropdown from "../../../../Components/InternalSystem/GeneralComponents/FilterDropdown";
 
 export default function InventoryList() {
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
     const { user } = useContext(AuthContext);
 
     // =================== CHECK USER ROLE ===================
     const roles = user?.roles || [];
     const isAdmin = roles.includes("Admin");
-
 
     // UI / data state
     const [loading, setLoading] = useState(false);
@@ -74,7 +72,6 @@ export default function InventoryList() {
         ] : [])
     ];
 
-
     const renderMap = {
         edit: (row) => <EditButton to={`/inventory/edit/${row.inventoryId}`} />,
         delete: (row) => (
@@ -100,6 +97,7 @@ export default function InventoryList() {
 
     useEffect(() => {
         fetchInventories(currentPage);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentPage]);
 
     useEffect(() => {
@@ -111,6 +109,7 @@ export default function InventoryList() {
         }, 300);
 
         return () => clearTimeout(filterDebounceRef.current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [idSearch, selectedProduct, filterExpiryDate, pageSize, selectedBranch]);
 
     useEffect(() => {
@@ -134,7 +133,7 @@ export default function InventoryList() {
 
     async function fetchProductsForFilter() {
         try {
-            const res = await fetch(`${baseURL.replace(/\/$/, "")}/api/Products?pageNumber=1&pageSize=200`, { credentials: "include" });
+            const res = await fetch("/api/Products?pageNumber=1&pageSize=200", { credentials: "include" });
             if (!res.ok) return setProductOptions([]);
             const data = await res.json();
             const items = data.items ?? data.Items ?? [];
@@ -150,7 +149,7 @@ export default function InventoryList() {
 
     async function fetchBranchesForFilter() {
         try {
-            const res = await fetch(`${baseURL}/api/Branch?pageNumber=1&pageSize=100`, { credentials: "include" });
+            const res = await fetch("/api/Branch?pageNumber=1&pageSize=100", { credentials: "include" });
             if (!res.ok) return setBranchOptions([]);
             const data = await res.json();
             const branches = data.items || [];
@@ -187,7 +186,7 @@ export default function InventoryList() {
                 params.set("branchId", selectedBranch); // Send branchId
             }
 
-            const res = await fetch(`${baseURL}/api/Inventory?${params.toString()}`, { credentials: "include" });
+            const res = await fetch(`/api/Inventory?${params.toString()}`, { credentials: "include" });
             if (!res.ok) throw new Error(`Failed to load inventory (${res.status})`);
 
             const data = await res.json();
@@ -204,7 +203,6 @@ export default function InventoryList() {
 
             const totalCount = data.totalCount ?? mapped.length;
             setTotalPages(Math.max(1, Math.ceil(totalCount / pageSize)));
-
         } catch {
             setError("Unable to load inventory records.");
         } finally {
@@ -292,7 +290,7 @@ export default function InventoryList() {
         }
 
         try {
-            const res = await fetch(`${baseURL}/api/Inventory/${deleteId}`, {
+            const res = await fetch(`/api/Inventory/${deleteId}`, {
                 method: "DELETE",
                 credentials: "include"
             });
@@ -314,7 +312,6 @@ export default function InventoryList() {
             setTimeout(() => {
                 setSuccessMessage("");
             }, 3000);
-
         } catch (err) {
             console.error("Delete inventory error:", err);
             setError(err.message || "Failed to delete inventory record.");
@@ -331,7 +328,7 @@ export default function InventoryList() {
 
             {/* SUCCESS MESSAGE */}
             {successMessage && (
-                <div className="alert alert-success alert-dismissible w-50" style={{margin: "20px auto" }}>
+                <div className="alert alert-success alert-dismissible w-50" style={{ margin: "20px auto" }}>
                     <button className="btn-close" data-bs-dismiss="alert" onClick={() => setSuccessMessage("")}></button>
                     <strong>Success!</strong> {successMessage}
                 </div>
@@ -339,7 +336,7 @@ export default function InventoryList() {
 
             {/* ERROR MESSAGE */}
             {error && (
-                <div className="alert alert-danger alert-dismissible w-50" style={{margin: "20px auto" }}>
+                <div className="alert alert-danger alert-dismissible w-50" style={{ margin: "20px auto" }}>
                     <button className="btn-close" data-bs-dismiss="alert" onClick={() => setError("")}></button>
                     <strong>Error!</strong> {error}
                 </div>
@@ -363,7 +360,6 @@ export default function InventoryList() {
                             {idError && <div className="invalid-feedback d-block">{idError}</div>}
                         </div>
                     </div>
-
 
                     <div className="mb-2" ref={productRef} style={{ position: "relative" }}>
                         <div className="filter-label fst-italic small">Search or select product for automatic search</div>
@@ -422,7 +418,6 @@ export default function InventoryList() {
                         {isAdmin && (
                             <PageAddButton to="/inventory/add" text="Add New Inventory" />
                         )}
-
                     </div>
                 </FilterRight>
             </FilterSection>
@@ -446,7 +441,6 @@ export default function InventoryList() {
                             />
                         </div>
                     )}
-
 
                     <div className="mb-2">
                         <div className="filter-label fst-italic small">Select expiry date for automatic search</div>

@@ -8,7 +8,6 @@ import FormHeader from "../../../../Components/InternalSystem/FormHeader";
 
 export default function AddEmployee() {
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
 
     // =================== STATE ===================
     const [firstName, setFirstName] = useState("");
@@ -92,7 +91,7 @@ export default function AddEmployee() {
     const fetchRoles = async () => {
         try {
             setLoadingRoles(true);
-            const response = await fetch(`${baseURL}/api/Roles`, {
+            const response = await fetch("/api/Roles", {
                 credentials: "include"
             });
 
@@ -115,7 +114,7 @@ export default function AddEmployee() {
     const fetchCities = async () => {
         try {
             setLoadingCities(true);
-            const response = await fetch(`${baseURL}/api/cities`, {
+            const response = await fetch("/api/cities", {
                 credentials: "include"
             });
 
@@ -139,7 +138,7 @@ export default function AddEmployee() {
     const fetchBranches = async () => {
         try {
             setLoadingBranches(true);
-            const response = await fetch(`${baseURL}/api/Branch?pageNumber=1&pageSize=100`, {
+            const response = await fetch("/api/Branch?pageNumber=1&pageSize=100", {
                 credentials: "include"
             });
 
@@ -212,7 +211,7 @@ export default function AddEmployee() {
         if (value.trim().length < 6) {
             return "Phone number must be at least 6 characters.";
         }
-            return "";
+        return "";
     };
 
     const validateCity = (value) => {
@@ -506,7 +505,7 @@ export default function AddEmployee() {
         };
 
         try {
-            const response = await fetch(`${baseURL}/api/Employees`, {
+            const response = await fetch("/api/Employees", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
@@ -549,7 +548,6 @@ export default function AddEmployee() {
 
             <FormWrapper title="Enter New Employee Details:">
                 <form className="add-employee-form" onSubmit={handleSubmit}>
-
                     {/* FIRST NAME & LAST NAME ROW */}
                     <div className="address-row">
                         <div className="address-column">

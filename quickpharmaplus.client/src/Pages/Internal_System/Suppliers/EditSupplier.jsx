@@ -9,7 +9,6 @@ import FormHeader from "../../../Components/InternalSystem/FormHeader";
 export default function EditSupplier() {
     const navigate = useNavigate();
     const { id } = useParams(); // Get supplier ID from URL
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
 
     // =================== STATE ===================
     const [supplierName, setSupplierName] = useState("");
@@ -52,6 +51,7 @@ export default function EditSupplier() {
     useEffect(() => {
         fetchCities();
         fetchSupplierData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
     // Close city dropdown on outside click
@@ -70,7 +70,7 @@ export default function EditSupplier() {
     const fetchCities = async () => {
         try {
             setLoadingCities(true);
-            const response = await fetch(`${baseURL}/api/cities`, {
+            const response = await fetch(`/api/cities`, {
                 credentials: "include"
             });
 
@@ -94,7 +94,8 @@ export default function EditSupplier() {
     const fetchSupplierData = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${baseURL}/api/Suppliers/${id}`, {
+
+            const response = await fetch(`/api/Suppliers/${encodeURIComponent(id)}`, {
                 credentials: "include"
             });
 
@@ -118,11 +119,10 @@ export default function EditSupplier() {
                 setRoad(data.address.street || "");
                 setBuilding(data.address.buildingNumber || "");
             }
-
-            setLoading(false);
         } catch (err) {
             console.error("Error fetching supplier:", err);
             setErrorMessage("Failed to load supplier data.");
+        } finally {
             setLoading(false);
         }
     };
@@ -383,7 +383,7 @@ export default function EditSupplier() {
         }
 
         const payload = {
-            supplierId: parseInt(id),
+            supplierId: parseInt(id, 10),
             supplierName: supplierName.trim(),
             representative: repName.trim(),
             contact: contactNumber.trim(),
@@ -395,7 +395,7 @@ export default function EditSupplier() {
         };
 
         try {
-            const response = await fetch(`${baseURL}/api/Suppliers/${id}`, {
+            const response = await fetch(`/api/Suppliers/${encodeURIComponent(id)}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",

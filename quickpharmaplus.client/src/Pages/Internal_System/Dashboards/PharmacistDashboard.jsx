@@ -3,7 +3,6 @@ import { AuthContext } from "../../../Context/AuthContext.jsx";
 import "./Dashboard.css";
 
 export default function PharmacistDashboard() {
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
     const { user: ctxUser } = useContext(AuthContext);
 
     // State for dashboard data
@@ -19,7 +18,7 @@ export default function PharmacistDashboard() {
     const fetchDashboardData = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${baseURL}/api/PharmacistDashboard`, {
+            const response = await fetch("/api/PharmacistDashboard", {
                 method: "GET",
                 credentials: "include"
             });
@@ -78,16 +77,13 @@ export default function PharmacistDashboard() {
 
     return (
         <div className="admin-container">
-
-            <h2 className="dashboard-title text-center">Welcome {" "}
+            <h2 className="dashboard-title text-center">Welcome{" "}
                 <span style={{ color: "#1D2D44" }}>{firstName}</span>
                 !
             </h2>
 
             {/* ==== METRIC CARDS ==== */}
             <div className="row justify-content-center mt-5">
-
-                {/* My Total Approvals */}
                 <div className="col-md-5">
                     <div className="card dashboard-card border-teal mb-4">
                         <div className="card-header teal-header">
@@ -101,7 +97,6 @@ export default function PharmacistDashboard() {
                     </div>
                 </div>
 
-                {/* My Approvals Today */}
                 <div className="col-md-5">
                     <div className="card dashboard-card border-teal mb-4">
                         <div className="card-header teal-header">
@@ -115,7 +110,6 @@ export default function PharmacistDashboard() {
                     </div>
                 </div>
 
-                {/* Branch Pending Prescriptions */}
                 <div className="col-md-5">
                     <div className="card dashboard-card border-teal mb-4">
                         <div className="card-header teal-header">
@@ -129,7 +123,6 @@ export default function PharmacistDashboard() {
                     </div>
                 </div>
 
-                {/* Branch Total Prescriptions */}
                 <div className="col-md-5">
                     <div className="card dashboard-card border-teal mb-4">
                         <div className="card-header teal-header">
@@ -143,7 +136,6 @@ export default function PharmacistDashboard() {
                     </div>
                 </div>
 
-                {/* Branch Total Orders */}
                 <div className="col-md-5">
                     <div className="card dashboard-card border-teal mb-4">
                         <div className="card-header teal-header">
@@ -157,7 +149,6 @@ export default function PharmacistDashboard() {
                     </div>
                 </div>
 
-                {/* Branch Controlled Medications Dispensed */}
                 <div className="col-md-5">
                     <div className="card dashboard-card border-teal mb-4">
                         <div className="card-header teal-header">
@@ -170,7 +161,6 @@ export default function PharmacistDashboard() {
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
     );

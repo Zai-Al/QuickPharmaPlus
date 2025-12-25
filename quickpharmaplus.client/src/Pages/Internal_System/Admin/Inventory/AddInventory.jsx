@@ -9,7 +9,6 @@ import DatePicker from "../../../../Components/Form/FormDatePicker";
 
 export default function AddInventory() {
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
 
     // =================== STATE ===================
     const [productId, setProductId] = useState("");
@@ -62,7 +61,7 @@ export default function AddInventory() {
     const fetchProducts = async () => {
         try {
             setLoadingProducts(true);
-            const response = await fetch(`${baseURL}/api/Products?pageNumber=1&pageSize=200`, {
+            const response = await fetch("/api/Products?pageNumber=1&pageSize=200", {
                 credentials: "include"
             });
 
@@ -89,7 +88,7 @@ export default function AddInventory() {
     const fetchBranches = async () => {
         try {
             setLoadingBranches(true);
-            const response = await fetch(`${baseURL}/api/Branch?pageNumber=1&pageSize=100`, {
+            const response = await fetch("/api/Branch?pageNumber=1&pageSize=100", {
                 credentials: "include"
             });
 
@@ -136,16 +135,16 @@ export default function AddInventory() {
 
     const validateExpiryDate = (value) => {
         if (!value) return "Batch expiry date is required.";
-        
+
         // Validate date is in the future
         const selectedDate = new Date(value);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         if (selectedDate < today) {
             return "Expiry date must be in the future.";
         }
-        
+
         return "";
     };
 
@@ -232,7 +231,6 @@ export default function AddInventory() {
         setErrors(prev => ({ ...prev, quantity: error }));
     };
 
-
     const handleExpiryDateChange = (date) => {
         setExpiryDate(date);
         setTouched(prev => ({ ...prev, expiryDate: true }));
@@ -280,7 +278,7 @@ export default function AddInventory() {
         }
 
         // Format expiry date to YYYY-MM-DD
-        const formattedDate = expiryDate 
+        const formattedDate = expiryDate
             ? `${expiryDate.getFullYear()}-${String(expiryDate.getMonth() + 1).padStart(2, "0")}-${String(expiryDate.getDate()).padStart(2, "0")}`
             : null;
 
@@ -292,7 +290,7 @@ export default function AddInventory() {
         };
 
         try {
-            const response = await fetch(`${baseURL}/api/Inventory`, {
+            const response = await fetch("/api/Inventory", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
@@ -337,7 +335,6 @@ export default function AddInventory() {
 
             <FormWrapper title="Enter New Inventory Details:">
                 <form className="add-inventory-form" onSubmit={handleSubmit}>
-
                     {/* PRODUCT SEARCHABLE DROPDOWN */}
                     <div className="mb-3 inventory-field" ref={productRef}>
                         <input
@@ -394,8 +391,7 @@ export default function AddInventory() {
                     <div className="inventory-field">
                         <input
                             type="text"
-                            className={`form-control form-text-input ${touched.quantity && errors.quantity ? "is-invalid" : ""
-                                }`}
+                            className={`form-control form-text-input ${touched.quantity && errors.quantity ? "is-invalid" : ""}`}
                             placeholder="Quantity"
                             value={quantity}
                             onChange={handleQuantityChange}
@@ -422,7 +418,6 @@ export default function AddInventory() {
                             </div>
                         )}
                     </div>
-
 
                     {/* BUTTON */}
                     <AddButton text="Add Inventory Record" type="submit" />

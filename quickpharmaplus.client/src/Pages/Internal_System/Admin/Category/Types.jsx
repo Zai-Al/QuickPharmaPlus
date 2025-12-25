@@ -12,8 +12,6 @@ import FilterRight from "../../../../Components/InternalSystem/GeneralComponents
 import FilterLeft from "../../../../Components/InternalSystem/GeneralComponents/FilterLeft";
 
 export default function CategoryTypes() {
-
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
     const { categoryId } = useParams();
     const [categoryName, setCategoryName] = useState("");
 
@@ -46,19 +44,18 @@ export default function CategoryTypes() {
     const validTypeNamePattern = /^[A-Za-z .\-']*$/;
 
     // ===========================================
-    // FETCH TYPES USING fetch() + ENV VAR
+    // FETCH TYPES
     // ===========================================
     async function fetchTypes() {
         if (!categoryId) return;
 
         try {
             const res = await fetch(
-                `${baseURL}/api/category/types/${categoryId}?pageNumber=${currentPage}&pageSize=${pageSize}`,
+                `/api/category/types/${categoryId}?pageNumber=${currentPage}&pageSize=${pageSize}`,
                 {
                     method: "GET",
                     credentials: "include"
                 }
-
             );
 
             if (!res.ok) {
@@ -71,7 +68,6 @@ export default function CategoryTypes() {
             const count = data.totalCount ?? 0;
             setTotalCount(count);
             setTotalPages(Math.max(1, Math.ceil(count / pageSize)));
-
         } catch (err) {
             console.error("Failed to fetch types:", err);
         }
@@ -80,6 +76,7 @@ export default function CategoryTypes() {
     useEffect(() => {
         fetchTypes();
         fetchCategoryName();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentPage, categoryId]);
 
     // ===========================================
@@ -99,7 +96,7 @@ export default function CategoryTypes() {
 
         try {
             const response = await fetch(
-                `${baseURL}/api/Category/type/check-name?name=${encodeURIComponent(name.trim())}&categoryId=${categoryId}`,
+                `/api/Category/type/check-name?name=${encodeURIComponent(name.trim())}&categoryId=${categoryId}`,
                 { credentials: "include" }
             );
 
@@ -127,7 +124,7 @@ export default function CategoryTypes() {
 
         try {
             const response = await fetch(
-                `${baseURL}/api/Category/type/check-name?name=${encodeURIComponent(name.trim())}&categoryId=${categoryId}&excludeTypeId=${editId}`,
+                `/api/Category/type/check-name?name=${encodeURIComponent(name.trim())}&categoryId=${categoryId}&excludeTypeId=${editId}`,
                 { credentials: "include" }
             );
 
@@ -182,15 +179,12 @@ export default function CategoryTypes() {
         if (error) return;
 
         try {
-            const res = await fetch(
-                `${baseURL}/api/category/types/${categoryId}/add`,
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    credentials: "include",
-                    body: JSON.stringify(newTypeName) // server expects raw string body
-                }
-            );
+            const res = await fetch(`/api/category/types/${categoryId}/add`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify(newTypeName) // server expects raw string body
+            });
 
             if (res.status === 409) {
                 // Conflict - duplicate name
@@ -206,7 +200,6 @@ export default function CategoryTypes() {
             setCurrentPage(1); // Reset to first page after adding
 
             fetchTypes();
-
         } catch (err) {
             console.error("Error adding type:", err);
         }
@@ -233,15 +226,12 @@ export default function CategoryTypes() {
         if (error) return;
 
         try {
-            const res = await fetch(
-                `${baseURL}/api/category/type/${editId}`,
-                {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    credentials: "include",
-                    body: JSON.stringify(editTypeName) // server expects raw string body
-                }
-            );
+            const res = await fetch(`/api/category/type/${editId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify(editTypeName) // server expects raw string body
+            });
 
             if (res.status === 409) {
                 // Conflict - duplicate name
@@ -258,7 +248,6 @@ export default function CategoryTypes() {
             setEditTypeNameError("");
 
             fetchTypes();
-
         } catch (err) {
             console.error("Error updating type:", err);
         }
@@ -286,13 +275,10 @@ export default function CategoryTypes() {
 
         try {
             // Fetch type details including product count
-            const res = await fetch(
-                `${baseURL}/api/category/type/${typeId}/details`,
-                {
-                    method: "GET",
-                    credentials: "include"
-                }
-            );
+            const res = await fetch(`/api/category/type/${typeId}/details`, {
+                method: "GET",
+                credentials: "include"
+            });
 
             if (res.ok) {
                 const data = await res.json();
@@ -315,13 +301,10 @@ export default function CategoryTypes() {
         if (!deleteId) return;
 
         try {
-            const res = await fetch(
-                `${baseURL}/api/category/type/${deleteId}`,
-                {
-                    method: "DELETE",
-                    credentials: "include"
-                }
-            );
+            const res = await fetch(`/api/category/type/${deleteId}`, {
+                method: "DELETE",
+                credentials: "include"
+            });
 
             if (!res.ok) throw new Error("Failed deleting type");
 
@@ -336,7 +319,6 @@ export default function CategoryTypes() {
             } else {
                 fetchTypes();
             }
-
         } catch (err) {
             console.error("Error deleting type:", err);
         }
@@ -362,29 +344,24 @@ export default function CategoryTypes() {
     }
 
     // ===========================================
-    //  FETCH CATEGORY NAME 
+    //  FETCH CATEGORY NAME
     // ===========================================
     async function fetchCategoryName() {
         try {
-            const res = await fetch(
-                `${baseURL}/api/category/${categoryId}`,
-                {
-                    method: "GET",
-                    credentials: "include"
-                }
-            );
+            const res = await fetch(`/api/category/${categoryId}`, {
+                method: "GET",
+                credentials: "include"
+            });
 
             if (!res.ok) throw new Error("Failed to load category");
 
             const data = await res.json();
             setCategoryName(data.categoryName ?? "Category");
-
         } catch (err) {
             console.error("Error loading category name:", err);
             setCategoryName("Category"); // fallback
         }
     }
-
 
     // ===========================================
     // TABLE STRUCTURE
@@ -408,7 +385,6 @@ export default function CategoryTypes() {
 
     return (
         <div className="categories-page">
-
             <h2 className="text-center fw-bold categories-title">
                 {categoryName ? `${categoryName}` : ""} - Category Types
             </h2>
@@ -459,7 +435,7 @@ export default function CategoryTypes() {
                         <p className="mb-2">Deleting this type will:</p>
                         <ul className="mb-0">
                             <li>
-                                Modify <strong>{productCount}</strong> product{productCount !== 1 ? 's' : ''} to "Not Defined" type
+                                Modify <strong>{productCount}</strong> product{productCount !== 1 ? "s" : ""} to "Not Defined" type
                             </li>
                         </ul>
                     </div>
@@ -539,7 +515,6 @@ export default function CategoryTypes() {
                     </div>
                 </div>
             )}
-
         </div>
     );
 }

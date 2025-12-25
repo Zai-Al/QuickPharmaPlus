@@ -11,7 +11,6 @@ import FormHeader from "../../../../Components/InternalSystem/FormHeader";
 export default function EditEmployee() {
     const navigate = useNavigate();
     const { id } = useParams();
-    const baseURL = import.meta.env.VITE_API_BASE_URL || "";  // Empty string to use proxy
 
     // =================== STATE ===================
     const [firstName, setFirstName] = useState("");
@@ -81,6 +80,7 @@ export default function EditEmployee() {
         }, 1000); // 1 second delay
 
         return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
     // Close city dropdown on outside click
@@ -103,10 +103,7 @@ export default function EditEmployee() {
             setLoadingEmployee(true);
             setErrorMessage("");
 
-            const url = `${baseURL}/api/Employees/${id}`;
-            console.log("FETCH EMPLOYEE URL:", url);
-
-            const response = await fetch(url, {
+            const response = await fetch(`/api/Employees/${id}`, {
                 credentials: "include",
             });
 
@@ -121,7 +118,6 @@ export default function EditEmployee() {
             }
 
             const data = await response.json();
-            console.log("PARSED EMPLOYEE DATA:", data);
 
             if (!mounted) return;
 
@@ -171,8 +167,7 @@ export default function EditEmployee() {
                 setCityQuery(cityName);
 
                 setBlock(
-                    data.address.block ? String(data.address.block) :
-                        ""
+                    data.address.block ? String(data.address.block) : ""
                 );
 
                 setRoad(
@@ -201,7 +196,6 @@ export default function EditEmployee() {
             setIsBlockValid(!!data.address?.block);
             setIsRoadValid(!!(data.address?.street || data.address?.road));
             setIsBuildingValid(!!(data.address?.buildingNumber || data.address?.building));
-
         } catch (err) {
             console.error("Error fetching employee:", err);
             if (mounted) {
@@ -214,12 +208,11 @@ export default function EditEmployee() {
         }
     };
 
-
     // =================== FETCH FUNCTIONS ===================
     const fetchRoles = async () => {
         try {
             setLoadingRoles(true);
-            const response = await fetch(`${baseURL}/api/Roles`, {
+            const response = await fetch("/api/Roles", {
                 credentials: "include"
             });
 
@@ -242,7 +235,7 @@ export default function EditEmployee() {
     const fetchCities = async () => {
         try {
             setLoadingCities(true);
-            const response = await fetch(`${baseURL}/api/cities`, {
+            const response = await fetch("/api/cities", {
                 credentials: "include"
             });
 
@@ -266,7 +259,7 @@ export default function EditEmployee() {
     const fetchBranches = async () => {
         try {
             setLoadingBranches(true);
-            const response = await fetch(`${baseURL}/api/Branch?pageNumber=1&pageSize=100`, {
+            const response = await fetch("/api/Branch?pageNumber=1&pageSize=100", {
                 credentials: "include"
             });
 
@@ -612,7 +605,7 @@ export default function EditEmployee() {
         };
 
         try {
-            const response = await fetch(`${baseURL}/api/Employees/${id}`, {
+            const response = await fetch(`/api/Employees/${id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
@@ -664,7 +657,6 @@ export default function EditEmployee() {
 
             <FormWrapper title="Edit Employee Details:">
                 <form className="add-employee-form" onSubmit={handleSubmit}>
-
                     {/* FIRST NAME & LAST NAME ROW */}
                     <div className="address-row">
                         <div className="address-column">
