@@ -19,6 +19,439 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             _context = context;
         }
 
+        public async Task<int?> ResolveReportTypeIdAsync(string reportTypeName)
+        {
+            if (string.IsNullOrWhiteSpace(reportTypeName)) return null;
+            var name = reportTypeName.Trim();
+
+            return await _context.ReportTypes
+                .AsNoTracking()
+                .Where(x => x.ReportTypeName != null && x.ReportTypeName == name)
+                .Select(x => (int?)x.ReportTypeId)
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<TotalRevenueReportDto> BuildTotalRevenueReportAsync(DateOnly from, DateOnly to, int? branchId)
+        {
+            var fromDt = from.ToDateTime(TimeOnly.MinValue);
+            var toDt = to.ToDateTime(TimeOnly.MaxValue);
+
+            var scopeLabel = "All branches";
+            if (branchId.HasValue)
+            {
+                var cityName = await _context.Branches
+                    .AsNoTracking()
+                    .Where(b => b.BranchId == branchId.Value)
+                    .Select(b => b.Address != null && b.Address.City != null ? b.Address.City.CityName : null)
+                    .FirstOrDefaultAsync();
+
+                scopeLabel = !string.IsNullOrWhiteSpace(cityName) ? cityName : $"Branch {branchId.Value}";
+            }
+
+            var orders = _context.Orders
+                .AsNoTracking()
+                .Include(o => o.Shipping)
+                .Include(o => o.Payment)
+                .AsQueryable();
+
+            if (branchId.HasValue)
+            {
+                orders = orders.Where(o => o.Shipping != null && o.Shipping.BranchId == branchId.Value);
+            }
+
+            var successfulByPaymentTs = orders.Where(o =>
+                o.Payment != null &&
+                o.Payment.PaymentIsSuccessful == true &&
+                o.Payment.PaymentTimestamp.HasValue &&
+                o.Payment.PaymentTimestamp.Value >= fromDt &&
+                o.Payment.PaymentTimestamp.Value <= toDt);
+
+            var unsuccessfulByPaymentTs = orders.Where(o =>
+                o.Payment != null &&
+                o.Payment.PaymentIsSuccessful == false &&
+                o.Payment.PaymentTimestamp.HasValue &&
+                o.Payment.PaymentTimestamp.Value >= fromDt &&
+                o.Payment.PaymentTimestamp.Value <= toDt);
+
+            var successfulPaymentsTotal = await successfulByPaymentTs
+                .Where(o => o.OrderTotal.HasValue)
+                .SumAsync(o => o.OrderTotal!.Value);
+
+            var successfulPaymentsCount = await successfulByPaymentTs.CountAsync();
+
+            var unsuccessfulPaymentsTotal = await unsuccessfulByPaymentTs
+                .Where(o => o.OrderTotal.HasValue)
+                .SumAsync(o => o.OrderTotal!.Value);
+
+            var unsuccessfulPaymentsCount = await unsuccessfulByPaymentTs.CountAsync();
+
+            var ordersWithMissingPaymentCount = await orders
+                .Where(o =>
+                    !o.PaymentId.HasValue &&
+                    o.OrderCreationDate.HasValue &&
+                    o.OrderCreationDate.Value >= fromDt &&
+                    o.OrderCreationDate.Value <= toDt)
+                .CountAsync();
+
+            var successfulOrdersByCreation = orders.Where(o =>
+                o.Payment != null &&
+                o.Payment.PaymentIsSuccessful == true &&
+                o.OrderCreationDate.HasValue &&
+                o.OrderCreationDate.Value >= fromDt &&
+                o.OrderCreationDate.Value <= toDt);
+
+            var paidLines =
+                from po in _context.ProductOrders.AsNoTracking()
+                join o in successfulOrdersByCreation on po.OrderId equals o.OrderId
+                select po;
+
+            var lineRevenueTotal = await paidLines
+                .Include(po => po.Product)
+                .Where(po => po.Product != null && po.Product.ProductPrice.HasValue)
+                .SumAsync(po => po.Product!.ProductPrice!.Value * po.Quantity);
+
+            var supplierRowsRaw = await paidLines
+                .Include(po => po.Product)!.ThenInclude(p => p!.Supplier)
+                .Where(po => po.Product != null && po.Product.SupplierId.HasValue && po.Product.ProductPrice.HasValue)
+                .GroupBy(po => new
+                {
+                    SupplierId = po.Product!.SupplierId!.Value,
+                    SupplierName = po.Product!.Supplier != null ? po.Product.Supplier.SupplierName : null
+                })
+                .Select(g => new
+                {
+                    g.Key.SupplierId,
+                    SupplierNameRaw = g.Key.SupplierName,
+                    OrdersCount = g.Select(x => x.OrderId!.Value).Distinct().Count(),
+                    UnitsSold = g.Sum(x => x.Quantity),
+                    Revenue = g.Sum(x => x.Product!.ProductPrice!.Value * x.Quantity)
+                })
+                .OrderByDescending(x => x.Revenue)
+                .ThenBy(x => x.SupplierNameRaw)
+                .ToListAsync();
+
+            var supplierRows = supplierRowsRaw
+                .Select(x => new SalesBySupplierRowDto
+                {
+                    SupplierId = x.SupplierId,
+                    SupplierName = string.IsNullOrWhiteSpace(x.SupplierNameRaw) ? $"Supplier {x.SupplierId}" : x.SupplierNameRaw!,
+                    OrdersCount = x.OrdersCount,
+                    UnitsSold = x.UnitsSold,
+                    Revenue = x.Revenue
+                })
+                .ToList();
+
+            var categoryRowsRaw = await paidLines
+                .Include(po => po.Product)!.ThenInclude(p => p!.Category)
+                .Where(po => po.Product != null && po.Product.CategoryId.HasValue && po.Product.ProductPrice.HasValue)
+                .GroupBy(po => new
+                {
+                    CategoryId = po.Product!.CategoryId!.Value,
+                    CategoryName = po.Product!.Category != null ? po.Product.Category.CategoryName : null
+                })
+                .Select(g => new
+                {
+                    g.Key.CategoryId,
+                    CategoryNameRaw = g.Key.CategoryName,
+                    OrdersCount = g.Select(x => x.OrderId!.Value).Distinct().Count(),
+                    UnitsSold = g.Sum(x => x.Quantity),
+                    Revenue = g.Sum(x => x.Product!.ProductPrice!.Value * x.Quantity)
+                })
+                .OrderByDescending(x => x.Revenue)
+                .ThenBy(x => x.CategoryNameRaw)
+                .ToListAsync();
+
+            var categoryRows = categoryRowsRaw
+                .Select(x => new SalesByCategoryRowDto
+                {
+                    CategoryId = x.CategoryId,
+                    CategoryName = string.IsNullOrWhiteSpace(x.CategoryNameRaw) ? $"Category {x.CategoryId}" : x.CategoryNameRaw!,
+                    OrdersCount = x.OrdersCount,
+                    UnitsSold = x.UnitsSold,
+                    Revenue = x.Revenue
+                })
+                .ToList();
+
+            var productRowsRaw = await paidLines
+                .Include(po => po.Product)
+                .Where(po => po.Product != null && po.Product.ProductPrice.HasValue)
+                .GroupBy(po => new
+                {
+                    ProductId = po.Product!.ProductId,
+                    ProductName = po.Product!.ProductName
+                })
+                .Select(g => new
+                {
+                    g.Key.ProductId,
+                    ProductNameRaw = g.Key.ProductName,
+                    OrdersCount = g.Select(x => x.OrderId!.Value).Distinct().Count(),
+                    UnitsSold = g.Sum(x => x.Quantity),
+                    Profit = g.Sum(x => x.Product!.ProductPrice!.Value * x.Quantity)
+                })
+                .OrderByDescending(x => x.Profit)
+                .ThenBy(x => x.ProductNameRaw)
+                .ToListAsync();
+
+            var productRows = productRowsRaw
+                .Select(x => new SalesByProductRowDto
+                {
+                    ProductId = x.ProductId,
+                    ProductName = string.IsNullOrWhiteSpace(x.ProductNameRaw) ? $"Product {x.ProductId}" : x.ProductNameRaw!,
+                    OrdersCount = x.OrdersCount,
+                    UnitsSold = x.UnitsSold,
+                    Profit = x.Profit
+                })
+                .ToList();
+
+            var ordersList = await _context.Orders
+                .AsNoTracking()
+                .Where(o => successfulOrdersByCreation.Select(x => x.OrderId).Contains(o.OrderId))
+                .Include(o => o.User)
+                .Include(o => o.OrderStatus)
+                .Include(o => o.Payment)
+                .Include(o => o.Shipping)!.ThenInclude(s => s.ShippingSlot)
+                .Include(o => o.Shipping)!.ThenInclude(s => s.Branch)!.ThenInclude(b => b.Address)!.ThenInclude(a => a.City)
+                .OrderBy(o => o.OrderCreationDate)
+                .ThenBy(o => o.OrderId)
+                .Select(o => new OrderListRowDto
+                {
+                    OrderId = o.OrderId,
+                    OrderCreationDate = o.OrderCreationDate,
+                    CustomerUserId = o.UserId,
+                    CustomerName = o.User != null ? ((o.User.FirstName ?? "") + " " + (o.User.LastName ?? "")).Trim() : "",
+                    PaymentIsSuccessful = o.Payment != null ? o.Payment.PaymentIsSuccessful : null,
+                    OrderTotal = o.OrderTotal,
+                    IsDelivery = o.Shipping != null ? o.Shipping.ShippingIsDelivery : null,
+                    IsUrgent = o.Shipping != null ? o.Shipping.ShippingIsUrgent : null,
+                    ShippingDate = o.Shipping != null ? o.Shipping.ShippingDate : null,
+                    SlotName = (o.Shipping != null && o.Shipping.ShippingSlot != null) ? o.Shipping.ShippingSlot.SlotName : "",
+                    BranchName = (o.Shipping != null && o.Shipping.Branch != null && o.Shipping.Branch.Address != null && o.Shipping.Branch.Address.City != null)
+                        ? o.Shipping.Branch.Address.City.CityName!
+                        : ""
+                })
+                .ToListAsync();
+
+            var deliveryRequests = await _context.Orders
+                .AsNoTracking()
+                .Where(o =>
+                    o.Payment != null &&
+                    o.Payment.PaymentIsSuccessful == true &&
+                    o.OrderCreationDate.HasValue &&
+                    o.OrderCreationDate.Value >= fromDt &&
+                    o.OrderCreationDate.Value <= toDt &&
+                    o.Shipping != null &&
+                    o.Shipping.ShippingIsDelivery == true)
+                .Include(o => o.User)
+                .Include(o => o.OrderStatus)
+                .Include(o => o.Payment)!.ThenInclude(p => p.PaymentMethod)
+                .Include(o => o.Shipping)!.ThenInclude(s => s.ShippingSlot)
+                .Include(o => o.Shipping)!.ThenInclude(s => s.Address)!.ThenInclude(a => a.City)
+                .OrderBy(o => o.OrderCreationDate)
+                .ThenBy(o => o.OrderId)
+                .Select(o => new DeliveryRequestRowDto
+                {
+                    OrderId = o.OrderId,
+                    ShippingId = o.Shipping!.ShippingId,
+                    CustomerName = o.User != null ? ((o.User.FirstName ?? "") + " " + (o.User.LastName ?? "")).Trim() : "",
+                    CustomerPhone = o.User != null ? (o.User.ContactNumber ?? "") : "",
+                    CustomerEmail = o.User != null ? (o.User.EmailAddress ?? "") : "",
+                    Location = (o.Shipping!.Address != null
+                        ? $"{o.Shipping.Address.Block}, {o.Shipping.Address.Street}, {o.Shipping.Address.BuildingNumber}"
+                        : ""),
+                    IsUrgent = o.Shipping.ShippingIsUrgent == true,
+                    SlotName = o.Shipping.ShippingSlot != null ? o.Shipping.ShippingSlot.SlotName : "",
+                    OrderStatusName = o.OrderStatus != null ? (o.OrderStatus.OrderStatusName ?? "") : "",
+                    PaymentMethod = (o.Payment != null && o.Payment.PaymentMethod != null) ? (o.Payment.PaymentMethod.PaymentMethodName ?? "") : "",
+                    IsPaymentSuccessful = o.Payment != null && o.Payment.PaymentIsSuccessful == true
+                })
+                .ToListAsync();
+
+            var supplierOrdersQuery = _context.SupplierOrders
+                .AsNoTracking()
+                .Include(so => so.Supplier)
+                .Include(so => so.Product)
+                .Include(so => so.Branch)!.ThenInclude(b => b.Address)!.ThenInclude(a => a.City)
+                .Where(so =>
+                    so.SupplierOrderDate.HasValue &&
+                    so.SupplierOrderDate.Value >= fromDt &&
+                    so.SupplierOrderDate.Value <= toDt);
+
+            if (branchId.HasValue)
+            {
+                supplierOrdersQuery = supplierOrdersQuery.Where(so => so.BranchId == branchId.Value);
+            }
+
+            var supplierOrders = await supplierOrdersQuery
+                .OrderBy(so => so.SupplierOrderDate)
+                .ThenBy(so => so.SupplierOrderId)
+                .Select(so => new SupplierOrderCostRowDto
+                {
+                    SupplierOrderId = so.SupplierOrderId,
+                    SupplierOrderDate = so.SupplierOrderDate,
+                    SupplierName = so.Supplier != null ? (so.Supplier.SupplierName ?? "") : "",
+                    ProductName = so.Product != null ? (so.Product.ProductName ?? "") : "",
+                    BranchName = (so.Branch != null && so.Branch.Address != null && so.Branch.Address.City != null)
+                        ? (so.Branch.Address.City.CityName ?? "")
+                        : "",
+                    Quantity = so.SupplierOrderQuantity ?? 0,
+                    UnitPrice = so.Product != null ? (so.Product.ProductPrice ?? 0m) : 0m,
+                    TotalCost = (so.Product != null ? (so.Product.ProductPrice ?? 0m) : 0m) * (so.SupplierOrderQuantity ?? 0)
+                })
+                .ToListAsync();
+
+            var reordersQuery = _context.Reorders
+                .AsNoTracking()
+                .Include(r => r.Product)
+                .Include(r => r.Supplier)
+                .Include(r => r.Branch)!.ThenInclude(b => b.Address)!.ThenInclude(a => a.City)
+                .Where(r => r.SupplierId == supplierId);
+
+            if (branchId.HasValue)
+            {
+                reordersQuery = reordersQuery.Where(r => r.BranchId == branchId.Value);
+            }
+
+            var reorders = await reordersQuery
+                .OrderBy(r => r.ReorderId)
+                .Select(r => new ReorderCostRowDto
+                {
+                    ReorderId = r.ReorderId,
+                    ProductName = r.Product != null ? (r.Product.ProductName ?? "") : "",
+                    SupplierName = r.Supplier != null ? (r.Supplier.SupplierName ?? "") : "",
+                    BranchName = (r.Branch != null && r.Branch.Address != null && r.Branch.Address.City != null)
+                        ? (r.Branch.Address.City.CityName ?? "")
+                        : "",
+                    Threshold = r.ReorderThershold,
+                    Quantity = r.ReorderQuantity ?? 0,
+                    UnitPrice = r.Product != null ? (r.Product.ProductPrice ?? 0m) : 0m,
+                    TotalCost = (r.Product != null ? (r.Product.ProductPrice ?? 0m) : 0m) * (r.ReorderQuantity ?? 0)
+                })
+                .ToListAsync();
+
+            var branchScope = _context.Branches
+                .AsNoTracking()
+                .Include(b => b.Address)!.ThenInclude(a => a.City)
+                .AsQueryable();
+
+            if (branchId.HasValue)
+            {
+                branchScope = branchScope.Where(b => b.BranchId == branchId.Value);
+            }
+
+            var branchList = await branchScope
+                .OrderBy(b => b.BranchId)
+                .Select(b => new
+                {
+                    b.BranchId,
+                    BranchName =
+                        b.Address != null && b.Address.City != null && b.Address.City.CityName != null
+                            ? b.Address.City.CityName
+                            : ("Branch " + b.BranchId)
+                })
+                .ToListAsync();
+
+            var branchKpis = new List<BranchRevenueKpiDto>();
+
+            foreach (var br in branchList)
+            {
+                var brOrders = _context.Orders
+                    .AsNoTracking()
+                    .Include(o => o.Shipping)
+                    .Include(o => o.Payment)
+                    .Where(o => o.Shipping != null && o.Shipping.BranchId == br.BranchId);
+
+                var successfulByPaymentTsBr = brOrders.Where(o =>
+                    o.Payment != null &&
+                    o.Payment.PaymentIsSuccessful == true &&
+                    o.Payment.PaymentTimestamp.HasValue &&
+                    o.Payment.PaymentTimestamp.Value >= fromDt &&
+                    o.Payment.PaymentTimestamp.Value <= toDt);
+
+                var unsuccessfulByPaymentTsBr = brOrders.Where(o =>
+                    o.Payment != null &&
+                    o.Payment.PaymentIsSuccessful == false &&
+                    o.Payment.PaymentTimestamp.HasValue &&
+                    o.Payment.PaymentTimestamp.Value >= fromDt &&
+                    o.Payment.PaymentTimestamp.Value <= toDt);
+
+                var successfulPaymentsTotalBr = await successfulByPaymentTsBr
+                    .Where(o => o.OrderTotal.HasValue)
+                    .SumAsync(o => o.OrderTotal!.Value);
+
+                var successfulPaymentsCountBr = await successfulByPaymentTsBr.CountAsync();
+
+                var unsuccessfulPaymentsTotalBr = await unsuccessfulByPaymentTsBr
+                    .Where(o => o.OrderTotal.HasValue)
+                    .SumAsync(o => o.OrderTotal!.Value);
+
+                var unsuccessfulPaymentsCountBr = await successfulByPaymentTsBr.CountAsync();
+
+                var ordersWithMissingPaymentCountBr = await brOrders
+                    .Where(o =>
+                        !o.PaymentId.HasValue &&
+                        o.OrderCreationDate.HasValue &&
+                        o.OrderCreationDate.Value >= fromDt &&
+                        o.OrderCreationDate.Value <= toDt)
+                    .CountAsync();
+
+                var successfulOrdersByCreationBr = brOrders.Where(o =>
+                    o.Payment != null &&
+                    o.Payment.PaymentIsSuccessful == true &&
+                    o.OrderCreationDate.HasValue &&
+                    o.OrderCreationDate.Value >= fromDt &&
+                    o.OrderCreationDate.Value <= toDt);
+
+                var paidLinesBr =
+                    from po in _context.ProductOrders.AsNoTracking()
+                    join o in successfulOrdersByCreationBr on po.OrderId equals o.OrderId
+                    select po;
+
+                var lineRevenueTotalBr = await paidLinesBr
+                    .Include(po => po.Product)
+                    .Where(po => po.Product != null && po.Product.ProductPrice.HasValue)
+                    .SumAsync(po => po.Product!.ProductPrice!.Value * po.Quantity);
+
+                branchKpis.Add(new BranchRevenueKpiDto
+                {
+                    BranchId = br.BranchId,
+                    BranchName = br.BranchName,
+                    Kpis = new TotalRevenueKpisDto
+                    {
+                        SuccessfulPaymentsTotal = successfulPaymentsTotalBr,
+                        SuccessfulPaymentsCount = successfulPaymentsCountBr,
+                        UnsuccessfulPaymentsTotal = unsuccessfulPaymentsTotalBr,
+                        UnsuccessfulPaymentsCount = unsuccessfulPaymentsCountBr,
+                        OrdersWithMissingPaymentCount = ordersWithMissingPaymentCountBr,
+                        LineRevenueTotal = lineRevenueTotalBr
+                    }
+                });
+            }
+
+            return new TotalRevenueReportDto
+            {
+                ScopeLabel = scopeLabel,
+                DateFrom = from,
+                DateTo = to,
+                Kpis = new TotalRevenueKpisDto
+                {
+                    SuccessfulPaymentsTotal = successfulPaymentsTotal,
+                    SuccessfulPaymentsCount = successfulPaymentsCount,
+                    UnsuccessfulPaymentsTotal = unsuccessfulPaymentsTotal,
+                    UnsuccessfulPaymentsCount = unsuccessfulPaymentsCount,
+                    OrdersWithMissingPaymentCount = ordersWithMissingPaymentCount,
+                    LineRevenueTotal = lineRevenueTotal
+                },
+                SalesBySupplier = supplierRows,
+                SalesByCategory = categoryRows,
+                SalesByProduct = productRows,
+                Orders = ordersList,
+                DeliveryRequests = deliveryRequests,
+                SupplierOrders = supplierOrders,
+                Reorders = reorders,
+                BranchKpis = branchKpis
+            };
+        }
+
         public async Task<PagedResult<ReportListItemDto>> GetReportsAsync(
             int pageNumber,
             int pageSize,
@@ -193,6 +626,1454 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 };
 
             return await query.FirstOrDefaultAsync();
+        }
+
+        public async Task<SupplierRevenueReportDto> BuildSupplierRevenueReportAsync(DateOnly from, DateOnly to, int supplierId, int? branchId)
+        {
+            var fromDt = from.ToDateTime(TimeOnly.MinValue);
+            var toDt = to.ToDateTime(TimeOnly.MaxValue);
+
+            var supplierInfo = await _context.Suppliers
+                .AsNoTracking()
+                .Where(s => s.SupplierId == supplierId)
+                .Select(s => new
+                {
+                    s.SupplierId,
+                    s.SupplierName,
+                    s.SupplierContact,
+                    s.SupplierEmail,
+                    s.SupplierRepresentative
+                })
+                .FirstOrDefaultAsync();
+
+            if (supplierInfo == null)
+            {
+                throw new InvalidOperationException("SUPPLIER_NOT_FOUND");
+            }
+
+            var scopeLabel = "All branches";
+            if (branchId.HasValue)
+            {
+                var cityName = await _context.Branches
+                    .AsNoTracking()
+                    .Where(b => b.BranchId == branchId.Value)
+                    .Select(b => b.Address != null && b.Address.City != null ? b.Address.City.CityName : null)
+                    .FirstOrDefaultAsync();
+
+                scopeLabel = !string.IsNullOrWhiteSpace(cityName) ? cityName : $"Branch {branchId.Value}";
+            }
+
+            var orders = _context.Orders
+                .AsNoTracking()
+                .Include(o => o.Shipping)
+                .Include(o => o.Payment)
+                .AsQueryable();
+
+            if (branchId.HasValue)
+            {
+                orders = orders.Where(o => o.Shipping != null && o.Shipping.BranchId == branchId.Value);
+            }
+
+            var supplierOrderIds = _context.ProductOrders
+                .AsNoTracking()
+                .Include(po => po.Product)
+                .Where(po => po.OrderId.HasValue && po.Product != null && po.Product.SupplierId == supplierId)
+                .Select(po => po.OrderId!.Value)
+                .Distinct();
+
+            var successfulOrdersByPaymentTs = orders.Where(o =>
+                o.Payment != null &&
+                o.Payment.PaymentIsSuccessful == true &&
+                o.Payment.PaymentTimestamp.HasValue &&
+                o.Payment.PaymentTimestamp.Value >= fromDt &&
+                o.Payment.PaymentTimestamp.Value <= toDt &&
+                supplierOrderIds.Contains(o.OrderId));
+
+            var unsuccessfulOrdersByPaymentTs = orders.Where(o =>
+                o.Payment != null &&
+                o.Payment.PaymentIsSuccessful == false &&
+                o.Payment.PaymentTimestamp.HasValue &&
+                o.Payment.PaymentTimestamp.Value >= fromDt &&
+                o.Payment.PaymentTimestamp.Value <= toDt &&
+                supplierOrderIds.Contains(o.OrderId));
+
+            var successfulSupplierLines =
+                from po in _context.ProductOrders.AsNoTracking()
+                join o in successfulOrdersByPaymentTs on po.OrderId equals o.OrderId
+                join p in _context.Products.AsNoTracking() on po.ProductId equals p.ProductId
+                where p.SupplierId == supplierId && p.ProductPrice.HasValue
+                select new { po.OrderId, po.Quantity, Price = p.ProductPrice!.Value, p.ProductId, p.ProductName };
+
+            var successfulRevenue = await successfulSupplierLines.SumAsync(x => x.Price * x.Quantity);
+            var successfulCount = await successfulOrdersByPaymentTs.Select(o => o.OrderId).Distinct().CountAsync();
+
+            var unsuccessfulSupplierLines =
+                from po in _context.ProductOrders.AsNoTracking()
+                join o in unsuccessfulOrdersByPaymentTs on po.OrderId equals o.OrderId
+                join p in _context.Products.AsNoTracking() on po.ProductId equals p.ProductId
+                where p.SupplierId == supplierId && p.ProductPrice.HasValue
+                select new { po.OrderId, po.Quantity, Price = p.ProductPrice!.Value };
+
+            var unsuccessfulRevenue = await unsuccessfulSupplierLines.SumAsync(x => x.Price * x.Quantity);
+            var unsuccessfulCount = await unsuccessfulOrdersByPaymentTs.Select(o => o.OrderId).Distinct().CountAsync();
+
+            var missingPaymentCount = await orders
+                .Where(o =>
+                    !o.PaymentId.HasValue &&
+                    o.OrderCreationDate.HasValue &&
+                    o.OrderCreationDate.Value >= fromDt &&
+                    o.OrderCreationDate.Value <= toDt &&
+                    supplierOrderIds.Contains(o.OrderId))
+                .Select(o => o.OrderId)
+                .Distinct()
+                .CountAsync();
+
+            var successfulOrdersByCreation = orders.Where(o =>
+                o.Payment != null &&
+                o.Payment.PaymentIsSuccessful == true &&
+                o.OrderCreationDate.HasValue &&
+                o.OrderCreationDate.Value >= fromDt &&
+                o.OrderCreationDate.Value <= toDt &&
+                supplierOrderIds.Contains(o.OrderId));
+
+            var paidSupplierLines =
+                from po in _context.ProductOrders.AsNoTracking()
+                join o in successfulOrdersByCreation on po.OrderId equals o.OrderId
+                join p in _context.Products.AsNoTracking() on po.ProductId equals p.ProductId
+                where p.SupplierId == supplierId && p.ProductPrice.HasValue
+                select new { po.OrderId, po.Quantity, Price = p.ProductPrice!.Value, p.ProductId, p.ProductName };
+
+            var supplierRevenueByOrder = await paidSupplierLines
+                .GroupBy(x => x.OrderId!.Value)
+                .Select(g => new { OrderId = g.Key, Amount = g.Sum(x => x.Price * x.Quantity) })
+                .ToListAsync();
+
+            var supplierRevenueMap = supplierRevenueByOrder.ToDictionary(x => x.OrderId, x => x.Amount);
+
+            var productSalesRaw = await paidSupplierLines
+                .GroupBy(x => new { x.ProductId, x.ProductName })
+                .Select(g => new
+                {
+                    g.Key.ProductId,
+                    g.Key.ProductName,
+                    OrdersCount = g.Select(x => x.OrderId!.Value).Distinct().Count(),
+                    UnitsSold = g.Sum(x => x.Quantity),
+                    Revenue = g.Sum(x => x.Price * x.Quantity)
+                })
+                .OrderByDescending(x => x.Revenue)
+                .ThenBy(x => x.ProductName)
+                .ToListAsync();
+
+            var productSales = productSalesRaw
+                .Select(x => new SupplierProductSalesRowDto
+                {
+                    ProductId = x.ProductId,
+                    ProductName = string.IsNullOrWhiteSpace(x.ProductName) ? $"Product {x.ProductId}" : x.ProductName!,
+                    OrdersCount = x.OrdersCount,
+                    UnitsSold = x.UnitsSold,
+                    Revenue = x.Revenue
+                })
+                .ToList();
+
+            var ordersList = await _context.Orders
+                .AsNoTracking()
+                .Where(o => successfulOrdersByCreation.Select(x => x.OrderId).Contains(o.OrderId))
+                .Include(o => o.User)
+                .Include(o => o.Shipping)!.ThenInclude(s => s.ShippingSlot)
+                .Include(o => o.Shipping)!.ThenInclude(s => s.Branch)!.ThenInclude(b => b.Address)!.ThenInclude(a => a.City)
+                .OrderBy(o => o.OrderCreationDate)
+                .ThenBy(o => o.OrderId)
+                .Select(o => new
+                {
+                    o.OrderId,
+                    o.OrderCreationDate,
+                    CustomerName = o.User != null ? ((o.User.FirstName ?? "") + " " + (o.User.LastName ?? "")).Trim() : "",
+                    BranchName = (o.Shipping != null && o.Shipping.Branch != null && o.Shipping.Branch.Address != null && o.Shipping.Branch.Address.City != null)
+                        ? o.Shipping.Branch.Address.City.CityName!
+                        : "",
+                    IsDelivery = o.Shipping != null ? o.Shipping.ShippingIsDelivery : null,
+                    IsUrgent = o.Shipping != null ? o.Shipping.ShippingIsUrgent : null
+                })
+                .ToListAsync();
+
+            var salesOrders = ordersList
+                .Select(o => new SupplierSalesOrderRowDto
+                {
+                    OrderId = o.OrderId,
+                    OrderCreationDate = o.OrderCreationDate,
+                    CustomerName = o.CustomerName,
+                    BranchName = o.BranchName,
+                    IsDelivery = o.IsDelivery,
+                    IsUrgent = o.IsUrgent,
+                    SupplierLineRevenue = supplierRevenueMap.TryGetValue(o.OrderId, out var amt) ? amt : 0m
+                })
+                .ToList();
+
+            var supplierOrdersQuery = _context.SupplierOrders
+                .AsNoTracking()
+                .Include(so => so.Supplier)
+                .Include(so => so.Product)
+                .Include(so => so.Branch)!.ThenInclude(b => b.Address)!.ThenInclude(a => a.City)
+                .Where(so =>
+                    so.SupplierId == supplierId &&
+                    so.SupplierOrderDate.HasValue &&
+                    so.SupplierOrderDate.Value >= fromDt &&
+                    so.SupplierOrderDate.Value <= toDt);
+
+            if (branchId.HasValue)
+            {
+                supplierOrdersQuery = supplierOrdersQuery.Where(so => so.BranchId == branchId.Value);
+            }
+
+            var supplierOrders = await supplierOrdersQuery
+                .OrderBy(so => so.SupplierOrderDate)
+                .ThenBy(so => so.SupplierOrderId)
+                .Select(so => new SupplierOrderCostRowDto
+                {
+                    SupplierOrderId = so.SupplierOrderId,
+                    SupplierOrderDate = so.SupplierOrderDate,
+                    SupplierName = so.Supplier != null ? (so.Supplier.SupplierName ?? "") : "",
+                    ProductName = so.Product != null ? (so.Product.ProductName ?? "") : "",
+                    BranchName = (so.Branch != null && so.Branch.Address != null && so.Branch.Address.City != null)
+                        ? (so.Branch.Address.City.CityName ?? "")
+                        : "",
+                    Quantity = so.SupplierOrderQuantity ?? 0,
+                    UnitPrice = so.Product != null ? (so.Product.ProductPrice ?? 0m) : 0m,
+                    TotalCost = (so.Product != null ? (so.Product.ProductPrice ?? 0m) : 0m) * (so.SupplierOrderQuantity ?? 0)
+                })
+                .ToListAsync();
+
+            var reordersQuery = _context.Reorders
+                .AsNoTracking()
+                .Include(r => r.Product)
+                .Include(r => r.Supplier)
+                .Include(r => r.Branch)!.ThenInclude(b => b.Address)!.ThenInclude(a => a.City)
+                .Where(r => r.SupplierId == supplierId);
+
+            if (branchId.HasValue)
+            {
+                reordersQuery = reordersQuery.Where(r => r.BranchId == branchId.Value);
+            }
+
+            var reorders = await reordersQuery
+                .OrderBy(r => r.ReorderId)
+                .Select(r => new ReorderCostRowDto
+                {
+                    ReorderId = r.ReorderId,
+                    ProductName = r.Product != null ? (r.Product.ProductName ?? "") : "",
+                    SupplierName = r.Supplier != null ? (r.Supplier.SupplierName ?? "") : "",
+                    BranchName = (r.Branch != null && r.Branch.Address != null && r.Branch.Address.City != null)
+                        ? (r.Branch.Address.City.CityName ?? "")
+                        : "",
+                    Threshold = r.ReorderThershold,
+                    Quantity = r.ReorderQuantity ?? 0,
+                    UnitPrice = r.Product != null ? (r.Product.ProductPrice ?? 0m) : 0m,
+                    TotalCost = (r.Product != null ? (r.Product.ProductPrice ?? 0m) : 0m) * (r.ReorderQuantity ?? 0)
+                })
+                .ToListAsync();
+
+            var branchScope = _context.Branches
+                .AsNoTracking()
+                .Include(b => b.Address)!.ThenInclude(a => a.City)
+                .AsQueryable();
+
+            if (branchId.HasValue)
+            {
+                branchScope = branchScope.Where(b => b.BranchId == branchId.Value);
+            }
+
+            var branchList = await branchScope
+                .OrderBy(b => b.BranchId)
+                .Select(b => new
+                {
+                    b.BranchId,
+                    BranchName =
+                        b.Address != null && b.Address.City != null && b.Address.City.CityName != null
+                            ? b.Address.City.CityName
+                            : ("Branch " + b.BranchId)
+                })
+                .ToListAsync();
+
+            var branchKpis = new List<BranchRevenueKpiDto>();
+
+            foreach (var br in branchList)
+            {
+                var branchOrders = _context.Orders
+                    .AsNoTracking()
+                    .Include(o => o.Shipping)
+                    .Include(o => o.Payment)
+                    .Where(o => o.Shipping != null && o.Shipping.BranchId == br.BranchId);
+
+                var brSuccessfulByPaymentTs = branchOrders.Where(o =>
+                    o.Payment != null &&
+                    o.Payment.PaymentIsSuccessful == true &&
+                    o.Payment.PaymentTimestamp.HasValue &&
+                    o.Payment.PaymentTimestamp.Value >= fromDt &&
+                    o.Payment.PaymentTimestamp.Value <= toDt &&
+                    supplierOrderIds.Contains(o.OrderId));
+
+                var brSuccessfulLines =
+                    from po in _context.ProductOrders.AsNoTracking()
+                    join o in brSuccessfulByPaymentTs on po.OrderId equals o.OrderId
+                    join p in _context.Products.AsNoTracking() on po.ProductId equals p.ProductId
+                    where p.SupplierId == supplierId && p.ProductPrice.HasValue
+                    select new { po.Quantity, Price = p.ProductPrice!.Value };
+
+                var brSuccessfulRev = await brSuccessfulLines.SumAsync(x => x.Price * x.Quantity);
+                var brSuccessfulCount = await brSuccessfulByPaymentTs.Select(o => o.OrderId).Distinct().CountAsync();
+
+                var brUnsuccessfulByPaymentTs = branchOrders.Where(o =>
+                    o.Payment != null &&
+                    o.Payment.PaymentIsSuccessful == false &&
+                    o.Payment.PaymentTimestamp.HasValue &&
+                    o.Payment.PaymentTimestamp.Value >= fromDt &&
+                    o.Payment.PaymentTimestamp.Value <= toDt &&
+                    supplierOrderIds.Contains(o.OrderId));
+
+                var brUnsuccessfulLines =
+                    from po in _context.ProductOrders.AsNoTracking()
+                    join o in brUnsuccessfulByPaymentTs on po.OrderId equals o.OrderId
+                    join p in _context.Products.AsNoTracking() on po.ProductId equals p.ProductId
+                    where p.SupplierId == supplierId && p.ProductPrice.HasValue
+                    select new { po.Quantity, Price = p.ProductPrice!.Value };
+
+                var brUnsuccessfulRev = await brUnsuccessfulLines.SumAsync(x => x.Price * x.Quantity);
+                var brUnsuccessfulCount = await brUnsuccessfulByPaymentTs.Select(o => o.OrderId).Distinct().CountAsync();
+
+                var brMissingPayment = await branchOrders
+                    .Where(o =>
+                        !o.PaymentId.HasValue &&
+                        o.OrderCreationDate.HasValue &&
+                        o.OrderCreationDate.Value >= fromDt &&
+                        o.OrderCreationDate.Value <= toDt &&
+                        supplierOrderIds.Contains(o.OrderId))
+                    .Select(o => o.OrderId)
+                    .Distinct()
+                    .CountAsync();
+
+                branchKpis.Add(new BranchRevenueKpiDto
+                {
+                    BranchId = br.BranchId,
+                    BranchName = br.BranchName,
+                    Kpis = new TotalRevenueKpisDto
+                    {
+                        SuccessfulPaymentsTotal = brSuccessfulRev,
+                        SuccessfulPaymentsCount = brSuccessfulCount,
+                        UnsuccessfulPaymentsTotal = brUnsuccessfulRev,
+                        UnsuccessfulPaymentsCount = brUnsuccessfulCount,
+                        OrdersWithMissingPaymentCount = brMissingPayment,
+                        LineRevenueTotal = brSuccessfulRev
+                    }
+                });
+            }
+
+            return new SupplierRevenueReportDto
+            {
+                SupplierId = supplierInfo.SupplierId,
+                SupplierName = supplierInfo.SupplierName ?? $"Supplier {supplierInfo.SupplierId}",
+                SupplierContact = supplierInfo.SupplierContact ?? "",
+                SupplierEmail = supplierInfo.SupplierEmail ?? "",
+                SupplierRepresentative = supplierInfo.SupplierRepresentative ?? "",
+                ScopeLabel = scopeLabel,
+                DateFrom = from,
+                DateTo = to,
+                Kpis = new TotalRevenueKpisDto
+                {
+                    SuccessfulPaymentsTotal = successfulRevenue,
+                    SuccessfulPaymentsCount = successfulCount,
+                    UnsuccessfulPaymentsTotal = unsuccessfulRevenue,
+                    UnsuccessfulPaymentsCount = unsuccessfulCount,
+                    OrdersWithMissingPaymentCount = missingPaymentCount,
+                    LineRevenueTotal = successfulRevenue
+                },
+                BranchKpis = branchKpis,
+                ProductSales = productSales,
+                Orders = salesOrders,
+                SupplierOrders = supplierOrders,
+                Reorders = reorders
+            };
+        }
+
+        public async Task<PagedResult<ReportListItemDto>> GetReportsAsync(
+            int pageNumber,
+            int pageSize,
+            int? reportId = null,
+            string? reportName = null,
+            int? reportTypeId = null,
+            DateOnly? creationDate = null)
+        {
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 12;
+
+            var reportsQuery = _context.Reports.AsQueryable();
+
+            if (reportId.HasValue)
+            {
+                reportsQuery = reportsQuery.Where(r => r.ReportId == reportId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(reportName))
+            {
+                var term = reportName.Trim();
+
+                if (!ValidNamePattern.IsMatch(term))
+                {
+                    return new PagedResult<ReportListItemDto>
+                    {
+                        Items = new List<ReportListItemDto>(),
+                        TotalCount = 0
+                    };
+                }
+
+                var lower = term.ToLower();
+                reportsQuery = reportsQuery.Where(r => (r.ReportName ?? "").ToLower().StartsWith(lower));
+            }
+
+            if (reportTypeId.HasValue && reportTypeId.Value > 0)
+            {
+                reportsQuery = reportsQuery.Where(r => r.ReportTypeId == reportTypeId.Value);
+            }
+
+            if (creationDate.HasValue)
+            {
+                var from = creationDate.Value.ToDateTime(TimeOnly.MinValue);
+                var to = creationDate.Value.ToDateTime(TimeOnly.MaxValue);
+
+                reportsQuery = reportsQuery.Where(r => r.ReportCreationTimestamp >= from && r.ReportCreationTimestamp <= to);
+            }
+
+            var total = await reportsQuery.CountAsync();
+
+            var itemsQuery =
+                from r in reportsQuery
+                join rt in _context.ReportTypes on r.ReportTypeId equals rt.ReportTypeId into rtj
+                from rt in rtj.DefaultIfEmpty()
+                orderby r.ReportCreationTimestamp descending, r.ReportId descending
+                select new ReportListItemDto
+                {
+                    ReportId = r.ReportId,
+                    ReportName = r.ReportName,
+                    ReportTypeId = r.ReportTypeId,
+                    ReportTypeName = rt != null ? rt.ReportTypeName : null,
+                    ReportCreationTimestamp = r.ReportCreationTimestamp,
+                    FileName = r.FileName,
+                    ContentType = r.ContentType,
+                    DocumentSizeBytes = r.DocumentSizeBytes
+                };
+
+            var items = await itemsQuery
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<ReportListItemDto>
+            {
+                Items = items,
+                TotalCount = total
+            };
+        }
+
+        public async Task<List<ReportTypeOptionDto>> GetReportTypesAsync()
+        {
+            return await _context.ReportTypes
+                .OrderBy(rt => rt.ReportTypeName)
+                .Select(rt => new ReportTypeOptionDto
+                {
+                    Value = rt.ReportTypeId,
+                    Label = rt.ReportTypeName ?? $"Type {rt.ReportTypeId}"
+                })
+                .ToListAsync();
+        }
+
+        public async Task<int> CreateReportAsync(
+            int? reportTypeId,
+            int? userId,
+            string reportName,
+            string? description,
+            byte[] pdfBytes,
+            string fileName)
+        {
+            var contentType = "application/pdf";
+
+            var entity = new Report
+            {
+                ReportTypeId = reportTypeId,
+                UserId = userId,
+                ReportName = reportName,
+                ReportDescription = description,
+                ReportDocument = pdfBytes,
+                FileName = fileName,
+                ContentType = contentType,
+                DocumentSizeBytes = pdfBytes?.Length ?? 0
+            };
+
+            _context.Reports.Add(entity);
+            await _context.SaveChangesAsync();
+            return entity.ReportId;
+        }
+
+        public async Task UpdateReportNameAsync(int reportId, string reportName)
+        {
+            if (reportId <= 0) return;
+
+            var entity = await _context.Reports.FirstOrDefaultAsync(r => r.ReportId == reportId);
+            if (entity == null) return;
+
+            entity.ReportName = reportName;
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task<(byte[] bytes, string contentType, string fileName)?> GetReportDocumentAsync(int reportId)
+        {
+            if (reportId <= 0) return null;
+
+            var r = await _context.Reports
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.ReportId == reportId);
+
+            if (r?.ReportDocument == null || r.ReportDocument.Length == 0) return null;
+
+            return (
+                r.ReportDocument,
+                string.IsNullOrWhiteSpace(r.ContentType) ? "application/pdf" : r.ContentType,
+                string.IsNullOrWhiteSpace(r.FileName) ? $"report-{reportId}.pdf" : r.FileName
+            );
+        }
+
+        public async Task<ReportDetailsDto?> GetReportDetailsAsync(int reportId)
+        {
+            if (reportId <= 0) return null;
+
+            var query =
+                from r in _context.Reports.AsNoTracking()
+                where r.ReportId == reportId
+                join rt in _context.ReportTypes on r.ReportTypeId equals rt.ReportTypeId into rtj
+                from rt in rtj.DefaultIfEmpty()
+                join u in _context.Users on r.UserId equals u.UserId into uj
+                from u in uj.DefaultIfEmpty()
+                select new ReportDetailsDto
+                {
+                    ReportId = r.ReportId,
+                    ReportName = r.ReportName,
+                    ReportDescription = r.ReportDescription,
+                    ReportTypeId = r.ReportTypeId,
+                    ReportTypeName = rt != null ? rt.ReportTypeName : null,
+                    ReportCreationTimestamp = r.ReportCreationTimestamp,
+                    GeneratedByUserId = r.UserId,
+                    GeneratedByName = u != null ? ((u.FirstName ?? "") + " " + (u.LastName ?? "")).Trim() : null,
+                    GeneratedByEmail = u != null ? u.EmailAddress : null,
+                    FileName = r.FileName,
+                    ContentType = r.ContentType,
+                    DocumentSizeBytes = r.DocumentSizeBytes
+                };
+
+            return await query.FirstOrDefaultAsync();
+        }
+
+        public async Task<SupplierRevenueReportDto> BuildSupplierRevenueReportAsync(DateOnly from, DateOnly to, int supplierId, int? branchId)
+        {
+            var fromDt = from.ToDateTime(TimeOnly.MinValue);
+            var toDt = to.ToDateTime(TimeOnly.MaxValue);
+
+            var supplierInfo = await _context.Suppliers
+                .AsNoTracking()
+                .Where(s => s.SupplierId == supplierId)
+                .Select(s => new
+                {
+                    s.SupplierId,
+                    s.SupplierName,
+                    s.SupplierContact,
+                    s.SupplierEmail,
+                    s.SupplierRepresentative
+                })
+                .FirstOrDefaultAsync();
+
+            if (supplierInfo == null)
+            {
+                throw new InvalidOperationException("SUPPLIER_NOT_FOUND");
+            }
+
+            var scopeLabel = "All branches";
+            if (branchId.HasValue)
+            {
+                var cityName = await _context.Branches
+                    .AsNoTracking()
+                    .Where(b => b.BranchId == branchId.Value)
+                    .Select(b => b.Address != null && b.Address.City != null ? b.Address.City.CityName : null)
+                    .FirstOrDefaultAsync();
+
+                scopeLabel = !string.IsNullOrWhiteSpace(cityName) ? cityName : $"Branch {branchId.Value}";
+            }
+
+            var orders = _context.Orders
+                .AsNoTracking()
+                .Include(o => o.Shipping)
+                .Include(o => o.Payment)
+                .AsQueryable();
+
+            if (branchId.HasValue)
+            {
+                orders = orders.Where(o => o.Shipping != null && o.Shipping.BranchId == branchId.Value);
+            }
+
+            var supplierOrderIds = _context.ProductOrders
+                .AsNoTracking()
+                .Include(po => po.Product)
+                .Where(po => po.OrderId.HasValue && po.Product != null && po.Product.SupplierId == supplierId)
+                .Select(po => po.OrderId!.Value)
+                .Distinct();
+
+            var successfulOrdersByPaymentTs = orders.Where(o =>
+                o.Payment != null &&
+                o.Payment.PaymentIsSuccessful == true &&
+                o.Payment.PaymentTimestamp.HasValue &&
+                o.Payment.PaymentTimestamp.Value >= fromDt &&
+                o.Payment.PaymentTimestamp.Value <= toDt &&
+                supplierOrderIds.Contains(o.OrderId));
+
+            var unsuccessfulOrdersByPaymentTs = orders.Where(o =>
+                o.Payment != null &&
+                o.Payment.PaymentIsSuccessful == false &&
+                o.Payment.PaymentTimestamp.HasValue &&
+                o.Payment.PaymentTimestamp.Value >= fromDt &&
+                o.Payment.PaymentTimestamp.Value <= toDt &&
+                supplierOrderIds.Contains(o.OrderId));
+
+            var successfulSupplierLines =
+                from po in _context.ProductOrders.AsNoTracking()
+                join o in successfulOrdersByPaymentTs on po.OrderId equals o.OrderId
+                join p in _context.Products.AsNoTracking() on po.ProductId equals p.ProductId
+                where p.SupplierId == supplierId && p.ProductPrice.HasValue
+                select new { po.OrderId, po.Quantity, Price = p.ProductPrice!.Value, p.ProductId, p.ProductName };
+
+            var successfulRevenue = await successfulSupplierLines.SumAsync(x => x.Price * x.Quantity);
+            var successfulCount = await successfulOrdersByPaymentTs.Select(o => o.OrderId).Distinct().CountAsync();
+
+            var unsuccessfulSupplierLines =
+                from po in _context.ProductOrders.AsNoTracking()
+                join o in unsuccessfulOrdersByPaymentTs on po.OrderId equals o.OrderId
+                join p in _context.Products.AsNoTracking() on po.ProductId equals p.ProductId
+                where p.SupplierId == supplierId && p.ProductPrice.HasValue
+                select new { po.OrderId, po.Quantity, Price = p.ProductPrice!.Value };
+
+            var unsuccessfulRevenue = await unsuccessfulSupplierLines.SumAsync(x => x.Price * x.Quantity);
+            var unsuccessfulCount = await unsuccessfulOrdersByPaymentTs.Select(o => o.OrderId).Distinct().CountAsync();
+
+            var missingPaymentCount = await orders
+                .Where(o =>
+                    !o.PaymentId.HasValue &&
+                    o.OrderCreationDate.HasValue &&
+                    o.OrderCreationDate.Value >= fromDt &&
+                    o.OrderCreationDate.Value <= toDt &&
+                    supplierOrderIds.Contains(o.OrderId))
+                .Select(o => o.OrderId)
+                .Distinct()
+                .CountAsync();
+
+            var successfulOrdersByCreation = orders.Where(o =>
+                o.Payment != null &&
+                o.Payment.PaymentIsSuccessful == true &&
+                o.OrderCreationDate.HasValue &&
+                o.OrderCreationDate.Value >= fromDt &&
+                o.OrderCreationDate.Value <= toDt &&
+                supplierOrderIds.Contains(o.OrderId));
+
+            var paidSupplierLines =
+                from po in _context.ProductOrders.AsNoTracking()
+                join o in successfulOrdersByCreation on po.OrderId equals o.OrderId
+                join p in _context.Products.AsNoTracking() on po.ProductId equals p.ProductId
+                where p.SupplierId == supplierId && p.ProductPrice.HasValue
+                select new { po.OrderId, po.Quantity, Price = p.ProductPrice!.Value, p.ProductId, p.ProductName };
+
+            var supplierRevenueByOrder = await paidSupplierLines
+                .GroupBy(x => x.OrderId!.Value)
+                .Select(g => new { OrderId = g.Key, Amount = g.Sum(x => x.Price * x.Quantity) })
+                .ToListAsync();
+
+            var supplierRevenueMap = supplierRevenueByOrder.ToDictionary(x => x.OrderId, x => x.Amount);
+
+            var productSalesRaw = await paidSupplierLines
+                .GroupBy(x => new { x.ProductId, x.ProductName })
+                .Select(g => new
+                {
+                    g.Key.ProductId,
+                    g.Key.ProductName,
+                    OrdersCount = g.Select(x => x.OrderId!.Value).Distinct().Count(),
+                    UnitsSold = g.Sum(x => x.Quantity),
+                    Revenue = g.Sum(x => x.Price * x.Quantity)
+                })
+                .OrderByDescending(x => x.Revenue)
+                .ThenBy(x => x.ProductName)
+                .ToListAsync();
+
+            var productSales = productSalesRaw
+                .Select(x => new SupplierProductSalesRowDto
+                {
+                    ProductId = x.ProductId,
+                    ProductName = string.IsNullOrWhiteSpace(x.ProductName) ? $"Product {x.ProductId}" : x.ProductName!,
+                    OrdersCount = x.OrdersCount,
+                    UnitsSold = x.UnitsSold,
+                    Revenue = x.Revenue
+                })
+                .ToList();
+
+            var ordersList = await _context.Orders
+                .AsNoTracking()
+                .Where(o => successfulOrdersByCreation.Select(x => x.OrderId).Contains(o.OrderId))
+                .Include(o => o.User)
+                .Include(o => o.Shipping)!.ThenInclude(s => s.ShippingSlot)
+                .Include(o => o.Shipping)!.ThenInclude(s => s.Branch)!.ThenInclude(b => b.Address)!.ThenInclude(a => a.City)
+                .OrderBy(o => o.OrderCreationDate)
+                .ThenBy(o => o.OrderId)
+                .Select(o => new
+                {
+                    o.OrderId,
+                    o.OrderCreationDate,
+                    CustomerName = o.User != null ? ((o.User.FirstName ?? "") + " " + (o.User.LastName ?? "")).Trim() : "",
+                    BranchName = (o.Shipping != null && o.Shipping.Branch != null && o.Shipping.Branch.Address != null && o.Shipping.Branch.Address.City != null)
+                        ? o.Shipping.Branch.Address.City.CityName!
+                        : "",
+                    IsDelivery = o.Shipping != null ? o.Shipping.ShippingIsDelivery : null,
+                    IsUrgent = o.Shipping != null ? o.Shipping.ShippingIsUrgent : null
+                })
+                .ToListAsync();
+
+            var salesOrders = ordersList
+                .Select(o => new SupplierSalesOrderRowDto
+                {
+                    OrderId = o.OrderId,
+                    OrderCreationDate = o.OrderCreationDate,
+                    CustomerName = o.CustomerName,
+                    BranchName = o.BranchName,
+                    IsDelivery = o.IsDelivery,
+                    IsUrgent = o.IsUrgent,
+                    SupplierLineRevenue = supplierRevenueMap.TryGetValue(o.OrderId, out var amt) ? amt : 0m
+                })
+                .ToList();
+
+            var supplierOrdersQuery = _context.SupplierOrders
+                .AsNoTracking()
+                .Include(so => so.Supplier)
+                .Include(so => so.Product)
+                .Include(so => so.Branch)!.ThenInclude(b => b.Address)!.ThenInclude(a => a.City)
+                .Where(so =>
+                    so.SupplierId == supplierId &&
+                    so.SupplierOrderDate.HasValue &&
+                    so.SupplierOrderDate.Value >= fromDt &&
+                    so.SupplierOrderDate.Value <= toDt);
+
+            if (branchId.HasValue)
+            {
+                supplierOrdersQuery = supplierOrdersQuery.Where(so => so.BranchId == branchId.Value);
+            }
+
+            var supplierOrders = await supplierOrdersQuery
+                .OrderBy(so => so.SupplierOrderDate)
+                .ThenBy(so => so.SupplierOrderId)
+                .Select(so => new SupplierOrderCostRowDto
+                {
+                    SupplierOrderId = so.SupplierOrderId,
+                    SupplierOrderDate = so.SupplierOrderDate,
+                    SupplierName = so.Supplier != null ? (so.Supplier.SupplierName ?? "") : "",
+                    ProductName = so.Product != null ? (so.Product.ProductName ?? "") : "",
+                    BranchName = (so.Branch != null && so.Branch.Address != null && so.Branch.Address.City != null)
+                        ? (so.Branch.Address.City.CityName ?? "")
+                        : "",
+                    Quantity = so.SupplierOrderQuantity ?? 0,
+                    UnitPrice = so.Product != null ? (so.Product.ProductPrice ?? 0m) : 0m,
+                    TotalCost = (so.Product != null ? (so.Product.ProductPrice ?? 0m) : 0m) * (so.SupplierOrderQuantity ?? 0)
+                })
+                .ToListAsync();
+
+            var reordersQuery = _context.Reorders
+                .AsNoTracking()
+                .Include(r => r.Product)
+                .Include(r => r.Supplier)
+                .Include(r => r.Branch)!.ThenInclude(b => b.Address)!.ThenInclude(a => a.City)
+                .Where(r => r.SupplierId == supplierId);
+
+            if (branchId.HasValue)
+            {
+                reordersQuery = reordersQuery.Where(r => r.BranchId == branchId.Value);
+            }
+
+            var reorders = await reordersQuery
+                .OrderBy(r => r.ReorderId)
+                .Select(r => new ReorderCostRowDto
+                {
+                    ReorderId = r.ReorderId,
+                    ProductName = r.Product != null ? (r.Product.ProductName ?? "") : "",
+                    SupplierName = r.Supplier != null ? (r.Supplier.SupplierName ?? "") : "",
+                    BranchName = (r.Branch != null && r.Branch.Address != null && r.Branch.Address.City != null)
+                        ? (r.Branch.Address.City.CityName ?? "")
+                        : "",
+                    Threshold = r.ReorderThershold,
+                    Quantity = r.ReorderQuantity ?? 0,
+                    UnitPrice = r.Product != null ? (r.Product.ProductPrice ?? 0m) : 0m,
+                    TotalCost = (r.Product != null ? (r.Product.ProductPrice ?? 0m) : 0m) * (r.ReorderQuantity ?? 0)
+                })
+                .ToListAsync();
+
+            var branchScope = _context.Branches
+                .AsNoTracking()
+                .Include(b => b.Address)!.ThenInclude(a => a.City)
+                .AsQueryable();
+
+            if (branchId.HasValue)
+            {
+                branchScope = branchScope.Where(b => b.BranchId == branchId.Value);
+            }
+
+            var branchList = await branchScope
+                .OrderBy(b => b.BranchId)
+                .Select(b => new
+                {
+                    b.BranchId,
+                    BranchName =
+                        b.Address != null && b.Address.City != null && b.Address.City.CityName != null
+                            ? b.Address.City.CityName
+                            : ("Branch " + b.BranchId)
+                })
+                .ToListAsync();
+
+            var branchKpis = new List<BranchRevenueKpiDto>();
+
+            foreach (var br in branchList)
+            {
+                var branchOrders = _context.Orders
+                    .AsNoTracking()
+                    .Include(o => o.Shipping)
+                    .Include(o => o.Payment)
+                    .Where(o => o.Shipping != null && o.Shipping.BranchId == br.BranchId);
+
+                var brSuccessfulByPaymentTs = branchOrders.Where(o =>
+                    o.Payment != null &&
+                    o.Payment.PaymentIsSuccessful == true &&
+                    o.Payment.PaymentTimestamp.HasValue &&
+                    o.Payment.PaymentTimestamp.Value >= fromDt &&
+                    o.Payment.PaymentTimestamp.Value <= toDt &&
+                    supplierOrderIds.Contains(o.OrderId));
+
+                var brSuccessfulLines =
+                    from po in _context.ProductOrders.AsNoTracking()
+                    join o in brSuccessfulByPaymentTs on po.OrderId equals o.OrderId
+                    join p in _context.Products.AsNoTracking() on po.ProductId equals p.ProductId
+                    where p.SupplierId == supplierId && p.ProductPrice.HasValue
+                    select new { po.Quantity, Price = p.ProductPrice!.Value };
+
+                var brSuccessfulRev = await brSuccessfulLines.SumAsync(x => x.Price * x.Quantity);
+                var brSuccessfulCount = await brSuccessfulByPaymentTs.Select(o => o.OrderId).Distinct().CountAsync();
+
+                var brUnsuccessfulByPaymentTs = branchOrders.Where(o =>
+                    o.Payment != null &&
+                    o.Payment.PaymentIsSuccessful == false &&
+                    o.Payment.PaymentTimestamp.HasValue &&
+                    o.Payment.PaymentTimestamp.Value >= fromDt &&
+                    o.Payment.PaymentTimestamp.Value <= toDt &&
+                    supplierOrderIds.Contains(o.OrderId));
+
+                var brUnsuccessfulLines =
+                    from po in _context.ProductOrders.AsNoTracking()
+                    join o in brUnsuccessfulByPaymentTs on po.OrderId equals o.OrderId
+                    join p in _context.Products.AsNoTracking() on po.ProductId equals p.ProductId
+                    where p.SupplierId == supplierId && p.ProductPrice.HasValue
+                    select new { po.Quantity, Price = p.ProductPrice!.Value };
+
+                var brUnsuccessfulRev = await brUnsuccessfulLines.SumAsync(x => x.Price * x.Quantity);
+                var brUnsuccessfulCount = await brUnsuccessfulByPaymentTs.Select(o => o.OrderId).Distinct().CountAsync();
+
+                var brMissingPayment = await branchOrders
+                    .Where(o =>
+                        !o.PaymentId.HasValue &&
+                        o.OrderCreationDate.HasValue &&
+                        o.OrderCreationDate.Value >= fromDt &&
+                        o.OrderCreationDate.Value <= toDt &&
+                        supplierOrderIds.Contains(o.OrderId))
+                    .Select(o => o.OrderId)
+                    .Distinct()
+                    .CountAsync();
+
+                branchKpis.Add(new BranchRevenueKpiDto
+                {
+                    BranchId = br.BranchId,
+                    BranchName = br.BranchName,
+                    Kpis = new TotalRevenueKpisDto
+                    {
+                        SuccessfulPaymentsTotal = brSuccessfulRev,
+                        SuccessfulPaymentsCount = brSuccessfulCount,
+                        UnsuccessfulPaymentsTotal = brUnsuccessfulRev,
+                        UnsuccessfulPaymentsCount = brUnsuccessfulCount,
+                        OrdersWithMissingPaymentCount = brMissingPayment,
+                        LineRevenueTotal = brSuccessfulRev
+                    }
+                });
+            }
+
+            return new SupplierRevenueReportDto
+            {
+                SupplierId = supplierInfo.SupplierId,
+                SupplierName = supplierInfo.SupplierName ?? $"Supplier {supplierInfo.SupplierId}",
+                SupplierContact = supplierInfo.SupplierContact ?? "",
+                SupplierEmail = supplierInfo.SupplierEmail ?? "",
+                SupplierRepresentative = supplierInfo.SupplierRepresentative ?? "",
+                ScopeLabel = scopeLabel,
+                DateFrom = from,
+                DateTo = to,
+                Kpis = new TotalRevenueKpisDto
+                {
+                    SuccessfulPaymentsTotal = successfulRevenue,
+                    SuccessfulPaymentsCount = successfulCount,
+                    UnsuccessfulPaymentsTotal = unsuccessfulRevenue,
+                    UnsuccessfulPaymentsCount = unsuccessfulCount,
+                    OrdersWithMissingPaymentCount = missingPaymentCount,
+                    LineRevenueTotal = successfulRevenue
+                },
+                BranchKpis = branchKpis,
+                ProductSales = productSales,
+                Orders = salesOrders,
+                SupplierOrders = supplierOrders,
+                Reorders = reorders
+            };
+        }
+
+        public async Task<PagedResult<ReportListItemDto>> GetReportsAsync(
+            int pageNumber,
+            int pageSize,
+            int? reportId = null,
+            string? reportName = null,
+            int? reportTypeId = null,
+            DateOnly? creationDate = null)
+        {
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 12;
+
+            var reportsQuery = _context.Reports.AsQueryable();
+
+            if (reportId.HasValue)
+            {
+                reportsQuery = reportsQuery.Where(r => r.ReportId == reportId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(reportName))
+            {
+                var term = reportName.Trim();
+
+                if (!ValidNamePattern.IsMatch(term))
+                {
+                    return new PagedResult<ReportListItemDto>
+                    {
+                        Items = new List<ReportListItemDto>(),
+                        TotalCount = 0
+                    };
+                }
+
+                var lower = term.ToLower();
+                reportsQuery = reportsQuery.Where(r => (r.ReportName ?? "").ToLower().StartsWith(lower));
+            }
+
+            if (reportTypeId.HasValue && reportTypeId.Value > 0)
+            {
+                reportsQuery = reportsQuery.Where(r => r.ReportTypeId == reportTypeId.Value);
+            }
+
+            if (creationDate.HasValue)
+            {
+                var from = creationDate.Value.ToDateTime(TimeOnly.MinValue);
+                var to = creationDate.Value.ToDateTime(TimeOnly.MaxValue);
+
+                reportsQuery = reportsQuery.Where(r => r.ReportCreationTimestamp >= from && r.ReportCreationTimestamp <= to);
+            }
+
+            var total = await reportsQuery.CountAsync();
+
+            var itemsQuery =
+                from r in reportsQuery
+                join rt in _context.ReportTypes on r.ReportTypeId equals rt.ReportTypeId into rtj
+                from rt in rtj.DefaultIfEmpty()
+                orderby r.ReportCreationTimestamp descending, r.ReportId descending
+                select new ReportListItemDto
+                {
+                    ReportId = r.ReportId,
+                    ReportName = r.ReportName,
+                    ReportTypeId = r.ReportTypeId,
+                    ReportTypeName = rt != null ? rt.ReportTypeName : null,
+                    ReportCreationTimestamp = r.ReportCreationTimestamp,
+                    FileName = r.FileName,
+                    ContentType = r.ContentType,
+                    DocumentSizeBytes = r.DocumentSizeBytes
+                };
+
+            var items = await itemsQuery
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<ReportListItemDto>
+            {
+                Items = items,
+                TotalCount = total
+            };
+        }
+
+        public async Task<List<ReportTypeOptionDto>> GetReportTypesAsync()
+        {
+            return await _context.ReportTypes
+                .OrderBy(rt => rt.ReportTypeName)
+                .Select(rt => new ReportTypeOptionDto
+                {
+                    Value = rt.ReportTypeId,
+                    Label = rt.ReportTypeName ?? $"Type {rt.ReportTypeId}"
+                })
+                .ToListAsync();
+        }
+
+        public async Task<int> CreateReportAsync(
+            int? reportTypeId,
+            int? userId,
+            string reportName,
+            string? description,
+            byte[] pdfBytes,
+            string fileName)
+        {
+            var contentType = "application/pdf";
+
+            var entity = new Report
+            {
+                ReportTypeId = reportTypeId,
+                UserId = userId,
+                ReportName = reportName,
+                ReportDescription = description,
+                ReportDocument = pdfBytes,
+                FileName = fileName,
+                ContentType = contentType,
+                DocumentSizeBytes = pdfBytes?.Length ?? 0
+            };
+
+            _context.Reports.Add(entity);
+            await _context.SaveChangesAsync();
+            return entity.ReportId;
+        }
+
+        public async Task UpdateReportNameAsync(int reportId, string reportName)
+        {
+            if (reportId <= 0) return;
+
+            var entity = await _context.Reports.FirstOrDefaultAsync(r => r.ReportId == reportId);
+            if (entity == null) return;
+
+            entity.ReportName = reportName;
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task<(byte[] bytes, string contentType, string fileName)?> GetReportDocumentAsync(int reportId)
+        {
+            if (reportId <= 0) return null;
+
+            var r = await _context.Reports
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.ReportId == reportId);
+
+            if (r?.ReportDocument == null || r.ReportDocument.Length == 0) return null;
+
+            return (
+                r.ReportDocument,
+                string.IsNullOrWhiteSpace(r.ContentType) ? "application/pdf" : r.ContentType,
+                string.IsNullOrWhiteSpace(r.FileName) ? $"report-{reportId}.pdf" : r.FileName
+            );
+        }
+
+        public async Task<ReportDetailsDto?> GetReportDetailsAsync(int reportId)
+        {
+            if (reportId <= 0) return null;
+
+            var query =
+                from r in _context.Reports.AsNoTracking()
+                where r.ReportId == reportId
+                join rt in _context.ReportTypes on r.ReportTypeId equals rt.ReportTypeId into rtj
+                from rt in rtj.DefaultIfEmpty()
+                join u in _context.Users on r.UserId equals u.UserId into uj
+                from u in uj.DefaultIfEmpty()
+                select new ReportDetailsDto
+                {
+                    ReportId = r.ReportId,
+                    ReportName = r.ReportName,
+                    ReportDescription = r.ReportDescription,
+                    ReportTypeId = r.ReportTypeId,
+                    ReportTypeName = rt != null ? rt.ReportTypeName : null,
+                    ReportCreationTimestamp = r.ReportCreationTimestamp,
+                    GeneratedByUserId = r.UserId,
+                    GeneratedByName = u != null ? ((u.FirstName ?? "") + " " + (u.LastName ?? "")).Trim() : null,
+                    GeneratedByEmail = u != null ? u.EmailAddress : null,
+                    FileName = r.FileName,
+                    ContentType = r.ContentType,
+                    DocumentSizeBytes = r.DocumentSizeBytes
+                };
+
+            return await query.FirstOrDefaultAsync();
+        }
+
+        public async Task<SupplierRevenueReportDto> BuildSupplierRevenueReportAsync(DateOnly from, DateOnly to, int supplierId, int? branchId)
+        {
+            var fromDt = from.ToDateTime(TimeOnly.MinValue);
+            var toDt = to.ToDateTime(TimeOnly.MaxValue);
+
+            var supplierInfo = await _context.Suppliers
+                .AsNoTracking()
+                .Where(s => s.SupplierId == supplierId)
+                .Select(s => new
+                {
+                    s.SupplierId,
+                    s.SupplierName,
+                    s.SupplierContact,
+                    s.SupplierEmail,
+                    s.SupplierRepresentative
+                })
+                .FirstOrDefaultAsync();
+
+            if (supplierInfo == null)
+            {
+                throw new InvalidOperationException("SUPPLIER_NOT_FOUND");
+            }
+
+            var scopeLabel = "All branches";
+            if (branchId.HasValue)
+            {
+                var cityName = await _context.Branches
+                    .AsNoTracking()
+                    .Where(b => b.BranchId == branchId.Value)
+                    .Select(b => b.Address != null && b.Address.City != null ? b.Address.City.CityName : null)
+                    .FirstOrDefaultAsync();
+
+                scopeLabel = !string.IsNullOrWhiteSpace(cityName) ? cityName : $"Branch {branchId.Value}";
+            }
+
+            var orders = _context.Orders
+                .AsNoTracking()
+                .Include(o => o.Shipping)
+                .Include(o => o.Payment)
+                .AsQueryable();
+
+            if (branchId.HasValue)
+            {
+                orders = orders.Where(o => o.Shipping != null && o.Shipping.BranchId == branchId.Value);
+            }
+
+            var supplierOrderIds = _context.ProductOrders
+                .AsNoTracking()
+                .Include(po => po.Product)
+                .Where(po => po.OrderId.HasValue && po.Product != null && po.Product.SupplierId == supplierId)
+                .Select(po => po.OrderId!.Value)
+                .Distinct();
+
+            var successfulOrdersByPaymentTs = orders.Where(o =>
+                o.Payment != null &&
+                o.Payment.PaymentIsSuccessful == true &&
+                o.Payment.PaymentTimestamp.HasValue &&
+                o.Payment.PaymentTimestamp.Value >= fromDt &&
+                o.Payment.PaymentTimestamp.Value <= toDt &&
+                supplierOrderIds.Contains(o.OrderId));
+
+            var unsuccessfulOrdersByPaymentTs = orders.Where(o =>
+                o.Payment != null &&
+                o.Payment.PaymentIsSuccessful == false &&
+                o.Payment.PaymentTimestamp.HasValue &&
+                o.Payment.PaymentTimestamp.Value >= fromDt &&
+                o.Payment.PaymentTimestamp.Value <= toDt &&
+                supplierOrderIds.Contains(o.OrderId));
+
+            var successfulSupplierLines =
+                from po in _context.ProductOrders.AsNoTracking()
+                join o in successfulOrdersByPaymentTs on po.OrderId equals o.OrderId
+                join p in _context.Products.AsNoTracking() on po.ProductId equals p.ProductId
+                where p.SupplierId == supplierId && p.ProductPrice.HasValue
+                select new { po.OrderId, po.Quantity, Price = p.ProductPrice!.Value, p.ProductId, p.ProductName };
+
+            var successfulRevenue = await successfulSupplierLines.SumAsync(x => x.Price * x.Quantity);
+            var successfulCount = await successfulOrdersByPaymentTs.Select(o => o.OrderId).Distinct().CountAsync();
+
+            var unsuccessfulSupplierLines =
+                from po in _context.ProductOrders.AsNoTracking()
+                join o in unsuccessfulOrdersByPaymentTs on po.OrderId equals o.OrderId
+                join p in _context.Products.AsNoTracking() on po.ProductId equals p.ProductId
+                where p.SupplierId == supplierId && p.ProductPrice.HasValue
+                select new { po.OrderId, po.Quantity, Price = p.ProductPrice!.Value };
+
+            var unsuccessfulRevenue = await unsuccessfulSupplierLines.SumAsync(x => x.Price * x.Quantity);
+            var unsuccessfulCount = await unsuccessfulOrdersByPaymentTs.Select(o => o.OrderId).Distinct().CountAsync();
+
+            var missingPaymentCount = await orders
+                .Where(o =>
+                    !o.PaymentId.HasValue &&
+                    o.OrderCreationDate.HasValue &&
+                    o.OrderCreationDate.Value >= fromDt &&
+                    o.OrderCreationDate.Value <= toDt &&
+                    supplierOrderIds.Contains(o.OrderId))
+                .Select(o => o.OrderId)
+                .Distinct()
+                .CountAsync();
+
+            var successfulOrdersByCreation = orders.Where(o =>
+                o.Payment != null &&
+                o.Payment.PaymentIsSuccessful == true &&
+                o.OrderCreationDate.HasValue &&
+                o.OrderCreationDate.Value >= fromDt &&
+                o.OrderCreationDate.Value <= toDt &&
+                supplierOrderIds.Contains(o.OrderId));
+
+            var paidSupplierLines =
+                from po in _context.ProductOrders.AsNoTracking()
+                join o in successfulOrdersByCreation on po.OrderId equals o.OrderId
+                join p in _context.Products.AsNoTracking() on po.ProductId equals p.ProductId
+                where p.SupplierId == supplierId && p.ProductPrice.HasValue
+                select new { po.OrderId, po.Quantity, Price = p.ProductPrice!.Value, p.ProductId, p.ProductName };
+
+            var supplierRevenueByOrder = await paidSupplierLines
+                .GroupBy(x => x.OrderId!.Value)
+                .Select(g => new { OrderId = g.Key, Amount = g.Sum(x => x.Price * x.Quantity) })
+                .ToListAsync();
+
+            var supplierRevenueMap = supplierRevenueByOrder.ToDictionary(x => x.OrderId, x => x.Amount);
+
+            var productSalesRaw = await paidSupplierLines
+                .GroupBy(x => new { x.ProductId, x.ProductName })
+                .Select(g => new
+                {
+                    g.Key.ProductId,
+                    g.Key.ProductName,
+                    OrdersCount = g.Select(x => x.OrderId!.Value).Distinct().Count(),
+                    UnitsSold = g.Sum(x => x.Quantity),
+                    Revenue = g.Sum(x => x.Price * x.Quantity)
+                })
+                .OrderByDescending(x => x.Revenue)
+                .ThenBy(x => x.ProductName)
+                .ToListAsync();
+
+            var productSales = productSalesRaw
+                .Select(x => new SupplierProductSalesRowDto
+                {
+                    ProductId = x.ProductId,
+                    ProductName = string.IsNullOrWhiteSpace(x.ProductName) ? $"Product {x.ProductId}" : x.ProductName!,
+                    OrdersCount = x.OrdersCount,
+                    UnitsSold = x.UnitsSold,
+                    Revenue = x.Revenue
+                })
+                .ToList();
+
+            var ordersList = await _context.Orders
+                .AsNoTracking()
+                .Where(o => successfulOrdersByCreation.Select(x => x.OrderId).Contains(o.OrderId))
+                .Include(o => o.User)
+                .Include(o => o.Shipping)!.ThenInclude(s => s.ShippingSlot)
+                .Include(o => o.Shipping)!.ThenInclude(s => s.Branch)!.ThenInclude(b => b.Address)!.ThenInclude(a => a.City)
+                .OrderBy(o => o.OrderCreationDate)
+                .ThenBy(o => o.OrderId)
+                .Select(o => new
+                {
+                    o.OrderId,
+                    o.OrderCreationDate,
+                    CustomerName = o.User != null ? ((o.User.FirstName ?? "") + " " + (o.User.LastName ?? "")).Trim() : "",
+                    BranchName = (o.Shipping != null && o.Shipping.Branch != null && o.Shipping.Branch.Address != null && o.Shipping.Branch.Address.City != null)
+                        ? o.Shipping.Branch.Address.City.CityName!
+                        : "",
+                    IsDelivery = o.Shipping != null ? o.Shipping.ShippingIsDelivery : null,
+                    IsUrgent = o.Shipping != null ? o.Shipping.ShippingIsUrgent : null
+                })
+                .ToListAsync();
+
+            var salesOrders = ordersList
+                .Select(o => new SupplierSalesOrderRowDto
+                {
+                    OrderId = o.OrderId,
+                    OrderCreationDate = o.OrderCreationDate,
+                    CustomerName = o.CustomerName,
+                    BranchName = o.BranchName,
+                    IsDelivery = o.IsDelivery,
+                    IsUrgent = o.IsUrgent,
+                    SupplierLineRevenue = supplierRevenueMap.TryGetValue(o.OrderId, out var amt) ? amt : 0m
+                })
+                .ToList();
+
+            var supplierOrdersQuery = _context.SupplierOrders
+                .AsNoTracking()
+                .Include(so => so.Supplier)
+                .Include(so => so.Product)
+                .Include(so => so.Branch)!.ThenInclude(b => b.Address)!.ThenInclude(a => a.City)
+                .Where(so =>
+                    so.SupplierId == supplierId &&
+                    so.SupplierOrderDate.HasValue &&
+                    so.SupplierOrderDate.Value >= fromDt &&
+                    so.SupplierOrderDate.Value <= toDt);
+
+            if (branchId.HasValue)
+            {
+                supplierOrdersQuery = supplierOrdersQuery.Where(so => so.BranchId == branchId.Value);
+            }
+
+            var supplierOrders = await supplierOrdersQuery
+                .OrderBy(so => so.SupplierOrderDate)
+                .ThenBy(so => so.SupplierOrderId)
+                .Select(so => new SupplierOrderCostRowDto
+                {
+                    SupplierOrderId = so.SupplierOrderId,
+                    SupplierOrderDate = so.SupplierOrderDate,
+                    SupplierName = so.Supplier != null ? (so.Supplier.SupplierName ?? "") : "",
+                    ProductName = so.Product != null ? (so.Product.ProductName ?? "") : "",
+                    BranchName = (so.Branch != null && so.Branch.Address != null && so.Branch.Address.City != null)
+                        ? (so.Branch.Address.City.CityName ?? "")
+                        : "",
+                    Quantity = so.SupplierOrderQuantity ?? 0,
+                    UnitPrice = so.Product != null ? (so.Product.ProductPrice ?? 0m) : 0m,
+                    TotalCost = (so.Product != null ? (so.Product.ProductPrice ?? 0m) : 0m) * (so.SupplierOrderQuantity ?? 0)
+                })
+                .ToListAsync();
+
+            var reordersQuery = _context.Reorders
+                .AsNoTracking()
+                .Include(r => r.Product)
+                .Include(r => r.Supplier)
+                .Include(r => r.Branch)!.ThenInclude(b => b.Address)!.ThenInclude(a => a.City)
+                .Where(r => r.SupplierId == supplierId);
+
+            if (branchId.HasValue)
+            {
+                reordersQuery = reordersQuery.Where(r => r.BranchId == branchId.Value);
+            }
+
+            var reorders = await reordersQuery
+                .OrderBy(r => r.ReorderId)
+                .Select(r => new ReorderCostRowDto
+                {
+                    ReorderId = r.ReorderId,
+                    ProductName = r.Product != null ? (r.Product.ProductName ?? "") : "",
+                    SupplierName = r.Supplier != null ? (r.Supplier.SupplierName ?? "") : "",
+                    BranchName = (r.Branch != null && r.Branch.Address != null && r.Branch.Address.City != null)
+                        ? (r.Branch.Address.City.CityName ?? "")
+                        : "",
+                    Threshold = r.ReorderThershold,
+                    Quantity = r.ReorderQuantity ?? 0,
+                    UnitPrice = r.Product != null ? (r.Product.ProductPrice ?? 0m) : 0m,
+                    TotalCost = (r.Product != null ? (r.Product.ProductPrice ?? 0m) : 0m) * (r.ReorderQuantity ?? 0)
+                })
+                .ToListAsync();
+
+            var branchScope = _context.Branches
+                .AsNoTracking()
+                .Include(b => b.Address)!.ThenInclude(a => a.City)
+                .AsQueryable();
+
+            if (branchId.HasValue)
+            {
+                branchScope = branchScope.Where(b => b.BranchId == branchId.Value);
+            }
+
+            var branchList = await branchScope
+                .OrderBy(b => b.BranchId)
+                .Select(b => new
+                {
+                    b.BranchId,
+                    BranchName =
+                        b.Address != null && b.Address.City != null && b.Address.City.CityName != null
+                            ? b.Address.City.CityName
+                            : ("Branch " + b.BranchId)
+                })
+                .ToListAsync();
+
+            var branchKpis = new List<BranchRevenueKpiDto>();
+
+            foreach (var br in branchList)
+            {
+                var branchOrders = _context.Orders
+                    .AsNoTracking()
+                    .Include(o => o.Shipping)
+                    .Include(o => o.Payment)
+                    .Where(o => o.Shipping != null && o.Shipping.BranchId == br.BranchId);
+
+                var brSuccessfulByPaymentTs = branchOrders.Where(o =>
+                    o.Payment != null &&
+                    o.Payment.PaymentIsSuccessful == true &&
+                    o.Payment.PaymentTimestamp.HasValue &&
+                    o.Payment.PaymentTimestamp.Value >= fromDt &&
+                    o.Payment.PaymentTimestamp.Value <= toDt &&
+                    supplierOrderIds.Contains(o.OrderId));
+
+                var brSuccessfulLines =
+                    from po in _context.ProductOrders.AsNoTracking()
+                    join o in brSuccessfulByPaymentTs on po.OrderId equals o.OrderId
+                    join p in _context.Products.AsNoTracking() on po.ProductId equals p.ProductId
+                    where p.CategoryId == categoryId && p.ProductPrice.HasValue
+                    select new { po.Quantity, Price = p.ProductPrice!.Value };
+
+                var brSuccessfulRev = await brSuccessfulLines.SumAsync(x => x.Price * x.Quantity);
+                var brSuccessfulCount = await brSuccessfulByPaymentTs.Select(o => o.OrderId).Distinct().CountAsync();
+
+                var brUnsuccessfulByPaymentTs = branchOrders.Where(o =>
+                    o.Payment != null &&
+                    o.Payment.PaymentIsSuccessful == false &&
+                    o.Payment.PaymentTimestamp.HasValue &&
+                    o.Payment.PaymentTimestamp.Value >= fromDt &&
+                    o.Payment.PaymentTimestamp.Value <= toDt &&
+                    supplierOrderIds.Contains(o.OrderId));
+
+                var brUnsuccessfulLines =
+                    from po in _context.ProductOrders.AsNoTracking()
+                    join o in brUnsuccessfulByPaymentTs on po.OrderId equals o.OrderId
+                    join p in _context.Products.AsNoTracking() on po.ProductId equals p.ProductId
+                    where p.CategoryId == categoryId && p.ProductPrice.HasValue
+                    select new { po.Quantity, Price = p.ProductPrice!.Value };
+
+                var brUnsuccessfulRev = await brUnsuccessfulLines.SumAsync(x => x.Price * x.Quantity);
+                var brUnsuccessfulCount = await brUnsuccessfulByPaymentTs.Select(o => o.OrderId).Distinct().CountAsync();
+
+                var brMissingPayment = await branchOrders
+                    .Where(o =>
+                        !o.PaymentId.HasValue &&
+                        o.OrderCreationDate.HasValue &&
+                        o.OrderCreationDate.Value >= fromDt &&
+                        o.OrderCreationDate.Value <= toDt &&
+                        supplierOrderIds.Contains(o.OrderId))
+                    .Select(o => o.OrderId)
+                    .Distinct()
+                    .CountAsync();
+
+                branchKpis.Add(new BranchRevenueKpiDto
+                {
+                    BranchId = br.BranchId,
+                    BranchName = br.BranchName,
+                    Kpis = new TotalRevenueKpisDto
+                    {
+                        SuccessfulPaymentsTotal = brSuccessfulRev,
+                        SuccessfulPaymentsCount = brSuccessfulCount,
+                        UnsuccessfulPaymentsTotal = brUnsuccessfulRev,
+                        UnsuccessfulPaymentsCount = brUnsuccessfulCount,
+                        OrdersWithMissingPaymentCount = brMissingPayment,
+                        LineRevenueTotal = brSuccessfulRev
+                    }
+                });
+            }
+
+            return new CategoryRevenueReportDto
+            {
+                CategoryId = categoryInfo.CategoryId,
+                CategoryName = string.IsNullOrWhiteSpace(categoryInfo.CategoryName) ? $"Category {categoryInfo.CategoryId}" : categoryInfo.CategoryName!,
+                ScopeLabel = scopeLabel,
+                DateFrom = from,
+                DateTo = to,
+                Kpis = new TotalRevenueKpisDto
+                {
+                    SuccessfulPaymentsTotal = successfulRevenue,
+                    SuccessfulPaymentsCount = successfulCount,
+                    UnsuccessfulPaymentsTotal = unsuccessfulRevenue,
+                    UnsuccessfulPaymentsCount = unsuccessfulCount,
+                    OrdersWithMissingPaymentCount = missingPaymentCount,
+                    LineRevenueTotal = successfulRevenue
+                },
+                BranchKpis = branchKpis,
+                TypeSales = typeGroups
+                    .OrderByDescending(x => x.Revenue)
+                    .ThenBy(x => x.ProductTypeName)
+                    .ToList(),
+                Orders = salesOrders
+            };
         }
     }
 }
