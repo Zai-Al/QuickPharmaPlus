@@ -37,5 +37,7 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
 
         // ReportTypeId = 5
         Task<ComplianceReportDto> BuildComplianceReportAsync(DateOnly from, DateOnly to, int? branchId);
+
+        Task<bool> DeleteReportAsync(int reportId);
     }
 }

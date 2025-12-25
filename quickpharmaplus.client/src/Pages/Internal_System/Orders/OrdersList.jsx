@@ -21,7 +21,6 @@ import FilterSection from "../../../Components/InternalSystem/GeneralComponents/
 import Pagination from "../../../Components/InternalSystem/GeneralComponents/Pagination";
 
 export default function InventoryList() {
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
     const { user } = useContext(AuthContext);
     const location = useLocation();
     const navigate = useNavigate();
@@ -174,13 +173,13 @@ export default function InventoryList() {
         fetchStatusesForFilter();
         fetchTypesForFilter();
         fetchBranchesForFilter();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     /* ----------------------------------------- */
     /*    INITIAL FETCH ON TAB/PAGE CHANGE       */
     /* ----------------------------------------- */
     useEffect(() => {
-        // Reset to page 1 when switching tabs
         setCurrentPage(1);
 
         if (isReorderPage) {
@@ -188,6 +187,7 @@ export default function InventoryList() {
         } else {
             fetchSupplierOrders();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isReorderPage]);
 
     /* ----------------------------------------- */
@@ -245,7 +245,7 @@ export default function InventoryList() {
     /* ----------------------------------------- */
     async function fetchSuppliersForFilter() {
         try {
-            const res = await fetch(`${baseURL}/api/Suppliers?pageNumber=1&pageSize=200`, { credentials: "include" });
+            const res = await fetch(`/api/Suppliers?pageNumber=1&pageSize=200`, { credentials: "include" });
             if (!res.ok) return;
             const data = await res.json();
             const items = data.items ?? [];
@@ -261,7 +261,7 @@ export default function InventoryList() {
 
     async function fetchProductsForFilter() {
         try {
-            const res = await fetch(`${baseURL}/api/Products?pageNumber=1&pageSize=200`, { credentials: "include" });
+            const res = await fetch(`/api/Products?pageNumber=1&pageSize=200`, { credentials: "include" });
             if (!res.ok) return;
             const data = await res.json();
             const items = data.items ?? [];
@@ -277,13 +277,12 @@ export default function InventoryList() {
 
     async function fetchEmployeesForFilter() {
         try {
-            // FIXED: Changed from /api/Employees/employees to /api/Employees
-            const res = await fetch(`${baseURL}/api/Employees?pageNumber=1&pageSize=200`, { credentials: "include" });
+            const res = await fetch(`/api/Employees?pageNumber=1&pageSize=200`, { credentials: "include" });
             if (!res.ok) return;
             const data = await res.json();
             const items = data.items ?? [];
             setEmployeeOptions(items.map(e => ({
-                employeeId: e.userId,  // Make sure this matches the DTO structure
+                employeeId: e.userId,
                 employeeFullName: `${e.firstName ?? ""} ${e.lastName ?? ""}`.trim() || "—"
             })));
         } catch (err) {
@@ -294,7 +293,7 @@ export default function InventoryList() {
 
     async function fetchStatusesForFilter() {
         try {
-            const res = await fetch(`${baseURL}/api/SupplierOrder/statuses`, { credentials: "include" });
+            const res = await fetch(`/api/SupplierOrder/statuses`, { credentials: "include" });
             if (!res.ok) return;
             const data = await res.json();
             setStatusOptions(data.map(s => ({
@@ -309,7 +308,7 @@ export default function InventoryList() {
 
     async function fetchTypesForFilter() {
         try {
-            const res = await fetch(`${baseURL}/api/SupplierOrder/types`, { credentials: "include" });
+            const res = await fetch(`/api/SupplierOrder/types`, { credentials: "include" });
             if (!res.ok) return;
             const data = await res.json();
             setTypeOptions(data.map(t => ({
@@ -324,7 +323,7 @@ export default function InventoryList() {
 
     async function fetchBranchesForFilter() {
         try {
-            const res = await fetch(`${baseURL}/api/Branch?pageNumber=1&pageSize=100`, { credentials: "include" });
+            const res = await fetch(`/api/Branch?pageNumber=1&pageSize=100`, { credentials: "include" });
             if (!res.ok) return;
             const data = await res.json();
             const branches = data.items || [];
@@ -345,19 +344,9 @@ export default function InventoryList() {
         try {
             const params = new URLSearchParams();
             params.set("pageNumber", "1");
-            params.set("pageSize", "1000"); // Fetch more records to handle client-side filtering
+            params.set("pageSize", "1000");
 
-            if (idSearch?.trim()) {
-                params.set("search", idSearch.trim());
-            }
-
-            // Add date filter in the format the backend expects (similar to Inventory)
-            if (filterDate) {
-                const raw = filterDate;
-                params.set("orderDate", `${raw.getFullYear()}-${String(raw.getMonth() + 1).padStart(2, "0")}-${String(raw.getDate()).padStart(2, "0")}`);
-            }
-
-            const res = await fetch(`${baseURL}/api/SupplierOrder?${params.toString()}`, { credentials: "include" });
+            const res = await fetch(`/api/SupplierOrder?${params.toString()}`, { credentials: "include" });
             if (!res.ok) throw new Error(`Failed to load supplier orders (${res.status})`);
 
             const data = await res.json();
@@ -372,6 +361,7 @@ export default function InventoryList() {
                 employee: o.employeeFullName ?? "—",
                 branchId: o.branchId,
                 branch: o.branchName ?? "—",
+                orderDateRaw: o.supplierOrderDate ?? null,
                 date: formatDate(o.supplierOrderDate),
                 quantity: o.supplierOrderQuantity ?? 0,
                 supplierOrderTypeId: o.supplierOrderTypeId,
@@ -381,7 +371,6 @@ export default function InventoryList() {
             }));
 
             setAllSupplierOrders(mapped);
-
         } catch (err) {
             console.error("Error fetching supplier orders:", err);
             setError(`An error occurred while loading supplier orders: ${err.message}`);
@@ -397,13 +386,9 @@ export default function InventoryList() {
         try {
             const params = new URLSearchParams();
             params.set("pageNumber", "1");
-            params.set("pageSize", "1000"); // Fetch more records
+            params.set("pageSize", "1000");
 
-            if (idSearch?.trim()) {
-                params.set("search", idSearch.trim());
-            }
-
-            const res = await fetch(`${baseURL}/api/Reorder?${params.toString()}`, { credentials: "include" });
+            const res = await fetch(`/api/Reorder?${params.toString()}`, { credentials: "include" });
             if (!res.ok) throw new Error(`Failed to load reorders (${res.status})`);
 
             const data = await res.json();
@@ -422,13 +407,23 @@ export default function InventoryList() {
             }));
 
             setAllReorders(mapped);
-
         } catch (err) {
             console.error("Error fetching reorders:", err);
             setError(`An error occurred while loading reorders: ${err.message}`);
         } finally {
             setLoading(false);
         }
+    }
+
+    function isSameDay(a, b) {
+        if (!a || !b) return false;
+        const da = new Date(a);
+        const db = new Date(b);
+        return (
+            da.getFullYear() === db.getFullYear() &&
+            da.getMonth() === db.getMonth() &&
+            da.getDate() === db.getDate()
+        );
     }
 
     /* ----------------------------------------- */
@@ -449,7 +444,19 @@ export default function InventoryList() {
 
         let filtered = [...dataSource];
 
-        // Apply client-side filters
+        // NEW: ID filter (works for both tabs)
+        // ID filter (exact match)
+        if (idSearch?.trim()) {
+            const needle = idSearch.trim();
+            filtered = filtered.filter(item => String(item.id ?? "") === needle);
+        }
+
+        // NEW: Creation date filter (Orders tab only)
+        if (!isReorderPage && filterDate) {
+            filtered = filtered.filter(item => isSameDay(item.orderDateRaw, filterDate));
+        }
+
+        // Existing client-side filters
         if (selectedSupplier) {
             filtered = filtered.filter(item => item.supplierId === selectedSupplier.supplierId);
         }
@@ -471,23 +478,19 @@ export default function InventoryList() {
             filtered = filtered.filter(item => item.branchId == selectedBranch);
         }
 
-        // Calculate pagination based on filtered results
         const totalFiltered = filtered.length;
         const calculatedTotalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
 
-        // If current page exceeds total pages, reset to page 1
         let adjustedPage = currentPage;
         if (currentPage > calculatedTotalPages) {
             adjustedPage = 1;
             setCurrentPage(1);
         }
 
-        // Apply pagination
         const startIndex = (adjustedPage - 1) * pageSize;
         const endIndex = startIndex + pageSize;
         const paginatedData = filtered.slice(startIndex, endIndex);
 
-        // Update state
         if (isReorderPage) {
             setReorders(paginatedData);
         } else {
@@ -646,8 +649,8 @@ export default function InventoryList() {
         try {
             // Determine the endpoint based on the current tab
             const endpoint = isReorderPage
-                ? `${baseURL}/api/Reorder/${deleteId}` // Reorder delete endpoint
-                : `${baseURL}/api/SupplierOrder/${deleteId}`; // Order delete endpoint
+                ? `/api/Reorder/${deleteId}` // Reorder delete endpoint
+                : `/api/SupplierOrder/${deleteId}`; // Order delete endpoint
 
             // Make the DELETE request
             const res = await fetch(endpoint, {
@@ -676,7 +679,6 @@ export default function InventoryList() {
     /* ----------------------------------------- */
     /*          UTILITY FUNCTIONS                */
     /* ----------------------------------------- */
-    // Format date the same way as Inventory (DD/MM/YYYY)
     function formatDate(dateValue) {
         if (!dateValue) return "";
         const d = new Date(dateValue);
@@ -816,6 +818,7 @@ export default function InventoryList() {
                             </ul>
                         )}
                     </div>
+
                     {isAdmin && (
                         <div className="mb-2">
                             <div className="filter-label fst-italic small">

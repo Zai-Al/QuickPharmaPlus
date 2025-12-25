@@ -10,7 +10,6 @@ import { AuthContext } from "../../../Context/AuthContext";
 
 export default function CreateOrder() {
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
     const { user } = useContext(AuthContext);
 
     // ===================== STATE =====================
@@ -58,11 +57,12 @@ export default function CreateOrder() {
     useEffect(() => {
         // Always fetch suppliers
         fetchSuppliers();
-        
+
         // Fetch branches if user is admin
         if (isAdmin) {
             fetchBranches();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAdmin]); // Dependency on isAdmin
 
     // Close supplier dropdown on outside click
@@ -93,7 +93,7 @@ export default function CreateOrder() {
     const fetchSuppliers = async () => {
         try {
             setLoadingSuppliers(true);
-            const response = await fetch(`${baseURL}/api/Suppliers?pageNumber=1&pageSize=200`, {
+            const response = await fetch(`/api/Suppliers?pageNumber=1&pageSize=200`, {
                 credentials: "include"
             });
 
@@ -121,7 +121,7 @@ export default function CreateOrder() {
         try {
             setLoadingProducts(true);
             const response = await fetch(
-                `${baseURL}/api/SupplierOrder/supplier/${selectedSupplierId}/products`,
+                `/api/SupplierOrder/supplier/${selectedSupplierId}/products`,
                 { credentials: "include" }
             );
 
@@ -148,7 +148,7 @@ export default function CreateOrder() {
     const fetchBranches = async () => {
         try {
             setLoadingBranches(true);
-            const response = await fetch(`${baseURL}/api/Branch?pageNumber=1&pageSize=100`, {
+            const response = await fetch(`/api/Branch?pageNumber=1&pageSize=100`, {
                 credentials: "include"
             });
 
@@ -405,7 +405,7 @@ export default function CreateOrder() {
         }
 
         try {
-            const response = await fetch(`${baseURL}/api/SupplierOrder`, {
+            const response = await fetch(`/api/SupplierOrder`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",

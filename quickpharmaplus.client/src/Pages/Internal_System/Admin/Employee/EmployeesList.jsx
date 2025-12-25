@@ -17,7 +17,6 @@ import Pagination from "../../../../Components/InternalSystem/GeneralComponents/
 import DeleteModal from "../../../../Components/InternalSystem/Modals/DeleteModal";
 
 export default function EmployeesList() {
-
     // === DATA & UI STATE ===
     const [employees, setEmployees] = useState([]);
     const [allEmployees, setAllEmployees] = useState([]);
@@ -49,9 +48,6 @@ export default function EmployeesList() {
     const [pageSize, setPageSize] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
 
-    const baseURL = import.meta.env.VITE_API_URL;
-    console.log("API BASE URL =", import.meta.env.VITE_API_URL);
-
     // === VALIDATION REGEX ===
     const validNamePattern = /^[A-Za-z .-]*$/;
     const validIdPattern = /^[0-9]*$/;
@@ -64,7 +60,7 @@ export default function EmployeesList() {
 
     async function fetchRoles() {
         try {
-            const res = await fetch(`${baseURL}/api/roles`, { credentials: "include" });
+            const res = await fetch("/api/roles", { credentials: "include" });
             if (!res.ok) return;
             const data = await res.json();
             const opts = (data || []).map((r) => ({ value: r.name ?? r.id, label: r.name ?? r.id }));
@@ -77,7 +73,7 @@ export default function EmployeesList() {
     // === NEW: FETCH BRANCHES ===
     async function fetchBranches() {
         try {
-            const res = await fetch(`${baseURL}/api/Branch?pageNumber=1&pageSize=100`, {
+            const res = await fetch("/api/Branch?pageNumber=1&pageSize=100", {
                 credentials: "include"
             });
 
@@ -100,6 +96,7 @@ export default function EmployeesList() {
     // === FETCH ON PAGE CHANGE ===
     useEffect(() => {
         fetchEmployees();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentPage, pageSize]);
 
     // === DEBOUNCED FILTER FETCH (UPDATED: Add selectedBranch) ===
@@ -112,6 +109,7 @@ export default function EmployeesList() {
         }, 300);
 
         return () => clearTimeout(searchDebounceRef.current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [nameSearch, idSearch, selectedRole, selectedBranch]);  // UPDATED: Added selectedBranch
 
     // === FETCH EMPLOYEES (UPDATED: Add branch filter) ===
@@ -120,7 +118,7 @@ export default function EmployeesList() {
         setError("");
 
         try {
-            let url = `${baseURL}/api/Employees?pageNumber=${currentPage}&pageSize=${pageSize}`;
+            let url = `/api/Employees?pageNumber=${currentPage}&pageSize=${pageSize}`;
 
             if (nameSearch?.trim()) url += `&nameSearch=${encodeURIComponent(nameSearch)}`;
             if (idSearch?.trim()) url += `&idSearch=${encodeURIComponent(idSearch)}`;
@@ -152,7 +150,6 @@ export default function EmployeesList() {
             setEmployees(mapped);
 
             setTotalPages(Math.max(1, Math.ceil((data.totalCount ?? mapped.length) / pageSize)));
-
         } catch (err) {
             console.error("Fetch employees error:", err);
             setError("Unable to load employees.");
@@ -182,7 +179,7 @@ export default function EmployeesList() {
         }
 
         try {
-            const res = await fetch(`${baseURL}/api/Employees/${deleteId}`, {
+            const res = await fetch(`/api/Employees/${deleteId}`, {
                 method: "DELETE",
                 credentials: "include"
             });
@@ -191,7 +188,6 @@ export default function EmployeesList() {
 
             setAllEmployees(prev => prev.filter(e => e.id !== deleteId));
             setEmployees(prev => prev.filter(e => e.id !== deleteId));
-
         } catch (err) {
             console.error("Delete employee error:", err);
         } finally {

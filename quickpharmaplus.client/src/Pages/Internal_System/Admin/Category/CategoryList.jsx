@@ -16,9 +16,6 @@ import Pagination from "../../../../Components/InternalSystem/GeneralComponents/
 import DeleteModal from "../../../../Components/InternalSystem/Modals/DeleteModal";
 
 export default function CategoryList() {
-
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
-
     // === STATE ===
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -77,7 +74,7 @@ export default function CategoryList() {
             else if (nameSearch.trim()) searchParam = nameSearch.trim();
 
             const res = await fetch(
-                `${baseURL}/api/category?pageNumber=${currentPage}&pageSize=${pageSize}` +
+                `/api/category?pageNumber=${currentPage}&pageSize=${pageSize}` +
                 (searchParam ? `&search=${encodeURIComponent(searchParam)}` : ""),
                 { method: "GET", credentials: "include" }
             );
@@ -94,7 +91,6 @@ export default function CategoryList() {
 
             setCategories(mapped);
             setTotalPages(Math.ceil((data.totalCount ?? mapped.length) / pageSize));
-
         } catch (err) {
             console.error("Fetch categories error:", err);
             setError("Unable to load categories.");
@@ -114,7 +110,7 @@ export default function CategoryList() {
         try {
             // Fetch types for this category
             const res = await fetch(
-                `${baseURL}/api/category/types/${categoryId}?pageNumber=1&pageSize=1000`,
+                `/api/category/types/${categoryId}?pageNumber=1&pageSize=1000`,
                 { method: "GET", credentials: "include" }
             );
 
@@ -140,7 +136,7 @@ export default function CategoryList() {
         }
 
         try {
-            const res = await fetch(`${baseURL}/api/category/${deleteId}`, {
+            const res = await fetch(`/api/category/${deleteId}`, {
                 method: "DELETE",
                 credentials: "include",
             });
@@ -149,7 +145,6 @@ export default function CategoryList() {
 
             // Refresh the list
             fetchCategories();
-
         } catch (err) {
             console.error("Delete category error:", err);
             setError("Failed to delete category. Please try again.");
@@ -240,7 +235,6 @@ export default function CategoryList() {
             {/* FILTER SECTION */}
             <FilterSection>
                 <FilterLeft>
-
                     {/* CATEGORY NAME */}
                     <div className="mb-2">
                         <div className="filter-label fst-italic small">Enter category name for automatic search</div>
@@ -274,7 +268,6 @@ export default function CategoryList() {
                             {idError && <div className="invalid-feedback d-block">{idError}</div>}
                         </div>
                     </div>
-
                 </FilterLeft>
 
                 <FilterRight>
@@ -300,8 +293,8 @@ export default function CategoryList() {
                 onConfirm={handleDeleteConfirm}
                 title="Confirm Category Deletion"
                 message={
-                    loadingDeleteInfo 
-                        ? "Loading category details..." 
+                    loadingDeleteInfo
+                        ? "Loading category details..."
                         : `Are you sure you want to delete the category "${deleteCategoryName}"?`
                 }
             >
@@ -315,12 +308,12 @@ export default function CategoryList() {
                         <ul className="mb-0">
                             {typeCount > 0 && (
                                 <li>
-                                    Permanently delete <strong>{typeCount}</strong> category type{typeCount !== 1 ? 's' : ''}
+                                    Permanently delete <strong>{typeCount}</strong> category type{typeCount !== 1 ? "s" : ""}
                                 </li>
                             )}
                             {productCount > 0 && (
                                 <li>
-                                    Modify <strong>{productCount}</strong> product{productCount !== 1 ? 's' : ''} to "Not Defined" category
+                                    Modify <strong>{productCount}</strong> product{productCount !== 1 ? "s" : ""} to "Not Defined" category
                                 </li>
                             )}
                         </ul>

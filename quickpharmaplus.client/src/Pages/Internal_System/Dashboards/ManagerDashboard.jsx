@@ -5,7 +5,6 @@ import { AuthContext } from "../../../Context/AuthContext.jsx";
 import "./Dashboard.css";
 
 export default function ManagerDashboard() {
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
     const { user: ctxUser } = useContext(AuthContext);
 
     // State for dashboard data
@@ -21,7 +20,7 @@ export default function ManagerDashboard() {
     const fetchDashboardData = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${baseURL}/api/ManagerDashboard`, {
+            const response = await fetch("/api/ManagerDashboard", {
                 method: "GET",
                 credentials: "include"
             });
@@ -215,8 +214,7 @@ export default function ManagerDashboard() {
 
     return (
         <div className="admin-container">
-
-            <h2 className="dashboard-title text-center">Welcome {" "}
+            <h2 className="dashboard-title text-center">Welcome{" "}
                 <span style={{ color: "#1D2D44" }}>{firstName}</span>
                 !
             </h2>

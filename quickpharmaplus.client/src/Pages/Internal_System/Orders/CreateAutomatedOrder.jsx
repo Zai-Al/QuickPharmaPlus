@@ -10,7 +10,6 @@ import { AuthContext } from "../../../Context/AuthContext";
 
 export default function CreateAutomatedOrder() {
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
     const { user } = useContext(AuthContext);
 
     // ===================== STATE =====================
@@ -62,6 +61,7 @@ export default function CreateAutomatedOrder() {
         if (isAdmin) {
             fetchBranches();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAdmin]);
 
     // Close supplier dropdown on outside click
@@ -92,7 +92,7 @@ export default function CreateAutomatedOrder() {
     const fetchSuppliers = async () => {
         try {
             setLoadingSuppliers(true);
-            const response = await fetch(`${baseURL}/api/Suppliers?pageNumber=1&pageSize=200`, {
+            const response = await fetch(`/api/Suppliers?pageNumber=1&pageSize=200`, {
                 credentials: "include"
             });
 
@@ -120,7 +120,7 @@ export default function CreateAutomatedOrder() {
         try {
             setLoadingProducts(true);
             const response = await fetch(
-                `${baseURL}/api/SupplierOrder/supplier/${selectedSupplierId}/products`,
+                `/api/SupplierOrder/supplier/${selectedSupplierId}/products`,
                 { credentials: "include" }
             );
 
@@ -147,7 +147,7 @@ export default function CreateAutomatedOrder() {
     const fetchBranches = async () => {
         try {
             setLoadingBranches(true);
-            const response = await fetch(`${baseURL}/api/Branch?pageNumber=1&pageSize=100`, {
+            const response = await fetch(`/api/Branch?pageNumber=1&pageSize=100`, {
                 credentials: "include"
             });
 
@@ -437,7 +437,7 @@ export default function CreateAutomatedOrder() {
         }
 
         try {
-            const response = await fetch(`${baseURL}/api/Reorder`, {
+            const response = await fetch(`/api/Reorder`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",

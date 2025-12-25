@@ -44,7 +44,6 @@ async function fetchJsonStrict(url) {
 }
 
 export default function DeliveryRequests() {
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
     const isDev = import.meta.env.DEV;
 
     const [items, setItems] = useState([]);
@@ -143,11 +142,6 @@ export default function DeliveryRequests() {
         selectedStatusIsDelivered && isCashMethodName(editRow?.paymentMethod);
 
     const saveEdit = async () => {
-        if (!baseURL) {
-            setEditError("VITE_API_BASE_URL is empty/undefined.");
-            return;
-        }
-
         if (!editRow?.orderId) {
             setEditError("Missing orderId.");
             return;
@@ -165,7 +159,7 @@ export default function DeliveryRequests() {
         setEditError("");
 
         try {
-            const res = await fetch(`${baseURL}/api/DeliveryRequests/${editRow.orderId}/status`, {
+            const res = await fetch(`/api/DeliveryRequests/${editRow.orderId}/status`, {
                 method: "PUT",
                 credentials: "include",
                 headers: { "Content-Type": "application/json" },
@@ -239,13 +233,7 @@ export default function DeliveryRequests() {
             setStatusesDebug(null);
 
             try {
-                if (!baseURL) {
-                    setStatusOptions([]);
-                    setStatusesDebug({ error: "VITE_API_BASE_URL is empty/undefined." });
-                    return;
-                }
-
-                const url = `${baseURL}/api/OrderStatuses`;
+                const url = "/api/OrderStatuses";
                 const { json, meta } = await fetchJsonStrict(url);
 
                 const list = Array.isArray(json) ? json : [];
@@ -269,7 +257,7 @@ export default function DeliveryRequests() {
         return () => {
             cancelled = true;
         };
-    }, [baseURL]);
+    }, []);
 
     // --- Fetch payments ---
     useEffect(() => {
@@ -279,13 +267,7 @@ export default function DeliveryRequests() {
             setPaymentsDebug(null);
 
             try {
-                if (!baseURL) {
-                    setPaymentOptions([]);
-                    setPaymentsDebug({ error: "VITE_API_BASE_URL is empty/undefined." });
-                    return;
-                }
-
-                const url = `${baseURL}/api/OrderPaymentMethods`;
+                const url = "/api/OrderPaymentMethods";
                 const { json, meta } = await fetchJsonStrict(url);
 
                 const list = Array.isArray(json) ? json : (json?.items || json?.Items || []);
@@ -311,7 +293,7 @@ export default function DeliveryRequests() {
         return () => {
             cancelled = true;
         };
-    }, [baseURL]);
+    }, []);
 
     // reset page when filters change
     useEffect(() => {
@@ -326,8 +308,6 @@ export default function DeliveryRequests() {
             setError("");
 
             try {
-                if (!baseURL) throw new Error("VITE_API_BASE_URL is empty/undefined.");
-
                 const params = new URLSearchParams();
                 params.set("pageNumber", String(currentPage));
                 params.set("pageSize", String(pageSize));
@@ -342,7 +322,7 @@ export default function DeliveryRequests() {
                 if (paymentMethodId) params.set("paymentMethodId", paymentMethodId);
                 if (urgency) params.set("isUrgent", urgency);
 
-                const res = await fetch(`${baseURL}/api/DeliveryRequests?${params.toString()}`, {
+                const res = await fetch(`/api/DeliveryRequests?${params.toString()}`, {
                     credentials: "include",
                 });
 
@@ -362,7 +342,7 @@ export default function DeliveryRequests() {
                 setLoading(false);
             }
         })();
-    }, [baseURL, currentPage, pageSize, orderIdSearch, statusId, paymentMethodId, urgency]);
+    }, [currentPage, pageSize, orderIdSearch, statusId, paymentMethodId, urgency]);
 
     return (
         <div className="delivery-page">

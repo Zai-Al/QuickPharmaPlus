@@ -14,8 +14,6 @@ import { StatusBadge } from "../../External_System/Shared_Components/statusUI.js
 import "./PrescriptionDetails.css";
 
 export default function PrescriptionDetails() {
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
-
     const { prescriptionId } = useParams();
 
     const [loading, setLoading] = useState(true);
@@ -30,7 +28,7 @@ export default function PrescriptionDetails() {
                 setLoading(true);
                 setErrorMsg("");
 
-                const res = await fetch(`${baseURL}/api/Prescription/${encodeURIComponent(prescriptionId)}`, {
+                const res = await fetch(`/api/Prescription/${encodeURIComponent(prescriptionId)}`, {
                     credentials: "include",
                 });
 
@@ -50,16 +48,16 @@ export default function PrescriptionDetails() {
         };
 
         fetchDetails();
-    }, [baseURL, prescriptionId]);
+    }, [prescriptionId]);
 
     const docUrls = useMemo(() => {
         if (!prescriptionId) return null;
 
         return {
-            prescription: `${baseURL}/api/Prescription/${encodeURIComponent(prescriptionId)}/document`,
-            cpr: `${baseURL}/api/Prescription/${encodeURIComponent(prescriptionId)}/cpr`,
+            prescription: `/api/Prescription/${encodeURIComponent(prescriptionId)}/document`,
+            cpr: `/api/Prescription/${encodeURIComponent(prescriptionId)}/cpr`,
         };
-    }, [baseURL, prescriptionId]);
+    }, [prescriptionId]);
 
     const patientDetailsNode = useMemo(() => {
         if (!details) return <div>—</div>;

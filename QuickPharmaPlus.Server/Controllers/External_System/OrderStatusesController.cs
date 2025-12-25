@@ -8,7 +8,7 @@ namespace QuickPharmaPlus.Server.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Customer")]
+    [Authorize(Roles = "Customer,Admin,Manager,Pharmacist,Driver")]
     public class OrderStatusesController : ControllerBase
     {
         private readonly QuickPharmaPlusDbContext _db;

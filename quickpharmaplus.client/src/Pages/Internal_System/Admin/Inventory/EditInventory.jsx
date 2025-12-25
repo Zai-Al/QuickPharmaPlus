@@ -10,7 +10,6 @@ import DatePicker from "../../../../Components/Form/FormDatePicker";
 export default function EditInventory() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
 
     // =================== STATE ===================
     const [productId, setProductId] = useState("");
@@ -47,6 +46,7 @@ export default function EditInventory() {
         fetchProducts();
         fetchBranches();
         fetchInventory();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
     // Close product dropdown on outside click
@@ -65,7 +65,7 @@ export default function EditInventory() {
     const fetchInventory = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${baseURL}/api/Inventory/${id}`, {
+            const response = await fetch(`/api/Inventory/${id}`, {
                 credentials: "include"
             });
 
@@ -99,7 +99,7 @@ export default function EditInventory() {
     const fetchProducts = async () => {
         try {
             setLoadingProducts(true);
-            const response = await fetch(`${baseURL}/api/Products?pageNumber=1&pageSize=200`, {
+            const response = await fetch("/api/Products?pageNumber=1&pageSize=200", {
                 credentials: "include"
             });
 
@@ -126,7 +126,7 @@ export default function EditInventory() {
     const fetchBranches = async () => {
         try {
             setLoadingBranches(true);
-            const response = await fetch(`${baseURL}/api/Branch?pageNumber=1&pageSize=100`, {
+            const response = await fetch("/api/Branch?pageNumber=1&pageSize=100", {
                 credentials: "include"
             });
 
@@ -183,16 +183,16 @@ export default function EditInventory() {
 
     const validateExpiryDate = (value) => {
         if (!value) return "Batch expiry date is required.";
-        
+
         // Validate date is in the future
         const selectedDate = new Date(value);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         if (selectedDate < today) {
             return "Expiry date must be in the future.";
         }
-        
+
         return "";
     };
 
@@ -326,7 +326,7 @@ export default function EditInventory() {
         }
 
         // Format expiry date to YYYY-MM-DD
-        const formattedDate = expiryDate 
+        const formattedDate = expiryDate
             ? `${expiryDate.getFullYear()}-${String(expiryDate.getMonth() + 1).padStart(2, "0")}-${String(expiryDate.getDate()).padStart(2, "0")}`
             : null;
 
@@ -338,7 +338,7 @@ export default function EditInventory() {
         };
 
         try {
-            const response = await fetch(`${baseURL}/api/Inventory/${id}`, {
+            const response = await fetch(`/api/Inventory/${id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
@@ -396,7 +396,6 @@ export default function EditInventory() {
 
             <FormWrapper title="Edit Inventory Details:">
                 <form className="add-inventory-form" onSubmit={handleSubmit}>
-
                     {/* PRODUCT SEARCHABLE DROPDOWN */}
                     <div className="mb-3 inventory-field" ref={productRef}>
                         <input

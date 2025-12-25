@@ -15,8 +15,6 @@ import Pagination from "../../../Components/InternalSystem/GeneralComponents/Pag
 import DeleteModal from "../../../Components/InternalSystem/Modals/DeleteModal";
 
 export default function ProductsList() {
-    const baseURL = import.meta.env.VITE_API_BASE_URL || "";
-
     // DATA + UI STATE
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -75,6 +73,7 @@ export default function ProductsList() {
     // Fetch products when page changes
     useEffect(() => {
         fetchProducts();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentPage]);
 
     // Debounced refetch
@@ -85,6 +84,7 @@ export default function ProductsList() {
             fetchProducts(1);
         }, 300);
         return () => clearTimeout(searchDebounceRef.current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [nameSearch, idSearch, selectedSupplier, selectedCategory]);
 
     // Sync dropdown query with selected value
@@ -93,7 +93,6 @@ export default function ProductsList() {
             setSupplierQuery(selectedSupplier.supplierName ?? "");
         }
     }, [selectedSupplier]);
-
 
     useEffect(() => {
         setCategoryQuery(selectedCategory ? selectedCategory.categoryName ?? "" : "");
@@ -127,7 +126,7 @@ export default function ProductsList() {
 
     async function fetchSuppliersForFilter() {
         try {
-            const res = await fetch(`${baseURL}/api/Suppliers?pageNumber=1&pageSize=200`, { credentials: "include" });
+            const res = await fetch(`/api/Suppliers?pageNumber=1&pageSize=200`, { credentials: "include" });
             if (!res.ok) {
                 console.error(`Failed to fetch suppliers: ${res.status} ${res.statusText}`);
                 setError("Unable to load supplier options. Please try again later.");
@@ -147,7 +146,7 @@ export default function ProductsList() {
 
     async function fetchCategoriesForFilter() {
         try {
-            const res = await fetch(`${baseURL}/api/Category?pageNumber=1&pageSize=200`, { credentials: "include" });
+            const res = await fetch(`/api/Category?pageNumber=1&pageSize=200`, { credentials: "include" });
             if (!res.ok) {
                 console.error(`Failed to fetch categories: ${res.status} ${res.statusText}`);
                 setError("Unable to load category options. Please try again later.");
@@ -179,7 +178,7 @@ export default function ProductsList() {
             if (selectedSupplier) params.set("supplierId", selectedSupplier.supplierId);
             if (selectedCategory) params.set("categoryId", selectedCategory.categoryId);
 
-            const res = await fetch(`${baseURL}/api/Products?${params.toString()}`, { credentials: "include" });
+            const res = await fetch(`/api/Products?${params.toString()}`, { credentials: "include" });
             if (!res.ok) {
                 const errorText = await res.text().catch(() => "");
                 console.error(`Failed to fetch products: ${res.status} ${res.statusText}`, errorText);
@@ -277,7 +276,7 @@ export default function ProductsList() {
     async function handleDeleteConfirm() {
         if (!deleteId) return setShowModal(false);
         try {
-            const res = await fetch(`${baseURL}/api/Products/${deleteId}`, {
+            const res = await fetch(`/api/Products/${deleteId}`, {
                 method: "DELETE",
                 credentials: "include"
             });

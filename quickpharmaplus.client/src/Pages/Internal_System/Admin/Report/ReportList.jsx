@@ -18,8 +18,6 @@ import Pagination from "../../../../Components/InternalSystem/GeneralComponents/
 import DeleteModal from "../../../../Components/InternalSystem/Modals/DeleteModal";
 
 export default function ReportsList() {
-    const baseURL = ""; // use Vite proxy
-
     // =================== UI STATE ===================
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -76,6 +74,7 @@ export default function ReportsList() {
 
     useEffect(() => {
         fetchReports(currentPage);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentPage]);
 
     useEffect(() => {
@@ -87,11 +86,12 @@ export default function ReportsList() {
         }, 300);
 
         return () => clearTimeout(filterDebounceRef.current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [idSearch, nameSearch, selectedTypeId, filterDate]);
 
     async function fetchReportTypes() {
         try {
-            const res = await fetch(`${baseURL}/api/ReportTypes`, { credentials: "include" });
+            const res = await fetch("/api/ReportTypes", { credentials: "include" });
             if (!res.ok) return setReportTypeOptions([]);
 
             const data = await res.json();
@@ -135,7 +135,7 @@ export default function ReportsList() {
                 );
             }
 
-            const res = await fetch(`${baseURL}/api/Reports?${params.toString()}`, { credentials: "include" });
+            const res = await fetch(`/api/Reports?${params.toString()}`, { credentials: "include" });
             if (!res.ok) throw new Error(`Failed to load reports (${res.status})`);
 
             const data = await res.json();
@@ -176,7 +176,7 @@ export default function ReportsList() {
     const handleNameChange = (e) => {
         const val = e.target.value;
 
-        if (/^[A-Za-z0-9 .\-+]*$/.test(val)) {
+        if (/^[A-Za-z0-9 .+\-]*$/.test(val)) {
             setNameError("");
             setNameSearch(val);
         } else {
@@ -197,16 +197,36 @@ export default function ReportsList() {
         else fetchReports(1);
     };
 
+    function handleCloseDeleteModal() {
+        setShowModal(false);
+        setDeleteId(null);
+    }
+
     async function handleDeleteConfirm() {
         if (!deleteId) {
             setShowModal(false);
             return;
         }
 
-        // Placeholder until Reports delete endpoint exists
-        setReports((prev) => prev.filter((r) => r.reportId !== deleteId));
-        setDeleteId(null);
-        setShowModal(false);
+        try {
+            const res = await fetch(`/api/Reports/${deleteId}`, {
+                method: "DELETE",
+                credentials: "include"
+            });
+
+            if (!res.ok) {
+                const msg = await res.text().catch(() => "");
+                throw new Error(msg || `Delete failed (${res.status})`);
+            }
+
+            setReports((prev) => prev.filter((r) => r.reportId !== deleteId));
+        } catch (err) {
+            console.error("Delete report error:", err);
+            setError(err?.message || "Failed to delete report.");
+        } finally {
+            setDeleteId(null);
+            setShowModal(false);
+        }
     }
 
     return (
@@ -307,7 +327,7 @@ export default function ReportsList() {
 
             <DeleteModal
                 show={showModal}
-                onClose={() => setShowModal(false)}
+                onClose={handleCloseDeleteModal}
                 onConfirm={handleDeleteConfirm}
                 message="Are you sure you want to delete this report?"
             />

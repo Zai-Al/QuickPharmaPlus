@@ -10,7 +10,6 @@ import FormWrapper from "../../../../Components/InternalSystem/GeneralComponents
 import FormHeader from "../../../../Components/InternalSystem/FormHeader";
 
 export default function AddCategory() {
-
     const [categoryName, setCategoryName] = useState("");
     const [categoryImage, setCategoryImage] = useState(null);
     const [previewImage, setPreviewImage] = useState(null);
@@ -22,7 +21,6 @@ export default function AddCategory() {
     const [isNameTouched, setIsNameTouched] = useState(false);
 
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
 
     // Updated regex - includes ampersand (&)
     const validCategoryNamePattern = /^[A-Za-z .'\-()&]*$/;
@@ -49,7 +47,7 @@ export default function AddCategory() {
 
         try {
             const response = await fetch(
-                `${baseURL}/api/Category/check-name?name=${encodeURIComponent(name.trim())}`,
+                `/api/Category/check-name?name=${encodeURIComponent(name.trim())}`,
                 { credentials: "include" }
             );
 
@@ -85,7 +83,7 @@ export default function AddCategory() {
         }
 
         try {
-            const response = await fetch(`${baseURL}/api/Category/add`, {
+            const response = await fetch("/api/Category/add", {
                 method: "POST",
                 body: formData,
                 credentials: "include"
@@ -131,7 +129,6 @@ export default function AddCategory() {
 
             <FormWrapper title="Enter New Category Details:">
                 <form className="add-category-form" onSubmit={handleSubmit}>
-
                     {/* NAME INPUT — LIVE VALIDATION MATCHES EDIT */}
                     <ImagePreview src={previewImage} />
 
@@ -173,7 +170,6 @@ export default function AddCategory() {
                     />
 
                     <AddButton text="Add New Category" type="submit" />
-
                 </form>
             </FormWrapper>
         </div>

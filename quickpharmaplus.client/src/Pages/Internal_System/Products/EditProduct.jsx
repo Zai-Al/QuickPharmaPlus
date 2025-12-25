@@ -11,7 +11,6 @@ import ImagePreview from "../../../Components/InternalSystem/GeneralComponents/I
 export default function EditProduct() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
 
     // ===================== STATE =====================
     const [productName, setProductName] = useState("");
@@ -74,6 +73,7 @@ export default function EditProduct() {
         fetchSuppliers();
         fetchIngredients();
         fetchProduct();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
     // Close supplier dropdown on outside click
@@ -115,14 +115,14 @@ export default function EditProduct() {
     /* ---------------- FETCH PRODUCT ---------------- */
     async function fetchProduct() {
         try {
-            const response = await fetch(`${baseURL}/api/Products/${id}/details`, {
+            const response = await fetch(`/api/Products/${encodeURIComponent(id)}/details`, {
                 credentials: "include"
             });
 
             if (!response.ok) throw new Error("Failed to fetch product");
 
             const data = await response.json();
-            
+
             setProductName(data.productName || "");
             setOriginalProductName(data.productName || "");
             setDescription(data.productDescription || "");
@@ -141,7 +141,7 @@ export default function EditProduct() {
 
             // Load ingredients directly from the details endpoint
             const ingredients = data.ingredients || [];
-            
+
             setSelectedIngredients(ingredients.map(ing => ({
                 value: ing.ingredientId,
                 label: ing.ingredientName,
@@ -151,7 +151,6 @@ export default function EditProduct() {
             // Build ingredient query display
             const displayValue = ingredients.map(ing => ing.ingredientName).join(", ");
             setIngredientQuery(displayValue.length > 0 ? displayValue + ", " : "");
-
         } catch (err) {
             console.error("Error fetching product:", err);
             setErrorMessage("Unable to load product details.");
@@ -179,6 +178,7 @@ export default function EditProduct() {
                 fetchTypesForCategory(categoryId);
             }
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [categoryId, categoryOptions]);
 
     // =================== IMAGE UPLOAD HANDLER ===================
@@ -194,7 +194,7 @@ export default function EditProduct() {
     const fetchCategories = async () => {
         try {
             setLoadingCategories(true);
-            const response = await fetch(`${baseURL}/api/Category?pageNumber=1&pageSize=200`, {
+            const response = await fetch(`/api/Category?pageNumber=1&pageSize=200`, {
                 credentials: "include"
             });
 
@@ -221,7 +221,7 @@ export default function EditProduct() {
     const fetchSuppliers = async () => {
         try {
             setLoadingSuppliers(true);
-            const response = await fetch(`${baseURL}/api/Suppliers?pageNumber=1&pageSize=200`, {
+            const response = await fetch(`/api/Suppliers?pageNumber=1&pageSize=200`, {
                 credentials: "include"
             });
 
@@ -248,7 +248,7 @@ export default function EditProduct() {
     const fetchIngredients = async () => {
         try {
             setLoadingIngredients(true);
-            const response = await fetch(`${baseURL}/api/Ingredients?pageNumber=1&pageSize=500`, {
+            const response = await fetch(`/api/Ingredients?pageNumber=1&pageSize=500`, {
                 credentials: "include"
             });
 
@@ -275,7 +275,7 @@ export default function EditProduct() {
     const fetchTypesForCategory = async (catId) => {
         try {
             setLoadingTypes(true);
-            const response = await fetch(`${baseURL}/api/Category/types/${catId}?pageNumber=1&pageSize=200`, {
+            const response = await fetch(`/api/Category/types/${catId}?pageNumber=1&pageSize=200`, {
                 credentials: "include"
             });
 
@@ -312,16 +312,16 @@ export default function EditProduct() {
 
         try {
             const response = await fetch(
-                `${baseURL}/api/Products/check-name?name=${encodeURIComponent(name.trim())}&excludeId=${id}`,
+                `/api/Products/check-name?name=${encodeURIComponent(name.trim())}&excludeId=${encodeURIComponent(id)}`,
                 { credentials: "include" }
             );
 
             if (response.ok) {
                 const data = await response.json();
                 if (data.exists) {
-                    setErrors(prev => ({ 
-                        ...prev, 
-                        productName: "A product with this name already exists in the system." 
+                    setErrors(prev => ({
+                        ...prev,
+                        productName: "A product with this name already exists in the system."
                     }));
                 }
             }
@@ -378,9 +378,9 @@ export default function EditProduct() {
         const value = e.target.value;
 
         if (!namePattern.test(value)) {
-            setErrors(prev => ({ 
-                ...prev, 
-                productName: "Product name may only contain letters, numbers, spaces, dots, dashes, and plus signs." 
+            setErrors(prev => ({
+                ...prev,
+                productName: "Product name may only contain letters, numbers, spaces, dots, dashes, and plus signs."
             }));
             setTouched(prev => ({ ...prev, productName: true }));
             return;
@@ -552,7 +552,7 @@ export default function EditProduct() {
             const displayValue = newSelectedIngredients
                 .map(ing => ing.ingredientName)
                 .join(", ");
-            
+
             setIngredientQuery(displayValue.length > 0 ? displayValue + ", " : "");
         }
 
@@ -573,7 +573,7 @@ export default function EditProduct() {
         const displayValue = newSelectedIngredients
             .map(ing => ing.ingredientName)
             .join(", ");
-        
+
         setIngredientQuery(displayValue.length > 0 ? displayValue + ", " : "");
     };
 
@@ -688,14 +688,14 @@ export default function EditProduct() {
         selectedIngredients.forEach((ingredient, index) => {
             formData.append(`IngredientIds[${index}]`, ingredient.value);
         });
-        
+
         // Only upload new image if user selected one
         if (productImage) {
             formData.append("ProductImage", productImage);
         }
 
         try {
-            const response = await fetch(`${baseURL}/api/Products/${id}`, {
+            const response = await fetch(`/api/Products/${encodeURIComponent(id)}`, {
                 method: "PUT",
                 body: formData,
                 credentials: "include"
@@ -708,9 +708,9 @@ export default function EditProduct() {
             } else if (response.status === 409) {
                 // Conflict - duplicate name
                 setErrorMessage("A product with this name already exists in the system.");
-                setErrors(prev => ({ 
-                    ...prev, 
-                    productName: "A product with this name already exists in the system." 
+                setErrors(prev => ({
+                    ...prev,
+                    productName: "A product with this name already exists in the system."
                 }));
                 setSuccessMessage("");
             } else {
@@ -933,8 +933,8 @@ export default function EditProduct() {
                             className={`form-control form-text-input ${touched.ingredients && errors.ingredients ? "is-invalid" : ""}`}
                             style={{ width: "100%" }}
                             placeholder={
-                                loadingIngredients 
-                                    ? "Loading ingredients..." 
+                                loadingIngredients
+                                    ? "Loading ingredients..."
                                     : selectedIngredients.length > 0
                                         ? "Add more ingredients..."
                                         : "Search or select active ingredients"
@@ -953,13 +953,12 @@ export default function EditProduct() {
                                     const isSelected = selectedIngredients.some(
                                         selected => selected.value === i.value
                                     );
-                                    
+
                                     return (
                                         <li
                                             key={i.value}
-                                            className={`add-product-dropdown-item ${
-                                                idx === ingredientHighlightIndex ? "active" : ""
-                                            } ${isSelected ? "selected" : ""}`}
+                                            className={`add-product-dropdown-item ${idx === ingredientHighlightIndex ? "active" : ""
+                                                } ${isSelected ? "selected" : ""}`}
                                             onMouseDown={(ev) => ev.preventDefault()}
                                             onClick={() => handleSelectIngredient(i)}
                                             onMouseEnter={() => setIngredientHighlightIndex(idx)}
@@ -983,7 +982,7 @@ export default function EditProduct() {
                         {/* Display selected ingredients count (only if more than 0) */}
                         {selectedIngredients.length > 0 && (
                             <div className="selected-ingredients-count">
-                                {selectedIngredients.length} ingredient{selectedIngredients.length > 1 ? 's' : ''} selected
+                                {selectedIngredients.length} ingredient{selectedIngredients.length > 1 ? "s" : ""} selected
                             </div>
                         )}
                     </div>
@@ -1033,8 +1032,8 @@ export default function EditProduct() {
                     </div>
 
                     {/* UPLOAD PRODUCT PHOTO */}
-                    <UploadButton 
-                        text="Upload Product Photo" 
+                    <UploadButton
+                        text="Upload Product Photo"
                         onUpload={handleUpload}
                     />
 

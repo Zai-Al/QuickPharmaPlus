@@ -8,7 +8,6 @@ import FormHeader from "../../../Components/InternalSystem/FormHeader";
 
 export default function AddSupplier() {
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
 
     // =================== STATE ===================
     const [supplierName, setSupplierName] = useState("");
@@ -49,6 +48,7 @@ export default function AddSupplier() {
     // =================== FETCH DATA ON MOUNT ===================
     useEffect(() => {
         fetchCities();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Close city dropdown on outside click
@@ -67,7 +67,7 @@ export default function AddSupplier() {
     const fetchCities = async () => {
         try {
             setLoadingCities(true);
-            const response = await fetch(`${baseURL}/api/cities`, {
+            const response = await fetch(`/api/cities`, {
                 credentials: "include"
             });
 
@@ -348,10 +348,7 @@ export default function AddSupplier() {
             setSuccessMessage("");
             return;
         }
-
-        // Find the selected city ID
-        const selectedCityOption = cityOptions.find(c => c.cityName === city);
-
+    
         const payload = {
             supplierName: supplierName.trim(),
             representative: repName.trim(),
@@ -364,7 +361,7 @@ export default function AddSupplier() {
         };
 
         try {
-            const response = await fetch(`${baseURL}/api/Suppliers`, {
+            const response = await fetch(`/api/Suppliers`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",

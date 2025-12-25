@@ -2230,5 +2230,20 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
 
             return await query.FirstOrDefaultAsync();
         }
+
+        public async Task<bool> DeleteReportAsync(int reportId)
+        {
+            if (reportId <= 0) return false;
+
+            var entity = await _context.Reports
+                .FirstOrDefaultAsync(r => r.ReportId == reportId);
+
+            if (entity == null) return false;
+
+            _context.Reports.Remove(entity);
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
     }
 }

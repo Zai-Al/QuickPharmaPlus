@@ -11,7 +11,6 @@ import { AuthContext } from "../../../Context/AuthContext";
 export default function EditOrder() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const baseURL = import.meta.env.VITE_API_BASE_URL || "https://localhost:7231";
     const { user } = useContext(AuthContext);
 
     // ===================== STATE =====================
@@ -98,7 +97,7 @@ export default function EditOrder() {
     const fetchOrderDetails = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${baseURL}/api/SupplierOrder/${id}`, {
+            const response = await fetch(`/api/SupplierOrder/${id}`, {
                 credentials: "include"
             });
 
@@ -111,16 +110,13 @@ export default function EditOrder() {
             setQuantity(data.supplierOrderQuantity?.toString() || "");
             setBranchId(data.branchId?.toString() || "");
 
-            // Set supplier query after suppliers are loaded
             if (data.supplierName) {
                 setSupplierQuery(data.supplierName);
             }
 
-            // Set product query after products are loaded
             if (data.productName) {
                 setProductQuery(data.productName);
             }
-
         } catch (err) {
             console.error("Error fetching order details:", err);
             setErrorMessage("Failed to load order details.");
@@ -160,7 +156,7 @@ export default function EditOrder() {
     const fetchSuppliers = async () => {
         try {
             setLoadingSuppliers(true);
-            const response = await fetch(`${baseURL}/api/Suppliers?pageNumber=1&pageSize=200`, {
+            const response = await fetch(`/api/Suppliers?pageNumber=1&pageSize=200`, {
                 credentials: "include"
             });
 
@@ -188,7 +184,7 @@ export default function EditOrder() {
         try {
             setLoadingProducts(true);
             const response = await fetch(
-                `${baseURL}/api/SupplierOrder/supplier/${selectedSupplierId}/products`,
+                `/api/SupplierOrder/supplier/${selectedSupplierId}/products`,
                 { credentials: "include" }
             );
 
@@ -215,7 +211,7 @@ export default function EditOrder() {
     const fetchBranches = async () => {
         try {
             setLoadingBranches(true);
-            const response = await fetch(`${baseURL}/api/Branch?pageNumber=1&pageSize=100`, {
+            const response = await fetch(`/api/Branch?pageNumber=1&pageSize=100`, {
                 credentials: "include"
             });
 
@@ -472,7 +468,7 @@ export default function EditOrder() {
         }
 
         try {
-            const response = await fetch(`${baseURL}/api/SupplierOrder/${id}`, {
+            const response = await fetch(`/api/SupplierOrder/${id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
