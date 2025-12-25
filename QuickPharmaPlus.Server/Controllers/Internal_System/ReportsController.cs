@@ -116,10 +116,10 @@ public sealed class ReportsController : ControllerBase
         string branchLabel = "All branches";
         if (branchId.HasValue)
         {
-            var cityName = await _context.Cities
+            var cityName = await _context.Branches
                 .AsNoTracking()
-                .Where(c => c.BranchId == branchId.Value)
-                .Select(c => c.CityName)
+                .Where(b => b.BranchId == branchId.Value)
+                .Select(b => b.Address != null && b.Address.City != null ? b.Address.City.CityName : null)
                 .FirstOrDefaultAsync();
 
             branchLabel = !string.IsNullOrWhiteSpace(cityName)
@@ -130,11 +130,42 @@ public sealed class ReportsController : ControllerBase
         var reportTypeName = dto.ReportType.Trim();
         var baseTitle = $"{reportTypeName} Report";
 
-        var pdf = _pdf.Generate(dto, baseTitle);
+        var reportTypeId = await _repo.ResolveReportTypeIdAsync(reportTypeName);
+        if (!reportTypeId.HasValue)
+            return BadRequest("INVALID_REPORT_TYPE");
+
+        TotalRevenueReportDto? totalRevenue = null;
+        SupplierRevenueReportDto? supplierRevenue = null;
+        CategoryRevenueReportDto? categoryRevenue = null;
+
+        if (reportTypeId.Value == 1)
+        {
+            totalRevenue = await _repo.BuildTotalRevenueReportAsync(from, to, branchId);
+        }
+        else if (reportTypeId.Value == 2)
+        {
+            if (string.IsNullOrWhiteSpace(dto.ProductCategory))
+                return BadRequest("CATEGORY_REQUIRED");
+
+            if (!int.TryParse(dto.ProductCategory, out var categoryId) || categoryId <= 0)
+                return BadRequest("INVALID_CATEGORY");
+
+            categoryRevenue = await _repo.BuildCategoryRevenueReportAsync(from, to, categoryId, branchId);
+        }
+        else if (reportTypeId.Value == 3)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Supplier))
+                return BadRequest("SUPPLIER_REQUIRED");
+
+            if (!int.TryParse(dto.Supplier, out var supplierId) || supplierId <= 0)
+                return BadRequest("INVALID_SUPPLIER");
+
+            supplierRevenue = await _repo.BuildSupplierRevenueReportAsync(from, to, supplierId, branchId);
+        }
+
+        var pdf = _pdf.Generate(dto, baseTitle, totalRevenue, supplierRevenue, categoryRevenue);
 
         var fileName = $"{reportTypeName}-{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
-
-        int? reportTypeId = null;
 
         var currentUserId = await GetCurrentUserIdAsync();
         int? userId = currentUserId;

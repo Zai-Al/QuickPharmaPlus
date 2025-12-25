@@ -119,10 +119,21 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             if (branchId.HasValue && branchId.Value > 0)
             {
                 branchName = await _context.Branches
+                    .AsNoTracking()
                     .Where(b => b.BranchId == branchId.Value)
-                    .Select(b => b.Address != null && b.Address.City != null
-                        ? b.Address.City.CityName
-                        : null)
+                    .Select(b => b.AddressId)
+                    .Join(
+                        _context.Addresses.AsNoTracking(),
+                        addressId => addressId,
+                        a => (int?)a.AddressId,
+                        (_, a) => a.CityId
+                    )
+                    .Join(
+                        _context.Cities.AsNoTracking(),
+                        cityId => cityId,
+                        c => (int?)c.CityId,
+                        (_, c) => c.CityName
+                    )
                     .FirstOrDefaultAsync();
             }
 
