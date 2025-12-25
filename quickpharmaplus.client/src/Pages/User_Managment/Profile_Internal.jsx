@@ -74,8 +74,7 @@ export default function Profile_Internal() {
         e.preventDefault();
 
         try {
-            const baseURL = import.meta.env.VITE_API_BASE_URL;
-            await fetch(`${baseURL}/api/account/logout`, {
+            await fetch("/api/account/logout", {
                 method: "POST",
                 credentials: "include",
                 headers: {

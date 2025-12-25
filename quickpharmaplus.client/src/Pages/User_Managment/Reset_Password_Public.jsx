@@ -21,8 +21,6 @@ export default function ResetPasswordPublic() {
     const [validating, setValidating] = useState(false);
     const validateTimer = useRef(null);
 
-    const baseURL = import.meta.env.VITE_API_BASE_URL ?? "";
-
     // Load email and token from URL
     useEffect(() => {
         const qp = new URLSearchParams(location.search);
@@ -55,7 +53,7 @@ export default function ResetPasswordPublic() {
 
         validateTimer.current = setTimeout(async () => {
             try {
-                const res = await fetch(`${baseURL}/api/account/validate-password-public`, {
+                const res = await fetch("/api/account/validate-password-public", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ password: newPassword })
@@ -92,7 +90,7 @@ export default function ResetPasswordPublic() {
         return () => {
             if (validateTimer.current) clearTimeout(validateTimer.current);
         };
-    }, [newPassword, baseURL]);
+    }, [newPassword]);
 
     // FORM SUBMIT
     const handleSubmit = async (e) => {
@@ -111,7 +109,7 @@ export default function ResetPasswordPublic() {
         setSubmitting(true);
 
         try {
-            const res = await fetch(`${baseURL}/api/account/reset-password`, {
+            const res = await fetch("/api/account/reset-password", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

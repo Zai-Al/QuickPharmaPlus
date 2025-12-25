@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
@@ -279,20 +280,64 @@ namespace QuickPharmaPlus.Server.Controllers
             // Try sending email
             try
             {
-                string htmlMessage = $@"
-                    <p>Hello,</p>
-                    <p>You requested to reset your password.</p>
-                    <p>Click the link below to reset it:</p>
-                    <p><a href=""{resetUrl}"">{resetUrl}</a></p>
-                    <p>If you didn't request this change, please ignore this email.</p>
-                    <p>Best regards,<br/>QuickPharmaPlus Support</p>
+                var safeEmail = WebUtility.HtmlEncode(email);
+                var safeResetUrl = WebUtility.HtmlEncode(resetUrl);
+
+                var subject = "QuickPharmaPlus — Password Reset Request";
+
+                var htmlMessage = $@"
+                    <div style='font-family: Arial, sans-serif; line-height: 1.6; color: #111; max-width: 680px; margin: 0 auto;'>
+                        <div style='margin: 0; padding: 18px 20px; border-radius: 12px; background: linear-gradient(135deg, #38b2ac 0%, #2c7a7b 100%);'>
+                            <h2 style='margin: 0; color: #fff; font-size: 20px;'>Reset Your Password</h2>
+                            <p style='margin: 6px 0 0 0; color: rgba(255,255,255,0.9); font-size: 13px;'>
+                                QuickPharmaPlus Account Support
+                            </p>
+                        </div>
+
+                        <div style='padding: 18px 4px 0 4px;'>
+                            <p style='margin: 12px 0 0 0;'>Hello,</p>
+
+                            <p style='margin: 10px 0 0 0;'>
+                                We received a request to reset the password for your QuickPharmaPlus account (<b>{safeEmail}</b>).
+                            </p>
+
+                            <p style='margin: 12px 0 0 0;'>
+                                Click the button below to set a new password:
+                            </p>
+
+                            <div style='margin: 16px 0 10px 0;'>
+                                <a href='{resetUrl}'
+                                   style='display: inline-block; padding: 12px 18px; border-radius: 10px; text-decoration: none;
+                                          background: #2c7a7b; color: #fff; font-weight: 600;'>
+                                    Reset Password
+                                </a>
+                            </div>
+
+                            <p style='margin: 10px 0 0 0; font-size: 13px; color: #555;'>
+                                If the button doesn’t work, copy and paste this link into your browser:
+                            </p>
+
+                            <p style='margin: 6px 0 0 0; font-size: 12px; color: #2c7a7b; word-break: break-all;'>
+                                {safeResetUrl}
+                            </p>
+
+                            <div style='margin: 16px 0 0 0; padding: 12px; border: 1px solid #eee; border-radius: 10px; background: #fafafa;'>
+                                <p style='margin: 0; font-size: 13px; color: #555;'>
+                                    If you didn’t request this password reset, you can safely ignore this email.
+                                </p>
+                            </div>
+
+                            <div style='margin-top: 18px; padding-top: 12px; border-top: 1px solid #eee;'>
+                                <p style='margin: 0; font-size: 13px; color: #888;'>
+                                    Best regards,<br />
+                                    <b>QuickPharmaPlus</b>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 ";
 
-                await _emailSender.SendEmailAsync(
-                    user.Email,
-                    "QuickPharmaPlus - Password Reset",
-                    htmlMessage
-                );
+                await _emailSender.SendEmailAsync(user.Email!, subject, htmlMessage);
             }
             catch (Exception ex)
             {

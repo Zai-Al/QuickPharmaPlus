@@ -24,11 +24,31 @@ export default function EditProfile_Internal() {
     const [serverError, setServerError] = useState("");
     const [saving, setSaving] = useState(false);
 
+    // non-editable required API fields
+    const [role, setRole] = useState("");
+    const [branchId, setBranchId] = useState(null);
+    const [email, setEmail] = useState("");
+
     // search / dropdown state for searchable city control
     const [cityQuery, setCityQuery] = useState("");
     const [showCityDropdown, setShowCityDropdown] = useState(false);
     const [highlightIndex, setHighlightIndex] = useState(0);
     const cityRef = useRef(null);
+
+    const resolveEmployeeRole = (user) => {
+        const allowed = ["Admin", "Manager", "Pharmacist", "Driver"];
+        const rolesArr = user?.roles ?? user?.Roles ?? [];
+        const fromArray = Array.isArray(rolesArr) ? rolesArr.find(r => allowed.includes(r)) : null;
+
+        return (
+            fromArray ??
+            user?.roleName ??
+            user?.RoleName ??
+            user?.role ??
+            user?.Role ??
+            ""
+        );
+    };
 
     // load initial data (from context)
     useEffect(() => {
@@ -53,6 +73,10 @@ export default function EditProfile_Internal() {
             street: addr?.street ?? addr?.Street ?? "",
             buildingNumber: addr?.buildingNumber ?? addr?.BuildingNumber ?? addr?.buildingFloor ?? ""
         });
+
+        setRole(resolveEmployeeRole(user));
+        setBranchId(user?.branchId ?? user?.BranchId ?? null);
+        setEmail(user?.emailAddress ?? user?.EmailAddress ?? user?.email ?? user?.Email ?? "");
     }, [ctxUser]);
 
     // keep cityQuery in sync when cities or form.cityId change
@@ -81,9 +105,7 @@ export default function EditProfile_Internal() {
         // fetch cities from repository endpoint
         const fetchCities = async () => {
             try {
-                const baseURL = import.meta.env.VITE_API_BASE_URL || window.location.origin;
-                const url = `${baseURL.replace(/\/$/, "")}/api/cities`;
-                const res = await fetch(url, { credentials: "include" });
+                const res = await fetch("/api/cities", { credentials: "include" });
                 if (!res.ok) throw new Error("Failed to load cities");
                 const data = await res.json();
                 setCities(Array.isArray(data) ? data : []);
@@ -199,6 +221,7 @@ export default function EditProfile_Internal() {
     const handleSave = async (e) => {
         e.preventDefault();
         setServerError("");
+
         const newErrors = {
             firstName: validateField("firstName", form.firstName),
             lastName: validateField("lastName", form.lastName),
@@ -212,73 +235,34 @@ export default function EditProfile_Internal() {
         setSaving(true);
 
         try {
-            const baseURL = import.meta.env.VITE_API_BASE_URL || window.location.origin;
-
-            // 1) Update or create address
-            let addressId = form.addressId;
-            const cityIdNumber = form.cityId ? parseInt(form.cityId, 10) : null;
-
-            if (addressId) {
-                const addressPayload = {
-                    addressId: addressId,
-                    street: form.street,
-                    block: form.block,
-                    buildingNumber: form.buildingNumber,
-                    cityId: cityIdNumber
-                };
-
-                const resAddr = await fetch(`${baseURL.replace(/\/$/, "")}/api/addresses/${addressId}`, {
-                    method: "PUT",
-                    credentials: "include",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(addressPayload)
-                });
-
-                if (!resAddr.ok) {
-                    const err = await resAddr.text();
-                    throw new Error(err || "Failed to update address");
-                }
-            } else {
-                const createPayload = {
-                    street: form.street,
-                    block: form.block,
-                    buildingNumber: form.buildingNumber,
-                    cityId: cityIdNumber
-                };
-
-                const resCreate = await fetch(`${baseURL.replace(/\/$/, "")}/api/addresses`, {
-                    method: "POST",
-                    credentials: "include",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(createPayload)
-                });
-
-                if (!resCreate.ok) {
-                    const err = await resCreate.text();
-                    throw new Error(err || "Failed to create address");
-                }
-
-                const created = await resCreate.json();
-                addressId = created.addressId ?? created.AddressId ?? created.id;
-            }
-
-            // 2) Update employee record
-            const userId = ctxUser?.userId ?? ctxUser?.UserId ?? ctxUser?.userId ?? null;
+            const userId = ctxUser?.userId ?? ctxUser?.UserId ?? null;
             if (!userId) throw new Error("User ID missing");
 
-            const userPayload = {
-                userId: userId,
+            const currentRole = role || resolveEmployeeRole(ctxUser);
+            if (!currentRole) throw new Error("Role missing for current user");
+            if (!branchId) throw new Error("Branch ID missing for current user");
+            if (!email) throw new Error("Email missing for current user");
+
+            const cityIdNumber = form.cityId ? parseInt(form.cityId, 10) : null;
+
+            const dto = {
                 firstName: form.firstName,
                 lastName: form.lastName,
-                contactNumber: form.contactNumber,
-                addressId: addressId
+                role: currentRole,
+                email: email,
+                phone: form.contactNumber,
+                branchId: branchId,
+                cityId: cityIdNumber,
+                block: form.block,
+                road: form.street,
+                building: form.buildingNumber
             };
 
-            const resUser = await fetch(`${baseURL.replace(/\/$/, "")}/api/employees/${userId}`, {
+            const resUser = await fetch(`/api/employees/${userId}`, {
                 method: "PUT",
                 credentials: "include",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(userPayload)
+                body: JSON.stringify(dto)
             });
 
             if (!resUser.ok) {
@@ -286,15 +270,18 @@ export default function EditProfile_Internal() {
                 throw new Error(err || "Failed to update user");
             }
 
-            // 3) update local auth context and session storage
+            // reflect updates locally (keep roles unchanged)
             const updatedUser = {
                 ...ctxUser,
                 firstName: form.firstName,
                 lastName: form.lastName,
                 contactNumber: form.contactNumber,
-                addressId: addressId,
+                BranchId: branchId,
+                branchId: branchId,
+                EmailAddress: email,
+                emailAddress: email,
                 address: {
-                    addressId: addressId,
+                    ...(ctxUser?.address ?? {}),
                     street: form.street,
                     block: form.block,
                     buildingNumber: form.buildingNumber,
@@ -330,14 +317,12 @@ export default function EditProfile_Internal() {
 
             <form className="edit-wrapper d-flex justify-content-center align-items-start" onSubmit={handleSave}>
                 <div className="edit-box">
-
                     {serverError && (
                         <div className="alert alert-danger">
                             {serverError}
                         </div>
                     )}
 
-                    {/* FIRST NAME */}
                     <div className="mb-3">
                         <label className="edit-label">First Name</label>
                         <input
@@ -350,7 +335,6 @@ export default function EditProfile_Internal() {
                         {errors.firstName && <div className="invalid-feedback d-block">{errors.firstName}</div>}
                     </div>
 
-                    {/* LAST NAME */}
                     <div className="mb-3">
                         <label className="edit-label">Last Name</label>
                         <input
@@ -363,7 +347,6 @@ export default function EditProfile_Internal() {
                         {errors.lastName && <div className="invalid-feedback d-block">{errors.lastName}</div>}
                     </div>
 
-                    {/* PHONE NUMBER */}
                     <div className="mb-3">
                         <label className="edit-label">Phone Number</label>
                         <input
@@ -376,12 +359,21 @@ export default function EditProfile_Internal() {
                         {errors.contactNumber && <div className="invalid-feedback d-block">{errors.contactNumber}</div>}
                     </div>
 
-                    {/* ADDRESS SECTION */}
+                    {/* OPTIONAL: show role but do not allow edits */}
+                    <div className="mb-3">
+                        <label className="edit-label">Role</label>
+                        <input
+                            type="text"
+                            className="form-control edit-input"
+                            value={role || "—"}
+                            disabled
+                        />
+                    </div>
+
                     <label className="edit-label mt-2em">Address</label>
 
                     <div className="row mb-3">
                         <div className="col" ref={cityRef} style={{ position: "relative" }}>
-                            {/* Searchable city input */}
                             <input
                                 name="city"
                                 type="text"
@@ -401,7 +393,7 @@ export default function EditProfile_Internal() {
                                         <li
                                             key={c.cityId}
                                             className={`list-group-item list-group-item-action ${idx === highlightIndex ? "active" : ""}`}
-                                            onMouseDown={(ev) => { ev.preventDefault(); /* prevent blur */ }}
+                                            onMouseDown={(ev) => { ev.preventDefault(); }}
                                             onClick={() => handleSelectCity(c)}
                                             onMouseEnter={() => setHighlightIndex(idx)}
                                         >
@@ -448,17 +440,14 @@ export default function EditProfile_Internal() {
                         </div>
                     </div>
 
-                    {/* SAVE BUTTON */}
                     <button className="btn save-btn w-100 mb-3" type="submit" disabled={saving}>
                         <i className="bi bi-save me-2"></i>
                         {saving ? "Saving..." : "Save Changes"}
                     </button>
 
-                    {/* RESET PASSWORD */}
                     <p className="text-center mb-3">
                         <span className="reset-disabled">Reset Password</span>
                     </p>
-
                 </div>
             </form>
         </div>
