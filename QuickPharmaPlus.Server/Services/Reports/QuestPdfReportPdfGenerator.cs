@@ -1612,6 +1612,61 @@ namespace QuickPharmaPlus.Server.Services.Reports
 
             return container;
         }
+        private static IContainer BuildProductIngredientsTable(IContainer container, List<ProductIngredientRowDto> rows)
+        {
+            container.Table(t =>
+            {
+                t.ColumnsDefinition(c =>
+                {
+                    c.RelativeColumn(2);
+                    c.RelativeColumn(8);
+                });
+
+                HeaderCell(t, "ID");
+                HeaderCell(t, "Ingredient");
+
+                if (rows.Count == 0)
+                {
+                    BodyCell(t, "—");
+                    BodyCell(t, "No ingredients recorded for this product.");
+                    return;
+                }
+
+                foreach (var r in rows)
+                {
+                    BodyCell(t, r.IngredientId.ToString());
+                    BodyCell(t, r.IngredientName);
+                }
+            });
+
+            return container;
+        }
+
+        private static IContainer BuildProductInteractionsTable(IContainer container, List<ProductInteractionRowDto> rows)
+        {
+            container.Table(t =>
+            {
+                t.ColumnsDefinition(c =>
+                {
+                    c.RelativeColumn(3);
+                    c.RelativeColumn(3);
+                    c.RelativeColumn(2);
+                    c.RelativeColumn(6);
+                });
+
+                HeaderCell(t, "Ingredient A");
+                HeaderCell(t, "Ingredient B");
+                HeaderCell(t, "Type");
+                HeaderCell(t, "Description");
+
+                if (rows.Count == 0)
+                {
+                    BodyCell(t, "—");
+                    BodyCell(t, "—");
+                    BodyCell(t, "—");
+                    BodyCell(t, "This product has no known interactions with other ingredients.");
+                    return;
+                }
 
         private static IContainer BuildCategorySalesOrdersTable(IContainer container, List<CategorySalesOrderRowDto> rows)
         {
