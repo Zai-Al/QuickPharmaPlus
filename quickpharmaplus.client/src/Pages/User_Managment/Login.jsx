@@ -5,7 +5,6 @@ import { useState, useContext } from "react";
 import { AuthContext } from "../../context/AuthContext.jsx";
 
 export default function Login() {
-
     const navigate = useNavigate();
 
     // Access the global authentication context
@@ -21,18 +20,15 @@ export default function Login() {
         e.preventDefault();
         setError("");
 
-        // Use the environment variable we configured
-        const baseURL = import.meta.env.VITE_API_BASE_URL;
-
         try {
-            // Make the login request using fetch
-            const response = await fetch(`${baseURL}/api/auth/login`, {
-                method: 'POST',
-                credentials: 'include',
+            // Make the login request using fetch (via Vite proxy)
+            const response = await fetch("/api/auth/login", {
+                method: "POST",
+                credentials: "include",
                 headers: {
-                    'Content-Type': 'application/json'
+                    "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify({ email, password }),
             });
 
             if (!response.ok) {
@@ -61,39 +57,32 @@ export default function Login() {
             } else {
                 navigate("/");
             }
-
         } catch (err) {
             console.error("LOGIN ERROR:", err);
             setError("Invalid email or password.");
         }
     };
 
-
     return (
         <div className="login-wrapper d-flex">
-
             {/* Left background image section */}
             <div
                 className="login-left"
                 style={{
                     backgroundImage: `url(${background})`,
                     backgroundSize: "605px",
-                    backgroundPosition: "left center"
+                    backgroundPosition: "left center",
                 }}
             ></div>
 
             {/* Right login form section */}
             <div className="login-right d-flex flex-column justify-content-center align-items-center">
-
                 <h2 className="fw-bold mb-1 text-center">Welcome to QuickPharma+</h2>
                 <p className="text-muted mb-4 text-center">Sign into your account</p>
 
                 <div className="login-box">
-
                     {/* Display error message */}
-                    {error && (
-                        <div className="alert alert-danger py-2">{error}</div>
-                    )}
+                    {error && <div className="alert alert-danger py-2">{error}</div>}
 
                     {/* Email */}
                     <label className="form-label fw-bold mt-3 login-label">Email</label>
@@ -123,10 +112,7 @@ export default function Login() {
                     </div>
 
                     {/* Login button */}
-                    <button
-                        className="btn btn-primary w-100 mt-4 login-btn"
-                        onClick={handleLogin}
-                    >
+                    <button className="btn btn-primary w-100 mt-4 login-btn" onClick={handleLogin}>
                         Login
                     </button>
 
@@ -137,7 +123,6 @@ export default function Login() {
                             Sign up
                         </Link>
                     </p>
-
                 </div>
             </div>
         </div>

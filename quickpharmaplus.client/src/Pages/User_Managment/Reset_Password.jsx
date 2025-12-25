@@ -20,7 +20,6 @@ export default function ResetPasswordInternal() {
     const [submitting, setSubmitting] = useState(false);
 
     const validateTimer = useRef(null);
-    const baseURL = import.meta.env.VITE_API_BASE_URL ?? "";
 
     // If not logged in, redirect to login immediately
     useEffect(() => {
@@ -44,7 +43,7 @@ export default function ResetPasswordInternal() {
 
         validateTimer.current = setTimeout(async () => {
             try {
-                const res = await fetch(`${baseURL}/api/account/validate-password`, {
+                const res = await fetch("/api/account/validate-password", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     credentials: "include",
@@ -74,7 +73,7 @@ export default function ResetPasswordInternal() {
         return () => {
             if (validateTimer.current) clearTimeout(validateTimer.current);
         };
-    }, [newPassword, baseURL]);
+    }, [newPassword]);
 
     // Confirm password local check
     useEffect(() => {
@@ -112,7 +111,7 @@ export default function ResetPasswordInternal() {
         setSubmitting(true);
 
         try {
-            const res = await fetch(`${baseURL}/api/account/change-password`, {
+            const res = await fetch("/api/account/change-password", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
@@ -175,7 +174,6 @@ export default function ResetPasswordInternal() {
                 </button>
             </div>
 
-
             <div className="reset-container">
                 <form className="reset-form" onSubmit={onSubmit} noValidate>
 
@@ -206,7 +204,6 @@ export default function ResetPasswordInternal() {
                             onChange={e => setConfirmPassword(e.target.value)} />
                         {fieldErrors.confirm && <div className="invalid-feedback">{fieldErrors.confirm}</div>}
                     </div>
-
 
                     <button type="submit" className="btn reset-submit-btn w-100 mt-4" disabled={submitting || validating}>
                         {submitting ? "Saving" : "Reset Password"}

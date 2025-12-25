@@ -12,8 +12,6 @@ export default function ForgotPassword() {
     const [showModal, setShowModal] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
-    const baseURL = import.meta.env.VITE_API_BASE_URL ?? "";
-
     const validateEmail = (value) => {
         if (!value?.trim()) return "Email is required.";
         // simple email pattern
@@ -31,7 +29,7 @@ export default function ForgotPassword() {
 
         setSubmitting(true);
         try {
-            const res = await fetch(`${baseURL}/api/account/forgot-password`, {
+            const res = await fetch("/api/account/forgot-password", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email: email.trim() })
@@ -58,6 +56,7 @@ export default function ForgotPassword() {
     };
 
     const handleModalConfirm = () => {
+        setServerMessage("");
         setShowModal(false);
         navigate("/login", { replace: true });
     };
@@ -114,7 +113,7 @@ export default function ForgotPassword() {
                             className="btn btn-primary w-100 fr-btn mt-4"
                             disabled={submitting}
                         >
-                            {submitting ? "Sending…" : "Send Reset Link"}
+                            {submitting ? "Sending Email" : "Send Reset Link"}
                         </button>
                     </form>
                 </div>
