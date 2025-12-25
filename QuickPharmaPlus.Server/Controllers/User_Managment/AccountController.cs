@@ -27,6 +27,7 @@ namespace QuickPharmaPlus.Server.Controllers
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IUserRepository _userRepository;
         private readonly QuickPharmaPlusDbContext _dbContext;
+        private readonly IQuickPharmaLogRepository _logRepo;
 
         // Domain RoleId for customer in [dbo].[Role]
         // Adjust if your Customer role has a different id.
@@ -39,7 +40,8 @@ namespace QuickPharmaPlus.Server.Controllers
             IWebHostEnvironment env,
             RoleManager<IdentityRole> roleManager,
             IUserRepository userRepository,
-            QuickPharmaPlusDbContext dbContext)
+            QuickPharmaPlusDbContext dbContext,
+            IQuickPharmaLogRepository logRepo)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -48,6 +50,7 @@ namespace QuickPharmaPlus.Server.Controllers
             _roleManager = roleManager;
             _userRepository = userRepository;
             _dbContext = dbContext;
+            _logRepo = logRepo;
         }
 
         // ============================
@@ -375,6 +378,23 @@ namespace QuickPharmaPlus.Server.Controllers
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()
         {
+            // capture identity user BEFORE signing out
+            var identityUser = await _userManager.GetUserAsync(User);
+            if (identityUser != null)
+            {
+                var email = identityUser.Email ?? identityUser.UserName ?? "";
+
+                // map identity -> domain user (User_id)
+                var domainUser = await _dbContext.Users
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.IdentityUserId == identityUser.Id);
+
+                if (domainUser != null)
+                {
+                    await _logRepo.CreateLogoutLogAsync(domainUser.UserId, email);
+                }
+            }
+
             await _signInManager.SignOutAsync();
 
             var sessionFeature = HttpContext.Features.Get<ISessionFeature>();

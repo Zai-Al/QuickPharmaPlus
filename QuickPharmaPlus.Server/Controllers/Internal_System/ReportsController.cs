@@ -137,6 +137,8 @@ public sealed class ReportsController : ControllerBase
         TotalRevenueReportDto? totalRevenue = null;
         SupplierRevenueReportDto? supplierRevenue = null;
         CategoryRevenueReportDto? categoryRevenue = null;
+        ProductRevenueReportDto? productRevenue = null;
+        ComplianceReportDto? complianceReport = null;
 
         if (reportTypeId.Value == 1)
         {
@@ -162,8 +164,22 @@ public sealed class ReportsController : ControllerBase
 
             supplierRevenue = await _repo.BuildSupplierRevenueReportAsync(from, to, supplierId, branchId);
         }
+        else if (reportTypeId.Value == 4)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Product))
+                return BadRequest("PRODUCT_REQUIRED");
 
-        var pdf = _pdf.Generate(dto, baseTitle, totalRevenue, supplierRevenue, categoryRevenue);
+            if (!int.TryParse(dto.Product, out var productId) || productId <= 0)
+                return BadRequest("INVALID_PRODUCT");
+
+            productRevenue = await _repo.BuildProductRevenueReportAsync(from, to, productId, branchId);
+        }
+        else if (reportTypeId.Value == 5)
+        {
+            complianceReport = await _repo.BuildComplianceReportAsync(from, to, branchId);
+        }
+
+        var pdf = _pdf.Generate(dto, baseTitle, totalRevenue, supplierRevenue, categoryRevenue, productRevenue, complianceReport);
 
         var fileName = $"{reportTypeName}-{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
 

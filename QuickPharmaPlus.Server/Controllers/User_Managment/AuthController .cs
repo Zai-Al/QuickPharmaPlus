@@ -17,18 +17,21 @@ namespace QuickPharmaPlus.Server.Controllers.User_Management
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly QuickPharmaPlusDbContext _context;
-        private readonly IUserRepository _userRepository; 
+        private readonly IUserRepository _userRepository;
+        private readonly IQuickPharmaLogRepository _logRepo;
 
         public AuthController(
             UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
             QuickPharmaPlusDbContext context,
-            IUserRepository userRepository)  
+            IUserRepository userRepository,
+            IQuickPharmaLogRepository logRepo)
         {
             _userManager = userManager;
-            _signInManager = signInManager;
+            _signInManager = signInManager; 
             _context = context;
             _userRepository = userRepository;
+            _logRepo = logRepo;
         }
 
         // ===========================
@@ -64,6 +67,9 @@ namespace QuickPharmaPlus.Server.Controllers.User_Management
             if (appUser == null)
                 return Unauthorized("User profile not found.");
 
+            // NEW: log successful login (UserId + email + timestamp)
+            await _logRepo.CreateLoginSuccessLogAsync(appUser.UserId, user.Email ?? model.Email);
+
             // Build DTO including Address + City
             var response = new LoggedInUserResponse
             {
@@ -71,33 +77,27 @@ namespace QuickPharmaPlus.Server.Controllers.User_Management
                 UserId = appUser.UserId,
                 Email = user.Email,
                 Roles = roles?.ToArray(),
-
                 FirstName = appUser.FirstName,
                 LastName = appUser.LastName,
                 ContactNumber = appUser.ContactNumber,
-
                 BranchId = appUser.BranchId,
                 RoleId = appUser.RoleId,
                 AddressId = appUser.AddressId,
-
                 Address = appUser.Address is not null ? new AddressDto
                 {
                     AddressId = appUser.Address.AddressId,
                     Street = appUser.Address.Street,
                     Block = appUser.Address.Block,
                     BuildingNumber = appUser.Address.BuildingNumber,
-
                     City = appUser.Address.City != null ? new CityDto
                     {
                         CityId = appUser.Address.City.CityId,
                         CityName = appUser.Address.City.CityName
                     } : null
                 } : null
-
             };
 
             return Ok(response);
         }
-
     }
 }

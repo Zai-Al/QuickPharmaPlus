@@ -309,8 +309,8 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                 // =================== UPDATE INVENTORY ===================
                 payload.InventoryId = id;
                 var updated = await _repo.UpdateInventoryAsync(payload);
-                
-                if (updated == null) 
+
+                if (updated == null)
                     return NotFound("Failed to update inventory record.");
 
                 // =================== CREATE DETAILED LOG ===================
@@ -325,6 +325,18 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
                         recordId: id,
                         details: details
                     );
+
+                    // =================== CREATE INVENTORY UPDATE LOG (Quantity only) ===================
+                    // LogTypeId = 1 in CreateInventoryChangeLogAsync
+                    if (existingInventory.InventoryQuantity != payload.InventoryQuantity.Value)
+                    {
+                        // Use the *new* product name and the branchId being updated-to
+                        await _logger.CreateInventoryChangeLogAsync(
+                            userId: currentUserId.Value,
+                            productName: $"{newProductName} (Qty: {oldQuantity} → {payload.InventoryQuantity.Value})",
+                            branchId: payload.BranchId
+                        );
+                    }
                 }
 
                 return Ok(new { message = "Inventory record updated successfully." });
