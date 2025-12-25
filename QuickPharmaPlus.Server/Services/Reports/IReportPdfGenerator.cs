@@ -9,6 +9,8 @@ namespace QuickPharmaPlus.Server.Services.Reports
             string title,
             TotalRevenueReportDto? totalRevenue = null,
             SupplierRevenueReportDto? supplierRevenue = null,
-            CategoryRevenueReportDto? categoryRevenue = null);
+            CategoryRevenueReportDto? categoryRevenue = null,
+            ProductRevenueReportDto? productRevenue = null,
+            ComplianceReportDto? complianceReport = null);
     }
 }

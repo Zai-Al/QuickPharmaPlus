@@ -26,10 +26,16 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
 
         Task<TotalRevenueReportDto> BuildTotalRevenueReportAsync(DateOnly from, DateOnly to, int? branchId);
 
-        // NEW (ReportTypeId = 2)
+        // ReportTypeId = 2
         Task<CategoryRevenueReportDto> BuildCategoryRevenueReportAsync(DateOnly from, DateOnly to, int categoryId, int? branchId);
 
-        // NEW (ReportTypeId = 3)
+        // ReportTypeId = 3
         Task<SupplierRevenueReportDto> BuildSupplierRevenueReportAsync(DateOnly from, DateOnly to, int supplierId, int? branchId);
+
+        // ReportTypeId = 4
+        Task<ProductRevenueReportDto> BuildProductRevenueReportAsync(DateOnly from, DateOnly to, int productId, int? branchId);
+
+        // ReportTypeId = 5
+        Task<ComplianceReportDto> BuildComplianceReportAsync(DateOnly from, DateOnly to, int? branchId);
     }
 }

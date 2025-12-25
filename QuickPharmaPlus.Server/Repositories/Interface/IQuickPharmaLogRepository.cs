@@ -20,7 +20,11 @@ namespace QuickPharmaPlus.Server.Repositories.Interface
         // Auto-generated log creation methods
         Task CreateInventoryChangeLogAsync(int? userId, string? productName, int? branchId);
         Task CreateLoginFailureLogAsync(string email);
-        
+        Task CreateLoginSuccessLogAsync(int userId, string email);
+
+        // NEW: logout log (same LogTypeId = 2)
+        Task CreateLogoutLogAsync(int userId, string email);
+
         // ENHANCED: Added optional details parameter for rich descriptions
         Task CreateAddRecordLogAsync(int userId, string tableName, int recordId, string? details = null);
         Task CreateEditRecordLogAsync(int userId, string tableName, int recordId, string? details = null);

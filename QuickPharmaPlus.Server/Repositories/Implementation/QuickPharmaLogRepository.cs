@@ -168,6 +168,44 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             await _context.SaveChangesAsync();
         }
 
+        public async Task CreateLoginSuccessLogAsync(int userId, string email)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            var userName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : "Unknown User";
+
+            var description = $"{userName} successfully logged in with email: {email}";
+
+            var log = new Log
+            {
+                LogDescription = description,
+                LogTimestamp = DateTime.Now,
+                LogTypeId = 2,
+                UserId = userId
+            };
+
+            _context.Logs.Add(log);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task CreateLogoutLogAsync(int userId, string email)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            var userName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : "Unknown User";
+
+            var description = $"{userName} successfully logged out with email: {email}";
+
+            var log = new Log
+            {
+                LogDescription = description,
+                LogTimestamp = DateTime.Now,
+                LogTypeId = 2,
+                UserId = userId
+            };
+
+            _context.Logs.Add(log);
+            await _context.SaveChangesAsync();
+        }
+
         public async Task CreateAddRecordLogAsync(int userId, string tableName, int recordId, string? details = null)
         {
             var user = await _context.Users.FindAsync(userId);
