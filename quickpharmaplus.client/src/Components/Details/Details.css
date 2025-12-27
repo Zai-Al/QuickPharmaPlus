@@ -136,12 +136,12 @@
 }
 
 .reject-modal-cancel-btn {
-    background-color: #2e7d32; /* green */
+    background-color: #7ac9c5;
     color: #ffffff;
 }
 
 .reject-modal-cancel-btn:hover {
-    background-color: #256528;
+    background-color: #5a6268;
 }
 
 .reject-modal-send-btn {

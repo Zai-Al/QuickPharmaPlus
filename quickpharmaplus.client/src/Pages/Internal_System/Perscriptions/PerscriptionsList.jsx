@@ -168,9 +168,12 @@ export default function PrescriptionList() {
                     id: p.prescriptionId,
                     patientName: p.patientName ?? "—",
                     prescriptionName: p.prescriptionName ?? "—",
+                    productNames: p.productNames ?? "—",
                     branch: p.cityName ?? "—",
                     expiry: p.prescriptionCreationDate,
                     statusDisplay: <StatusBadge status={badgeStatus} />,
+                    rquestedQuantity: p.rquestedQuantity ?? p.RequestedQuantity ?? "—",
+                    requestedQuantity: p.requestedQuantity ?? p.RequestedQuantity ?? "—",
                 };
             });
 
@@ -221,6 +224,8 @@ export default function PrescriptionList() {
     const columns = [
         { key: "patientName", label: "Patient Name" },
         { key: "prescriptionName", label: "Prescription Name" },
+        { key: "productNames", label: "Product Name" },
+        { key: "requestedQuantity", label: "Requested Quantity" }, 
         { key: "branch", label: "Branch" },
         { key: "expiry", label: "Expiry Date" },
         { key: "statusDisplay", label: "Status" },
@@ -322,8 +327,7 @@ export default function PrescriptionList() {
                                 {filteredCustomers.map((c, idx) => (
                                     <li
                                         key={c.value}
-                                        className={`list-group-item list-group-item-action ${idx === customerHighlightIndex ? "active" : ""}`}
-                                        onMouseDown={(ev) => { ev.preventDefault(); }}
+                                         onMouseDown={(ev) => { ev.preventDefault(); }}
                                         onClick={() => handleSelectCustomer(c)}
                                         onMouseEnter={() => setCustomerHighlightIndex(idx)}
                                     >
