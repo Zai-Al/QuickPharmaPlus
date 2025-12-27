@@ -64,7 +64,7 @@ export default function EditProduct() {
     const ingredientRef = useRef(null);
 
     // =================== VALIDATION PATTERNS ===================
-    const namePattern = /^[A-Za-z0-9 .\-+]*$/;
+    const namePattern = /^[A-Za-z0-9 .,+\-&/%/]*$/;
     const pricePattern = /^\d+(\.\d{1,2})?$/;
 
     // =================== FETCH DATA ON MOUNT ===================
@@ -300,31 +300,32 @@ export default function EditProduct() {
 
     // =================== CHECK DUPLICATE NAME ===================
     const checkDuplicateName = async (name) => {
+        const trimmed = (name ?? "").trim();
+
         // Don't check if name hasn't changed
-        if (name.trim().toLowerCase() === originalProductName.trim().toLowerCase()) {
-            if (errors.productName === "A product with this name already exists in the system.") {
-                setErrors(prev => ({ ...prev, productName: "" }));
-            }
+        if (trimmed.toLowerCase() === originalProductName.trim().toLowerCase()) {
+            setErrors(prev => ({ ...prev, productName: "" }));
             return;
         }
 
-        if (!name.trim() || name.trim().length < 3) return;
+        if (!trimmed || trimmed.length < 3) return;
+
+        // if pattern invalid, do not run duplicate check
+        if (!namePattern.test(trimmed)) return;
 
         try {
             const response = await fetch(
-                `/api/Products/check-name?name=${encodeURIComponent(name.trim())}&excludeId=${encodeURIComponent(id)}`,
+                `/api/Products/check-name?name=${encodeURIComponent(trimmed)}&excludeId=${encodeURIComponent(id)}`,
                 { credentials: "include" }
             );
 
-            if (response.ok) {
-                const data = await response.json();
-                if (data.exists) {
-                    setErrors(prev => ({
-                        ...prev,
-                        productName: "A product with this name already exists in the system."
-                    }));
-                }
-            }
+            if (!response.ok) return;
+
+            const data = await response.json();
+            setErrors(prev => ({
+                ...prev,
+                productName: data.exists ? "A product with this name already exists in the system." : ""
+            }));
         } catch (error) {
             console.error("Error checking duplicate name:", error);
         }
@@ -335,7 +336,7 @@ export default function EditProduct() {
         if (!value.trim()) return "Product name is required.";
         if (value.trim().length < 3) return "Product name must be at least 3 characters.";
         if (!namePattern.test(value.trim())) {
-            return "Product name may only contain letters, numbers, spaces, dots, dashes, and plus signs.";
+            return "Product name may only contain letters, numbers, spaces, dots, commas, dashes, plus signs, ampersands (&), slashes (/), and percent signs (%).";
         }
         return "";
     };
@@ -380,7 +381,7 @@ export default function EditProduct() {
         if (!namePattern.test(value)) {
             setErrors(prev => ({
                 ...prev,
-                productName: "Product name may only contain letters, numbers, spaces, dots, dashes, and plus signs."
+                productName: "Product name may only contain letters, numbers, spaces, dots, commas, dashes, plus signs, ampersands (&), slashes (/), and percent signs (%)."
             }));
             setTouched(prev => ({ ...prev, productName: true }));
             return;
