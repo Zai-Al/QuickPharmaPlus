@@ -205,7 +205,7 @@ export default function ExpiredProductsList() {
     };
 
     // NEW: supplier searchable dropdown logic (InventoryList-style)
-    const isValidSupplierInput = (val) => /^[A-Za-z0-9+\- ]*$/.test(val);
+    const validNamePattern = /^[A-Za-z0-9 .\-+]*$/;
 
     const filteredSuppliers = (supplierQuery ?? "")
         ? (supplierOptions || []).filter(s =>
@@ -216,7 +216,7 @@ export default function ExpiredProductsList() {
     const handleSupplierInputChange = (e) => {
         const val = e.target.value;
 
-        if (!isValidSupplierInput(val)) {
+        if (!validNamePattern.test(val)) {
             setSupplierError("Only letters, numbers, spaces, - and + allowed.");
         } else {
             setSupplierError("");

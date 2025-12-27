@@ -14,7 +14,7 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
         private readonly QuickPharmaPlusDbContext _context;
 
         // SAME PATTERNS USED IN FRONTEND + CONTROLLER
-        private static readonly Regex NamePattern = new(@"^[A-Za-z0-9 .\-+]*$");
+        private static readonly Regex NamePattern = new(@"^[A-Za-z0-9 .,+\-&/%/]*$");
         private static readonly Regex SupplierPattern = new(@"^[A-Za-z\s-]*$");
         private static readonly Regex CategoryPattern = new(@"^[A-Za-z\s]*$");
         private static readonly Regex IdPattern = new(@"^[0-9]*$");

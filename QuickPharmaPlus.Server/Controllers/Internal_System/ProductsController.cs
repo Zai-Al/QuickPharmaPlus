@@ -21,10 +21,13 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
         private readonly QuickPharmaPlusDbContext _context;
 
         // === REGEX MATCH FRONT-END VALIDATION ===
-        private static readonly Regex NamePattern = new(@"^[A-Za-z0-9 .\-+]*$");
+        private static readonly Regex NamePattern = new(@"^[A-Za-z0-9 .,+\-&/%/]*$");
         private static readonly Regex SupplierPattern = new(@"^[A-Za-z\s-]*$");
         private static readonly Regex CategoryPattern = new(@"^[A-Za-z\s]*$");
         private static readonly Regex IdPattern = new(@"^[0-9]*$");
+
+        private const string ProductNameRulesMessage =
+            "Product name may only contain letters, numbers, spaces, dots, commas, dashes, plus signs, ampersands (&), slashes (/), and percent signs (%).";
 
         // ================================
         // SINGLE CONSTRUCTOR - DO NOT DUPLICATE
@@ -136,7 +139,7 @@ namespace QuickPharmaPlus.Server.Controllers.Internal_System
 
             // 3. Validate allowed characters FIRST (before duplicate check)
             if (!NamePattern.IsMatch(trimmedName))
-                return BadRequest("Product name may only contain letters, numbers, spaces, dots, dashes, and plus signs.");
+                return BadRequest(ProductNameRulesMessage);
 
             // 4. Check for duplicate name (AFTER character validation passes)
             var nameExists = await _repo.ProductNameExistsAsync(trimmedName);
