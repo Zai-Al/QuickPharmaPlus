@@ -103,7 +103,7 @@ export default function PaymentTab({
                             onChange={() => onMethodChange?.("online")}
                         />
                         <label className="form-check-label" htmlFor="payment-online">
-                            Online Payment (Stripe later)
+                            Online Payment
                         </label>
                     </div>
 
