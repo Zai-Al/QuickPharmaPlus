@@ -295,10 +295,23 @@ export default function Cart() {
         setItems((prev) => prev.map((it) => (it.id === rowId ? { ...it, quantity: nextQty } : it)));
         setQuantityErrors((p) => ({ ...p, [rowId]: "" }));
 
+        // update summary instantly (qty + subtotal)
+        setSummary((s) => ({
+            totalQuantity: Number(s.totalQuantity || 0) + delta,
+            totalAmount: Number(s.totalAmount || 0) + delta * Number(row.price || 0),
+        }));
+
         const result = await updateQtyApi(row.productId, nextQty);
         if (!result.ok) {
             // revert on failure
             setItems((prev) => prev.map((it) => (it.id === rowId ? { ...it, quantity: currentQty } : it)));
+
+            // revert summary too
+            setSummary((s) => ({
+                totalQuantity: Number(s.totalQuantity || 0) - delta,
+                totalAmount: Number(s.totalAmount || 0) - delta * Number(row.price || 0),
+            }));
+
             setQuantityErrors((p) => ({
                 ...p,
                 [rowId]:
@@ -310,6 +323,7 @@ export default function Cart() {
         }
 
         refreshCartCount?.();
+
     };
 
     /* =========================
