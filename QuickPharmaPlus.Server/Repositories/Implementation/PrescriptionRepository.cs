@@ -548,40 +548,30 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
             var query = _context.Prescriptions
                 .Include(p => p.User)
                 .Include(p => p.PrescriptionStatus)
+                .Include(p => p.Address)
+                    .ThenInclude(a => a.City)
                 .Include(p => p.ProductOrders)
-                    .ThenInclude(po => po.Product) // NEW
+                    .ThenInclude(po => po.Product)
                 .Include(p => p.ProductOrders)
                     .ThenInclude(po => po.Order)
                         .ThenInclude(o => o.Shipping)
                 .AsQueryable();
 
-            // ===============================
-            // CUSTOMER FILTER
-            // ===============================
             if (customerId.HasValue)
             {
                 query = query.Where(p => p.UserId == customerId.Value);
             }
 
-            // ===============================
-            // STATUS FILTER
-            // ===============================
             if (statusId.HasValue)
             {
                 query = query.Where(p => p.PrescriptionStatusId == statusId.Value);
             }
 
-            // ===============================
-            // DATE FILTER
-            // ===============================
             if (prescriptionDate.HasValue)
             {
                 query = query.Where(p => p.PrescriptionCreationDate == prescriptionDate.Value);
             }
 
-            // ===============================
-            // BRANCH FILTER
-            // ===============================
             if (branchId.HasValue)
             {
                 query = query.Where(p =>
@@ -591,20 +581,20 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 );
             }
 
-
-            // ===============================
-            // TOTAL COUNT (before paging)
-            // ===============================
             var totalCount = await query.CountAsync();
 
-            // ===============================
-            // PAGING + PROJECTION TO DTO
-            // ===============================
-            var items = await query
-                .OrderByDescending(p => p.PrescriptionCreationDate)
-                .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
-                .Select(p => new PrescriptionListDto
+            var items = await (
+                from p in query
+                join b in _context.Branches
+                    .Include(x => x.Address)
+                        .ThenInclude(a => a.City)
+                    on p.Address != null && p.Address.City != null
+                        ? p.Address.City.BranchId
+                        : null
+                    equals b.BranchId into bj
+                from b in bj.DefaultIfEmpty()
+                orderby p.PrescriptionCreationDate descending
+                select new PrescriptionListDto
                 {
                     PrescriptionId = p.PrescriptionId,
                     PrescriptionName = p.PrescriptionName,
@@ -624,15 +614,17 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                         .Where(a => a.ApprovalPrescriptionExpiryDate != null)
                         .Max(a => a.ApprovalPrescriptionExpiryDate),
 
-                    CityName = p.Address != null && p.Address.City != null
-                        ? p.Address.City.CityName
+                    // IMPORTANT:
+                    // CityName should be the city of the BRANCH address,
+                    // not the city of the prescription address.
+                    CityName = b != null && b.Address != null && b.Address.City != null
+                        ? b.Address.City.CityName
                         : null,
 
                     BranchId = p.Address != null && p.Address.City != null
                         ? p.Address.City.BranchId
                         : null,
 
-                    // NEW: product names from Product_Order -> Product
                     ProductNames = string.Join(", ",
                         p.ProductOrders
                             .Where(po => po.Product != null && !string.IsNullOrWhiteSpace(po.Product.ProductName))
@@ -641,11 +633,14 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     ),
 
                     RequestedQuantity = p.ProductOrders
-                            .Select(po => (int?)po.Quantity)
-                            .FirstOrDefault(),
-                                        })
-                                        .AsNoTracking()
-                                        .ToListAsync();
+                        .Select(po => (int?)po.Quantity)
+                        .FirstOrDefault(),
+                }
+            )
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .AsNoTracking()
+            .ToListAsync();
 
             return new PagedResult<PrescriptionListDto>
             {

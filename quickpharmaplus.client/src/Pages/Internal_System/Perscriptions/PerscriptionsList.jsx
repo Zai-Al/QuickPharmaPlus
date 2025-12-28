@@ -224,8 +224,6 @@ export default function PrescriptionList() {
     const columns = [
         { key: "patientName", label: "Patient Name" },
         { key: "prescriptionName", label: "Prescription Name" },
-        { key: "productNames", label: "Product Name" },
-        { key: "requestedQuantity", label: "Requested Quantity" }, 
         { key: "branch", label: "Branch" },
         { key: "expiry", label: "Expiry Date" },
         { key: "statusDisplay", label: "Status" },
