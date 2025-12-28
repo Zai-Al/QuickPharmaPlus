@@ -17,6 +17,40 @@ export default function RejectButton({ id }) {
         setErrorMsg("");
     };
 
+    const cleanupBootstrapModalArtifacts = () => {
+        // remove any leftover backdrops
+        document.querySelectorAll(".modal-backdrop").forEach((b) => b.remove());
+
+        // remove body locks bootstrap applies
+        document.body.classList.remove("modal-open");
+        document.body.style.removeProperty("overflow");
+        document.body.style.removeProperty("padding-right");
+    };
+
+    const hideModalSafely = () => {
+        const el = document.getElementById(modalId);
+        if (!el) {
+            cleanupBootstrapModalArtifacts();
+            return;
+        }
+
+        // Hide modal (Bootstrap)
+        if (window.bootstrap?.Modal) {
+            const instance =
+                window.bootstrap.Modal.getInstance(el) || new window.bootstrap.Modal(el);
+
+            instance.hide();
+        } else {
+            // fallback
+            el.classList.remove("show");
+            el.style.display = "none";
+            el.setAttribute("aria-hidden", "true");
+        }
+
+        // Ensure UI is clean even if we navigate immediately
+        cleanupBootstrapModalArtifacts();
+    };
+
     const handleSend = async () => {
         if (!id) return;
 
@@ -30,26 +64,24 @@ export default function RejectButton({ id }) {
             setSending(true);
             setErrorMsg("");
 
-            const res = await fetch(`${baseURL}/api/Prescription/${encodeURIComponent(id)}/reject`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ reason: trimmed }),
-            });
+            const res = await fetch(
+                `${baseURL}/api/Prescription/${encodeURIComponent(id)}/reject`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({ reason: trimmed }),
+                }
+            );
 
             if (!res.ok) {
                 const t = await res.text().catch(() => "");
                 throw new Error(t || `Failed to reject prescription (${res.status}).`);
             }
 
-            // close modal (Bootstrap)
-            const el = document.getElementById(modalId);
-            if (el && window.bootstrap?.Modal) {
-                const instance = window.bootstrap.Modal.getInstance(el) || new window.bootstrap.Modal(el);
-                instance.hide();
-            }
+            // IMPORTANT: cleanup BEFORE routing
+            hideModalSafely();
 
-            // go back to prescriptions list
             navigate("/prescriptions");
         } catch (e) {
             setErrorMsg(e?.message || "Failed to reject prescription.");
@@ -75,7 +107,13 @@ export default function RejectButton({ id }) {
                     <div className="modal-content">
                         <div className="modal-header">
                             <h5 className="modal-title">Reject Prescription</h5>
-                            <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            <button
+                                type="button"
+                                className="btn-close"
+                                data-bs-dismiss="modal"
+                                aria-label="Close"
+                                onClick={hideModalSafely}
+                            ></button>
                         </div>
 
                         <div className="modal-body">
@@ -97,6 +135,7 @@ export default function RejectButton({ id }) {
                                 className="reject-modal-btn reject-modal-cancel-btn"
                                 data-bs-dismiss="modal"
                                 disabled={sending}
+                                onClick={hideModalSafely}
                             >
                                 <i className="bi bi-x-circle"></i> Cancel
                             </button>

@@ -92,8 +92,22 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                     PrescriptionDocumentContentType = p.PrescriptionDocumentContentType,
                     PrescriptionCprDocumentContentType = p.PrescriptionCprDocumentContentType,
                     PrescriptionFileName = p.PrescriptionDocumentFileName,
-                    CprFileName = p.PrescriptionCprDocumentFileName
+                    CprFileName = p.PrescriptionCprDocumentFileName,
 
+                    ProductNames = string.Join(", ",
+                        p.ProductOrders
+                            .Where(po => po.Product != null && !string.IsNullOrWhiteSpace(po.Product.ProductName))
+                            .Select(po => po.Product!.ProductName!)
+                            .Distinct()
+                            .OrderBy(n => n)
+                    ),
+
+                    RequestedQuantity = p.ProductOrders
+                        .Where(po => po.Product != null && !string.IsNullOrWhiteSpace(po.Product.ProductName))
+                        .OrderBy(po => po.Product!.ProductName)
+                        .Select(po => (int?)po.Quantity)
+                        .FirstOrDefault(),
+                        
                 };
 
             return await query.AsNoTracking().ToListAsync();
@@ -535,6 +549,8 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
                 .Include(p => p.User)
                 .Include(p => p.PrescriptionStatus)
                 .Include(p => p.ProductOrders)
+                    .ThenInclude(po => po.Product) // NEW
+                .Include(p => p.ProductOrders)
                     .ThenInclude(po => po.Order)
                         .ThenInclude(o => o.Shipping)
                 .AsQueryable();
@@ -614,10 +630,22 @@ namespace QuickPharmaPlus.Server.Repositories.Implementation
 
                     BranchId = p.Address != null && p.Address.City != null
                         ? p.Address.City.BranchId
-                        : null
-                })
-                .AsNoTracking()
-                .ToListAsync();
+                        : null,
+
+                    // NEW: product names from Product_Order -> Product
+                    ProductNames = string.Join(", ",
+                        p.ProductOrders
+                            .Where(po => po.Product != null && !string.IsNullOrWhiteSpace(po.Product.ProductName))
+                            .Select(po => po.Product!.ProductName!)
+                            .Distinct()
+                    ),
+
+                    RequestedQuantity = p.ProductOrders
+                            .Select(po => (int?)po.Quantity)
+                            .FirstOrDefault(),
+                                        })
+                                        .AsNoTracking()
+                                        .ToListAsync();
 
             return new PagedResult<PrescriptionListDto>
             {
