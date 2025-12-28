@@ -12,7 +12,6 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Customer")]
     public class WishlistController : ControllerBase
     {
         private readonly IWishlistRepository _wishlistRepository;

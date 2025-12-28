@@ -14,7 +14,6 @@ namespace QuickPharmaPlus.Server.Controllers.External_System
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Customer")] 
     public class CartController : ControllerBase
     {
         private readonly ICartRepository _cartRepository;
