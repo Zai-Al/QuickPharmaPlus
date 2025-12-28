@@ -203,8 +203,11 @@ namespace QuickPharmaPlus.Server
             // =========================
             // SEEDING
             // =========================
-            await SeedRoles(app);
-            await SeedTestUsers(app);
+            if (app.Environment.IsDevelopment())
+            {
+                await SeedRoles(app);
+                await SeedTestUsers(app);
+            }
 
             // =========================
             // MIDDLEWARE PIPELINE (FIXED ORDER)
