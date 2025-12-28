@@ -5,6 +5,7 @@ import DialogModal from "../Shared_Components/DialogModal";
 import OrderItemsTable from "../Shared_Components/OrderItemsTable";
 import "../Shared_Components/External_Style.css";
 import { AuthContext } from "../../../Context/AuthContext.jsx";
+import { StatusBadge } from "../Shared_Components/statusUI";
 
 export default function PlanDetails() {
     const location = useLocation();
@@ -165,9 +166,8 @@ export default function PlanDetails() {
 
                             <p>
                                 <strong>Prescription Plan Status: </strong>
-                                <span className={statusText === "Ongoing" ? "text-success" : "text-danger"}>
-                                    {statusText}
-                                </span>
+                                <StatusBadge status={statusText} />
+
                             </p>
 
                             <p>

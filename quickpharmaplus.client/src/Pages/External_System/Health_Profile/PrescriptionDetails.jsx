@@ -5,6 +5,7 @@ import TableFormat from "../Shared_Components/TableFormat";
 import DialogModal from "../Shared_Components/DialogModal.jsx";
 import "../Shared_Components/External_Style.css";
 import { AuthContext } from "../../../Context/AuthContext.jsx";
+import { StatusBadge } from "../Shared_Components/statusUI";
 
 export default function PrescriptionDetails() {
     
@@ -259,7 +260,8 @@ export default function PrescriptionDetails() {
                             </p>
                             <p>
                                 <strong>Prescription Status: </strong>
-                                <span className="text-warning">{prescription.status}</span>
+                                <StatusBadge status={prescription.status} />
+
                             </p>
                             <p>
                                 <strong>Creation Date: </strong>
